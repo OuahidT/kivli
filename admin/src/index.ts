@@ -17,35 +17,24 @@ interface D1Database {
 
 interface Env {
   DB: D1Database;
-  TEAM_DOMAIN?: string;
-  POLICY_AUD?: string;
+  ADMIN_EMAIL?: string;
+  ADMIN_PASSWORD_HASH?: string;
+  SESSION_PEPPER?: string;
 }
 
 type AdminIdentity = {
   email: string;
-  subject: string;
 };
-
-type AccessPayload = {
-  aud?: string | string[];
-  email?: string;
-  exp?: number;
-  iat?: number;
-  iss?: string;
-  nbf?: number;
-  sub?: string;
-};
-
-type Jwk = JsonWebKey & { kid?: string; alg?: string };
 
 const JSON_HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
   "Cache-Control": "no-store, private",
 };
 
+const ADMIN_COOKIE = "__Host-tampo_admin";
+const SESSION_HOURS = 12;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 let schemaReady = false;
-let jwksCache: { expiresAt: number; keys: Jwk[] } | null = null;
-const importedKeys = new Map<string, CryptoKey>();
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
@@ -76,88 +65,66 @@ function securityHeaders(nonce: string): Headers {
   return headers;
 }
 
-function decodeBase64Url(value: string): ArrayBuffer {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-  const raw = atob(padded);
-  const bytes = Uint8Array.from(raw, (character) => character.charCodeAt(0));
-  return bytes.buffer;
+function readCookie(request: Request, name: string): string | null {
+  const raw = request.headers.get("cookie") ?? "";
+  const item = raw.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+  return item ? decodeURIComponent(item.slice(name.length + 1)) : null;
 }
 
-function decodeJsonSegment<T>(value: string): T {
-  return JSON.parse(new TextDecoder().decode(decodeBase64Url(value))) as T;
+function hexToBytes(value: string): Uint8Array<ArrayBuffer> | null {
+  if (!/^[0-9a-f]+$/i.test(value) || value.length % 2) return null;
+  return new Uint8Array(value.match(/.{2}/g)!.map((pair) => Number.parseInt(pair, 16)));
 }
 
-function normalizeTeamDomain(value: string): string {
-  return value.trim().replace(/\/$/, "");
+function safeEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference |= left[index] ^ right[index];
+  return difference === 0;
 }
 
-async function getSigningKey(teamDomain: string, kid: string): Promise<CryptoKey> {
-  const cacheKey = `${teamDomain}:${kid}`;
-  const existing = importedKeys.get(cacheKey);
-  if (existing) return existing;
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
-  if (!jwksCache || jwksCache.expiresAt < Date.now()) {
-    const response = await fetch(`${teamDomain}/cdn-cgi/access/certs`, {
-      headers: { Accept: "application/json" },
-      cf: { cacheTtl: 3600, cacheEverything: true },
-    } as RequestInit);
-    if (!response.ok) throw new Error("Impossible de charger les cles Access.");
-    const body = (await response.json()) as { keys?: Jwk[] };
-    if (!Array.isArray(body.keys)) throw new Error("Reponse de cles Access invalide.");
-    jwksCache = { keys: body.keys, expiresAt: Date.now() + 60 * 60 * 1000 };
-    importedKeys.clear();
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  const [scheme, iterationValue, saltValue, expectedValue] = storedHash.split("$");
+  const iterations = Number(iterationValue);
+  const salt = hexToBytes(saltValue ?? "");
+  const expected = hexToBytes(expectedValue ?? "");
+  if (scheme !== "pbkdf2" || !salt || !expected || !Number.isInteger(iterations) || iterations < 210_000) {
+    return false;
   }
-
-  const jwk = jwksCache.keys.find((candidate) => candidate.kid === kid);
-  if (!jwk) throw new Error("Cle Access inconnue.");
-  const key = await crypto.subtle.importKey(
-    "jwk",
-    jwk,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["verify"],
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const derived = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations },
+    key,
+    expected.byteLength * 8,
   );
-  importedKeys.set(cacheKey, key);
-  return key;
+  return safeEqual(new Uint8Array(derived), expected);
 }
 
-async function requireAdmin(request: Request, env: Env): Promise<AdminIdentity> {
-  const teamDomainValue = env.TEAM_DOMAIN;
-  const audience = env.POLICY_AUD;
-  if (!teamDomainValue || !audience) throw new Response("Administration non configuree.", { status: 503 });
-
-  const token = request.headers.get("cf-access-jwt-assertion");
-  if (!token) throw new Response("Acces administrateur requis.", { status: 403 });
-  const parts = token.split(".");
-  if (parts.length !== 3) throw new Response("Jeton Access invalide.", { status: 403 });
-
-  try {
-    const header = decodeJsonSegment<{ alg?: string; kid?: string }>(parts[0]);
-    const payload = decodeJsonSegment<AccessPayload>(parts[1]);
-    if (header.alg !== "RS256" || !header.kid) throw new Error("Algorithme Access invalide.");
-    const teamDomain = normalizeTeamDomain(teamDomainValue);
-    const key = await getSigningKey(teamDomain, header.kid);
-    const verified = await crypto.subtle.verify(
-      "RSASSA-PKCS1-v1_5",
-      key,
-      decodeBase64Url(parts[2]),
-      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
-    );
-    if (!verified) throw new Error("Signature Access invalide.");
-
-    const now = Math.floor(Date.now() / 1000);
-    const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
-    if (payload.iss !== teamDomain) throw new Error("Emetteur Access invalide.");
-    if (!audiences.includes(audience)) throw new Error("Audience Access invalide.");
-    if (!payload.exp || payload.exp <= now) throw new Error("Session Access expiree.");
-    if (payload.nbf && payload.nbf > now + 30) throw new Error("Session Access prematuree.");
-    if (!payload.email || !payload.sub) throw new Error("Identite Access incomplete.");
-    return { email: payload.email.toLowerCase(), subject: payload.sub };
-  } catch (error) {
-    if (error instanceof Response) throw error;
-    throw new Response("Session administrateur invalide.", { status: 403 });
+function requireAdminConfig(env: Env): { email: string; passwordHash: string; pepper: string } {
+  if (!env.ADMIN_EMAIL || !env.ADMIN_PASSWORD_HASH || !env.SESSION_PEPPER) {
+    throw new Response("Administration non configuree.", { status: 503 });
   }
+  return {
+    email: env.ADMIN_EMAIL.trim().toLowerCase(),
+    passwordHash: env.ADMIN_PASSWORD_HASH,
+    pepper: env.SESSION_PEPPER,
+  };
+}
+
+async function getAdmin(request: Request, env: Env): Promise<AdminIdentity | null> {
+  const config = requireAdminConfig(env);
+  const token = readCookie(request, ADMIN_COOKIE);
+  if (!token) return null;
+  const tokenHash = await sha256(`${config.pepper}:${token}`);
+  const session = await env.DB.prepare(
+    "SELECT admin_email AS email FROM admin_sessions WHERE token_hash = ? AND expires_at > CURRENT_TIMESTAMP",
+  ).bind(tokenHash).first<{ email: string }>();
+  return session ? { email: session.email.toLowerCase() } : null;
 }
 
 async function ensureAdminSchema(db: D1Database): Promise<void> {
@@ -182,9 +149,29 @@ async function ensureAdminSchema(db: D1Database): Promise<void> {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
       )
     `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_sessions (
+        id TEXT PRIMARY KEY NOT NULL,
+        admin_email TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        expires_at TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
+      )
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_login_attempts (
+        key_hash TEXT PRIMARY KEY NOT NULL,
+        failed_count INTEGER DEFAULT 0 NOT NULL,
+        window_started_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        locked_until TEXT,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
+      )
+    `),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_state_status ON merchant_admin_state(status)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_audit_merchant ON admin_audit_log(merchant_id, created_at)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_login_updated ON admin_login_attempts(updated_at)"),
   ]);
   await db.prepare("PRAGMA optimize").run();
   schemaReady = true;
@@ -221,6 +208,111 @@ function requireSameOrigin(request: Request): void {
   if (!origin || origin !== new URL(request.url).origin) {
     throw new Response("Origine de la requete refusee.", { status: 403 });
   }
+}
+
+type AdminLoginAttempt = { failedCount: number; windowStartedAt: string; lockedUntil: string | null };
+
+function parseDatabaseDate(value: string | null): Date | null {
+  if (!value) return null;
+  return new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
+}
+
+async function getActiveLoginLock(db: D1Database, keys: string[]): Promise<Date | null> {
+  for (const key of keys) {
+    const row = await db.prepare(
+      `SELECT failed_count AS failedCount, window_started_at AS windowStartedAt, locked_until AS lockedUntil
+       FROM admin_login_attempts WHERE key_hash = ?`,
+    ).bind(key).first<AdminLoginAttempt>();
+    const lockedUntil = parseDatabaseDate(row?.lockedUntil ?? null);
+    if (lockedUntil && lockedUntil.getTime() > Date.now()) return lockedUntil;
+  }
+  return null;
+}
+
+async function recordAdminLoginFailure(db: D1Database, key: string, limit: number): Promise<void> {
+  const row = await db.prepare(
+    `SELECT failed_count AS failedCount, window_started_at AS windowStartedAt, locked_until AS lockedUntil
+     FROM admin_login_attempts WHERE key_hash = ?`,
+  ).bind(key).first<AdminLoginAttempt>();
+  const now = new Date();
+  const windowStart = parseDatabaseDate(row?.windowStartedAt ?? null);
+  const inWindow = Boolean(windowStart && now.getTime() - windowStart.getTime() < LOGIN_WINDOW_MS);
+  const failedCount = inWindow ? (row?.failedCount ?? 0) + 1 : 1;
+  const lockedUntil = failedCount >= limit ? new Date(now.getTime() + LOGIN_WINDOW_MS).toISOString() : null;
+  await db.prepare(`
+    INSERT INTO admin_login_attempts (key_hash, failed_count, window_started_at, locked_until, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(key_hash) DO UPDATE SET
+      failed_count = excluded.failed_count,
+      window_started_at = excluded.window_started_at,
+      locked_until = excluded.locked_until,
+      updated_at = excluded.updated_at
+  `).bind(key, failedCount, inWindow ? row!.windowStartedAt : now.toISOString(), lockedUntil, now.toISOString()).run();
+}
+
+async function loginAdmin(request: Request, env: Env): Promise<Response> {
+  requireSameOrigin(request);
+  const config = requireAdminConfig(env);
+  const body = await readBody(request);
+  const email = cleanText(body.email, 160).toLowerCase();
+  const password = typeof body.password === "string" ? body.password.slice(0, 200) : "";
+  const network = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const networkKey = await sha256(`${config.pepper}:login:${email}:${network}`);
+  const accountKey = await sha256(`${config.pepper}:login:${config.email}:account`);
+  const lockedUntil = await getActiveLoginLock(env.DB, [networkKey, accountKey]);
+  if (lockedUntil) {
+    const seconds = Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 1000));
+    return new Response(JSON.stringify({ error: "Trop de tentatives. Reessaie dans quelques minutes." }), {
+      status: 429,
+      headers: { ...JSON_HEADERS, "Retry-After": String(seconds) },
+    });
+  }
+
+  const passwordMatches = await verifyPassword(password, config.passwordHash);
+  if (email !== config.email || !passwordMatches) {
+    await Promise.all([
+      recordAdminLoginFailure(env.DB, networkKey, 5),
+      recordAdminLoginFailure(env.DB, accountKey, 10),
+    ]);
+    return json({ error: "Adresse e-mail ou mot de passe incorrect." }, 401);
+  }
+
+  const token = `${crypto.randomUUID()}.${crypto.randomUUID()}`;
+  const tokenHash = await sha256(`${config.pepper}:${token}`);
+  const expiresAt = new Date(Date.now() + SESSION_HOURS * 60 * 60 * 1000);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM admin_login_attempts WHERE key_hash IN (?, ?)").bind(networkKey, accountKey),
+    env.DB.prepare("DELETE FROM admin_sessions WHERE expires_at <= CURRENT_TIMESTAMP"),
+    env.DB.prepare(
+      "INSERT INTO admin_sessions (id, admin_email, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+    ).bind(`as_${crypto.randomUUID().replace(/-/g, "")}`, config.email, tokenHash, expiresAt.toISOString()),
+    auditStatement(env.DB, { email: config.email }, "admin.login", null, { network: "cloudflare" }),
+  ]);
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: {
+      ...JSON_HEADERS,
+      "Set-Cookie": `${ADMIN_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${SESSION_HOURS * 3600}`,
+    },
+  });
+}
+
+async function logoutAdmin(request: Request, env: Env, identity: AdminIdentity): Promise<Response> {
+  requireSameOrigin(request);
+  const config = requireAdminConfig(env);
+  const token = readCookie(request, ADMIN_COOKIE);
+  if (token) {
+    const tokenHash = await sha256(`${config.pepper}:${token}`);
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash = ?").bind(tokenHash),
+      auditStatement(env.DB, identity, "admin.logout", null, {}),
+    ]);
+  }
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: {
+      ...JSON_HEADERS,
+      "Set-Cookie": `${ADMIN_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`,
+    },
+  });
 }
 
 async function getOverview(db: D1Database): Promise<Response> {
@@ -381,6 +473,44 @@ async function getAuditLog(db: D1Database): Promise<Response> {
   return json({ events: result.results ?? [] });
 }
 
+function loginPage(): Response {
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  const html = `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Connexion administrateur · Tampo</title>
+  <style nonce="${nonce}">
+    :root{color-scheme:light;--ink:#17201d;--muted:#66706c;--paper:#f6f5f0;--card:#fff;--line:#e2e2da;--brand:#f05b3c;--brand-dark:#ce3f24;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}html,body{margin:0;min-width:0;overflow-x:hidden}body{min-height:100vh;background:var(--paper);color:var(--ink);display:grid;place-items:center;padding:max(22px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom))}
+    .card{width:min(440px,100%);background:var(--card);border:1px solid var(--line);border-radius:24px;padding:clamp(24px,6vw,38px);box-shadow:0 24px 70px rgba(30,39,35,.1)}.brand{display:flex;align-items:center;gap:11px;font-weight:850;font-size:22px;letter-spacing:-.04em}.brand-mark{display:grid;grid-template-columns:repeat(3,6px);align-items:end;gap:3px;width:24px;height:24px;padding:4px;background:var(--brand);border-radius:8px}.brand-mark i{display:block;background:#fff;border-radius:2px}.brand-mark i:nth-child(1){height:7px}.brand-mark i:nth-child(2){height:13px}.brand-mark i:nth-child(3){height:10px}.chip{margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em}
+    h1{font-size:34px;line-height:1.05;letter-spacing:-.045em;margin:38px 0 10px}p{margin:0 0 26px;color:var(--muted);line-height:1.55}.field{display:grid;gap:7px;margin:15px 0}.field span{font-size:12px;font-weight:780}.input{width:100%;min-width:0;height:50px;border:1px solid var(--line);border-radius:12px;background:#fafaf7;padding:0 14px;color:var(--ink);font-size:16px}.input:focus{outline:3px solid rgba(240,91,60,.15);border-color:var(--brand)}.submit{width:100%;height:50px;border:0;border-radius:12px;background:var(--ink);color:#fff;font-weight:820;font-size:15px;margin-top:12px;cursor:pointer}.submit:hover{background:#29332f}.submit:disabled{opacity:.65;cursor:wait}.error{min-height:22px;margin-top:14px;color:#b52828;font-size:13px;text-align:center}.secure{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:20px;color:var(--muted);font-size:11px}.secure:before{content:"";width:7px;height:7px;border-radius:50%;background:#19734a}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Tampo</span><span class="chip">Administration</span></div>
+    <h1>Bienvenue.</h1>
+    <p>Connectez-vous à l’espace privé de pilotage de la plateforme.</p>
+    <form id="login-form">
+      <label class="field"><span>Adresse e-mail</span><input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="username" required></label>
+      <label class="field"><span>Mot de passe</span><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></label>
+      <button class="submit" id="submit" type="submit">Se connecter</button>
+      <div class="error" id="error" role="alert" aria-live="polite"></div>
+    </form>
+    <div class="secure">Connexion chiffrée et session privée de 12 heures</div>
+  </main>
+  <script nonce="${nonce}">
+    const form=document.getElementById("login-form"),button=document.getElementById("submit"),error=document.getElementById("error");
+    form.addEventListener("submit",async(event)=>{event.preventDefault();error.textContent="";button.disabled=true;button.textContent="Connexion…";try{const response=await fetch("/api/login",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||"Connexion impossible.");location.replace("/")}catch(reason){error.textContent=reason.message||"Connexion impossible.";button.disabled=false;button.textContent="Se connecter"}});
+  </script>
+</body>
+</html>`;
+  return new Response(html, { headers: securityHeaders(nonce) });
+}
+
 function adminPage(identity: AdminIdentity): Response {
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const serializedEmail = JSON.stringify(identity.email).replace(/</g, "\\u003c");
@@ -394,7 +524,7 @@ function adminPage(identity: AdminIdentity): Response {
   <style nonce="${nonce}">
     :root{color-scheme:light;--ink:#17201d;--muted:#66706c;--paper:#f6f5f0;--card:#fff;--line:#e2e2da;--brand:#f05b3c;--brand-dark:#ce3f24;--green:#19734a;--green-bg:#e8f6ee;--red:#b52828;--red-bg:#fbeaea;--shadow:0 18px 60px rgba(30,39,35,.08);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);min-height:100vh}button,input,select,textarea{font:inherit}button{cursor:pointer}.shell{width:min(1220px,calc(100% - 32px));margin:0 auto;padding-bottom:64px}
-    .topbar{position:sticky;top:0;z-index:20;background:rgba(246,245,240,.92);backdrop-filter:blur(18px);border-bottom:1px solid rgba(226,226,218,.85)}.topbar-inner{width:min(1220px,calc(100% - 32px));height:76px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:11px;font-weight:850;font-size:22px;letter-spacing:-.04em}.brand-mark{display:grid;grid-template-columns:repeat(3,6px);align-items:end;gap:3px;width:24px;height:24px;padding:4px;background:var(--brand);border-radius:8px}.brand-mark i{display:block;background:#fff;border-radius:2px}.brand-mark i:nth-child(1){height:7px}.brand-mark i:nth-child(2){height:13px}.brand-mark i:nth-child(3){height:10px}.admin-chip{padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.12em}.identity{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:13px}.logout{color:var(--ink);text-decoration:none;font-weight:700}.logout:hover{text-decoration:underline}
+    .topbar{position:sticky;top:0;z-index:20;background:rgba(246,245,240,.92);backdrop-filter:blur(18px);border-bottom:1px solid rgba(226,226,218,.85)}.topbar-inner{width:min(1220px,calc(100% - 32px));height:76px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{display:flex;align-items:center;gap:11px;font-weight:850;font-size:22px;letter-spacing:-.04em}.brand-mark{display:grid;grid-template-columns:repeat(3,6px);align-items:end;gap:3px;width:24px;height:24px;padding:4px;background:var(--brand);border-radius:8px}.brand-mark i{display:block;background:#fff;border-radius:2px}.brand-mark i:nth-child(1){height:7px}.brand-mark i:nth-child(2){height:13px}.brand-mark i:nth-child(3){height:10px}.admin-chip{padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.12em}.identity{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:13px}.logout{color:var(--ink);font-weight:700;border:0;background:transparent;padding:0;cursor:pointer}.logout:hover{text-decoration:underline}
     .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:48px 0 30px}.eyebrow{color:var(--brand-dark);font-size:12px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}.hero h1{font-size:clamp(34px,5vw,56px);letter-spacing:-.055em;line-height:1;margin:10px 0 12px}.hero p{color:var(--muted);font-size:16px;margin:0;max-width:620px;line-height:1.6}.sync{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:11px 16px;font-weight:750;color:var(--ink)}.sync:hover{border-color:#babbb2}
     .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:30px}.metric{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 8px 28px rgba(30,39,35,.035)}.metric-label{font-size:12px;color:var(--muted);font-weight:750}.metric-value{display:block;font-size:34px;font-weight:850;letter-spacing:-.05em;margin-top:10px}.metric-note{font-size:12px;color:var(--muted);margin-top:4px}
     .section{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:22px}.section-head{padding:22px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:18px}.section h2{margin:0;font-size:21px;letter-spacing:-.025em}.section-sub{color:var(--muted);font-size:13px;margin-top:5px}.tools{display:flex;gap:9px;flex-wrap:wrap}.field{height:42px;border:1px solid var(--line);border-radius:11px;background:#fafaf7;padding:0 12px;color:var(--ink);min-width:210px;font-size:16px}.field:focus,.note:focus{outline:3px solid rgba(240,91,60,.15);border-color:var(--brand)}select.field{min-width:150px}.merchant-list{display:grid}.merchant-row{display:grid;grid-template-columns:minmax(190px,1.5fr) minmax(130px,1fr) repeat(4,minmax(74px,.55fr)) 112px;gap:16px;align-items:center;padding:17px 24px;border-bottom:1px solid var(--line)}.merchant-row:last-child{border-bottom:0}.merchant-row:hover{background:#fbfbf8}.merchant-name{font-weight:800;letter-spacing:-.01em}.merchant-email,.muted{color:var(--muted);font-size:12px;margin-top:4px;overflow-wrap:anywhere}.program{font-size:13px;font-weight:700}.cell-number{font-weight:820;font-variant-numeric:tabular-nums}.cell-label{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-top:4px}.status{display:inline-flex;align-items:center;gap:6px;width:max-content;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:820}.status:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}.status-active{color:var(--green);background:var(--green-bg)}.status-suspended{color:var(--red);background:var(--red-bg)}.details-button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;font-weight:750}.details-button:hover{border-color:var(--brand);color:var(--brand-dark)}.empty{padding:50px 24px;text-align:center;color:var(--muted)}
@@ -405,7 +535,7 @@ function adminPage(identity: AdminIdentity): Response {
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Tampo</span><span class="admin-chip">Administration</span></div><div class="identity"><span id="admin-email"></span><a class="logout" href="/cdn-cgi/access/logout">Se deconnecter</a></div></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Tampo</span><span class="admin-chip">Administration</span></div><div class="identity"><span id="admin-email"></span><button class="logout" id="logout" type="button">Se deconnecter</button></div></div></header>
   <main class="shell">
     <section class="hero"><div><div class="eyebrow">Pilotage de la plateforme</div><h1>Vue d'ensemble.</h1><p>Surveille les commerces, leur activite et leur acces sans exposer les donnees personnelles des clients.</p></div><button class="sync" id="refresh" type="button">Actualiser</button></section>
     <section class="metrics" aria-label="Indicateurs principaux">
@@ -431,9 +561,9 @@ function adminPage(identity: AdminIdentity): Response {
     const escapeHtml=(value)=>String(value??"").replace(/[&<>"']/g,(char)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
     const formatNumber=(value)=>new Intl.NumberFormat("fr-FR").format(Number(value||0));
     const formatDate=(value)=>value?new Intl.DateTimeFormat("fr-FR",{dateStyle:"medium",timeStyle:"short"}).format(new Date(String(value).includes("T")?value:String(value).replace(" ","T")+"Z")):"—";
-    const actionLabel=(action)=>({"merchant.suspended":"Commerce suspendu","merchant.reactivated":"Commerce reactive","merchant.note_updated":"Note interne modifiee"}[action]||action);
+    const actionLabel=(action)=>({"merchant.suspended":"Commerce suspendu","merchant.reactivated":"Commerce reactive","merchant.note_updated":"Note interne modifiee","admin.login":"Connexion administrateur","admin.logout":"Deconnexion administrateur"}[action]||action);
     function toast(message,error=false){const el=$("toast");el.textContent=message;el.className="toast show"+(error?" error":"");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.className="toast",3200)}
-    async function api(path,options={}){const response=await fetch(path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||"Une erreur est survenue.");return body}
+    async function api(path,options={}){const response=await fetch(path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const body=await response.json().catch(()=>({}));if(response.status===401){location.replace("/login");throw new Error("Session expiree.")}if(!response.ok)throw new Error(body.error||"Une erreur est survenue.");return body}
     async function loadOverview(){const {overview}=await api("/api/overview");$("metric-merchants").textContent=formatNumber(overview.merchants);$("metric-active").textContent=formatNumber(overview.active_merchants)+" actifs · "+formatNumber(overview.suspended_merchants)+" suspendus";$("metric-customers").textContent=formatNumber(overview.customers);$("metric-passages").textContent=formatNumber(overview.passages);$("metric-rewards").textContent=formatNumber(overview.rewards);$("metric-points").textContent=formatNumber(overview.current_points)+" points en cours"}
     function renderMerchants(){const list=$("merchant-list");$("merchant-count").textContent=state.merchants.length+" commerce"+(state.merchants.length>1?"s":"")+" affiche"+(state.merchants.length>1?"s":"");if(!state.merchants.length){list.innerHTML='<div class="empty">Aucun commerce ne correspond a cette recherche.</div>';return}list.innerHTML=state.merchants.map((merchant)=>'<article class="merchant-row"><div><div class="merchant-name">'+escapeHtml(merchant.businessName)+'</div><div class="merchant-email">'+escapeHtml(merchant.email)+'</div></div><div><div class="program">'+escapeHtml(merchant.programName||"Sans programme")+'</div><span class="status status-'+escapeHtml(merchant.status)+'">'+(merchant.status==="suspended"?"Suspendu":"Actif")+'</span></div><div class="cell-number">'+formatNumber(merchant.customerCount)+'<span class="cell-label">Clients</span></div><div class="cell-number">'+formatNumber(merchant.passageCount)+'<span class="cell-label">Passages</span></div><div class="cell-number">'+formatNumber(merchant.employeeCount)+'<span class="cell-label">Equipe</span></div><div><div class="cell-number">'+formatDate(merchant.lastActivity)+'</div><span class="cell-label">Activite</span></div><button class="details-button" type="button" data-id="'+escapeHtml(merchant.id)+'">Ouvrir</button></article>').join("");list.querySelectorAll("[data-id]").forEach((button)=>button.addEventListener("click",()=>openMerchant(button.dataset.id)))}
     async function loadMerchants(){const query=encodeURIComponent($("search").value.trim());const status=encodeURIComponent($("status-filter").value);const {merchants}=await api("/api/merchants?q="+query+"&status="+status);state.merchants=merchants;renderMerchants()}
@@ -443,7 +573,7 @@ function adminPage(identity: AdminIdentity): Response {
     async function saveNote(){if(!state.selected)return;const note=$("merchant-note").value;await api("/api/merchants/"+encodeURIComponent(state.selected.id)+"/note",{method:"POST",body:JSON.stringify({note})});toast("Note enregistree.");await Promise.all([loadMerchants(),loadAudit()])}
     async function toggleStatus(){if(!state.selected)return;const next=state.selected.status==="suspended"?"active":"suspended";const verb=next==="suspended"?"suspendre":"reactiver";if(!confirm("Confirmer : "+verb+" "+state.selected.businessName+" ?"))return;await api("/api/merchants/"+encodeURIComponent(state.selected.id)+"/status",{method:"POST",body:JSON.stringify({status:next})});toast(next==="suspended"?"Commerce suspendu.":"Commerce reactive.");closePanel();await refreshAll()}
     async function refreshAll(){try{await Promise.all([loadOverview(),loadMerchants(),loadAudit()])}catch(error){toast(error.message||"Chargement impossible.",true)}}
-    $("refresh").addEventListener("click",refreshAll);$("search").addEventListener("input",()=>{clearTimeout(state.searchTimer);state.searchTimer=setTimeout(loadMerchants,250)});$("status-filter").addEventListener("change",loadMerchants);$("close-panel").addEventListener("click",closePanel);$("overlay").addEventListener("click",(event)=>{if(event.target===$("overlay"))closePanel()});document.addEventListener("keydown",(event)=>{if(event.key==="Escape")closePanel()});$("admin-email").textContent=${serializedEmail};refreshAll();
+    $("refresh").addEventListener("click",refreshAll);$("search").addEventListener("input",()=>{clearTimeout(state.searchTimer);state.searchTimer=setTimeout(loadMerchants,250)});$("status-filter").addEventListener("change",loadMerchants);$("close-panel").addEventListener("click",closePanel);$("overlay").addEventListener("click",(event)=>{if(event.target===$("overlay"))closePanel()});document.addEventListener("keydown",(event)=>{if(event.key==="Escape")closePanel()});$("logout").addEventListener("click",async()=>{try{await api("/api/logout",{method:"POST",body:"{}"})}finally{location.replace("/login")}});$("admin-email").textContent=${serializedEmail};refreshAll();
   </script>
 </body>
 </html>`;
@@ -451,13 +581,29 @@ function adminPage(identity: AdminIdentity): Response {
 }
 
 async function handleRequest(request: Request, env: Env): Promise<Response> {
-  const identity = await requireAdmin(request, env);
   await ensureAdminSchema(env.DB);
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
 
+  if (request.method === "POST" && path === "/api/login") return loginAdmin(request, env);
+  if (request.method === "GET" && path === "/login") {
+    const existingIdentity = await getAdmin(request, env);
+    return existingIdentity
+      ? new Response(null, { status: 303, headers: { Location: "/", "Cache-Control": "no-store" } })
+      : loginPage();
+  }
+
+  const identity = await getAdmin(request, env);
+  if (!identity) {
+    if (request.method === "GET" && !path.startsWith("/api/")) {
+      return new Response(null, { status: 303, headers: { Location: "/login", "Cache-Control": "no-store" } });
+    }
+    return json({ error: "Session administrateur requise." }, 401);
+  }
+
   if (request.method === "GET" && path === "/") return adminPage(identity);
   if (request.method === "GET" && path === "/api/me") return json({ identity });
+  if (request.method === "POST" && path === "/api/logout") return logoutAdmin(request, env, identity);
   if (request.method === "GET" && path === "/api/overview") return getOverview(env.DB);
   if (request.method === "GET" && path === "/api/merchants") return listMerchants(env.DB, url);
   if (request.method === "GET" && path === "/api/audit") return getAuditLog(env.DB);

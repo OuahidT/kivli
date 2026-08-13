@@ -3,6 +3,8 @@
   "name": "tampo-admin",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-13",
+  "workers_dev": true,
+  "preview_urls": false,
   "observability": {
     "enabled": true
   },

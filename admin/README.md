@@ -3,12 +3,15 @@
 Tableau de bord prive de la plateforme Tampo.
 
 - Deploiement separe du site public via Cloudflare Workers.
-- Acces protege par Cloudflare Access.
-- Identite validee cote Worker avec le JWT signe par Cloudflare.
+- Acces protege par un compte administrateur distinct.
+- Mot de passe conserve uniquement sous forme PBKDF2, jamais en clair.
+- Sessions privees de 12 heures avec cookie securise et jeton hache.
+- Tentatives de connexion limitees et verrouillage temporaire.
 - Donnees lues depuis la meme base D1 europeenne que Tampo.
 - Actions sensibles journalisees dans `admin_audit_log`.
 
-Variables Worker requises apres activation de Cloudflare Access :
+Variables Worker requises :
 
-- `TEAM_DOMAIN` : domaine d'equipe Cloudflare Access complet.
-- `POLICY_AUD` : audience de l'application Access.
+- `ADMIN_EMAIL` : adresse de connexion de l'administrateur.
+- `ADMIN_PASSWORD_HASH` : empreinte PBKDF2 du mot de passe.
+- `SESSION_PEPPER` : secret aleatoire servant a proteger les sessions.
