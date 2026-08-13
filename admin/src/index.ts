@@ -462,10 +462,85 @@ async function setMerchantNote(
   return json({ ok: true, note });
 }
 
+type MerchantDeletionSummary = {
+  id: string;
+  businessName: string;
+  slug: string;
+  customerCount: number;
+  employeeCount: number;
+  stampCount: number;
+  rewardCount: number;
+};
+
+async function deleteMerchantAccount(
+  request: Request,
+  env: Env,
+  identity: AdminIdentity,
+  merchantId: string,
+): Promise<Response> {
+  requireSameOrigin(request);
+  const merchant = await env.DB.prepare(`
+    SELECT
+      m.id,
+      m.business_name AS businessName,
+      m.slug,
+      (SELECT COUNT(*) FROM customers WHERE merchant_id = m.id) AS customerCount,
+      (SELECT COUNT(*) FROM employees WHERE merchant_id = m.id) AS employeeCount,
+      (SELECT COUNT(*) FROM stamps WHERE merchant_id = m.id) AS stampCount,
+      (SELECT COUNT(*) FROM rewards WHERE merchant_id = m.id) AS rewardCount
+    FROM merchants m
+    WHERE m.id = ?
+  `).bind(merchantId).first<MerchantDeletionSummary>();
+  if (!merchant) return json({ error: "Commerce introuvable." }, 404);
+
+  const body = await readBody(request);
+  const confirmation = typeof body.confirmation === "string" ? body.confirmation.trim() : "";
+  if (confirmation !== merchant.businessName) {
+    return json({ error: "Le nom saisi ne correspond pas au commerce." }, 400);
+  }
+
+  await env.DB.batch([
+    env.DB.prepare(`
+      DELETE FROM employee_sessions
+      WHERE employee_id IN (SELECT id FROM employees WHERE merchant_id = ?)
+    `).bind(merchantId),
+    env.DB.prepare(`
+      DELETE FROM employee_actions
+      WHERE employee_id IN (SELECT id FROM employees WHERE merchant_id = ?)
+         OR stamp_id IN (SELECT id FROM stamps WHERE merchant_id = ?)
+    `).bind(merchantId, merchantId),
+    env.DB.prepare(`
+      DELETE FROM stamp_reward_links
+      WHERE stamp_id IN (SELECT id FROM stamps WHERE merchant_id = ?)
+         OR reward_id IN (SELECT id FROM rewards WHERE merchant_id = ?)
+    `).bind(merchantId, merchantId),
+    env.DB.prepare("DELETE FROM merchant_sessions WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM stamp_requests WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM rewards WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM stamps WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM memberships WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM customers WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM programs WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM employees WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM merchant_admin_state WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM merchants WHERE id = ?").bind(merchantId),
+    auditStatement(env.DB, identity, "merchant.deleted", merchantId, {
+      businessName: merchant.businessName,
+      slug: merchant.slug,
+      customerCount: merchant.customerCount,
+      employeeCount: merchant.employeeCount,
+      stampCount: merchant.stampCount,
+      rewardCount: merchant.rewardCount,
+    }),
+  ]);
+  return json({ ok: true, deleted: { id: merchant.id, businessName: merchant.businessName } });
+}
+
 async function getAuditLog(db: D1Database): Promise<Response> {
   const result = await db.prepare(`
     SELECT a.id, a.admin_email AS adminEmail, a.action, a.merchant_id AS merchantId,
-      a.details_json AS detailsJson, a.created_at AS createdAt, m.business_name AS businessName
+      a.details_json AS detailsJson, a.created_at AS createdAt,
+      COALESCE(m.business_name, json_extract(a.details_json, '$.businessName')) AS businessName
     FROM admin_audit_log a
     LEFT JOIN merchants m ON m.id = a.merchant_id
     ORDER BY a.created_at DESC LIMIT 100
@@ -529,7 +604,7 @@ function adminPage(identity: AdminIdentity): Response {
     .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:30px}.metric{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 8px 28px rgba(30,39,35,.035)}.metric-label{font-size:12px;color:var(--muted);font-weight:750}.metric-value{display:block;font-size:34px;font-weight:850;letter-spacing:-.05em;margin-top:10px}.metric-note{font-size:12px;color:var(--muted);margin-top:4px}
     .section{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:22px}.section-head{padding:22px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:18px}.section h2{margin:0;font-size:21px;letter-spacing:-.025em}.section-sub{color:var(--muted);font-size:13px;margin-top:5px}.tools{display:flex;gap:9px;flex-wrap:wrap}.field{height:42px;border:1px solid var(--line);border-radius:11px;background:#fafaf7;padding:0 12px;color:var(--ink);min-width:210px;font-size:16px}.field:focus,.note:focus{outline:3px solid rgba(240,91,60,.15);border-color:var(--brand)}select.field{min-width:150px}.merchant-list{display:grid}.merchant-row{display:grid;grid-template-columns:minmax(190px,1.5fr) minmax(130px,1fr) repeat(4,minmax(74px,.55fr)) 112px;gap:16px;align-items:center;padding:17px 24px;border-bottom:1px solid var(--line)}.merchant-row:last-child{border-bottom:0}.merchant-row:hover{background:#fbfbf8}.merchant-name{font-weight:800;letter-spacing:-.01em}.merchant-email,.muted{color:var(--muted);font-size:12px;margin-top:4px;overflow-wrap:anywhere}.program{font-size:13px;font-weight:700}.cell-number{font-weight:820;font-variant-numeric:tabular-nums}.cell-label{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-top:4px}.status{display:inline-flex;align-items:center;gap:6px;width:max-content;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:820}.status:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}.status-active{color:var(--green);background:var(--green-bg)}.status-suspended{color:var(--red);background:var(--red-bg)}.details-button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;font-weight:750}.details-button:hover{border-color:var(--brand);color:var(--brand-dark)}.empty{padding:50px 24px;text-align:center;color:var(--muted)}
     .audit-list{display:grid}.audit-row{display:grid;grid-template-columns:150px 1fr minmax(180px,.6fr);gap:18px;padding:14px 24px;border-bottom:1px solid var(--line);font-size:13px}.audit-row:last-child{border-bottom:0}.audit-action{font-weight:760}.audit-time,.audit-admin{color:var(--muted)}
-    .overlay{position:fixed;inset:0;z-index:50;background:rgba(15,22,19,.45);display:flex;justify-content:flex-end;opacity:0;pointer-events:none;transition:opacity .18s}.overlay.open{opacity:1;pointer-events:auto}.panel{width:min(560px,100%);height:100%;background:var(--paper);padding:26px;overflow:auto;transform:translateX(20px);transition:transform .18s}.overlay.open .panel{transform:none}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.close{width:42px;height:42px;border:1px solid var(--line);background:#fff;border-radius:12px;font-size:22px}.panel h2{font-size:31px;letter-spacing:-.04em;margin:12px 0 4px}.panel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0}.info{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}.info span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}.info strong{font-size:18px}.panel-section{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}.panel-section h3{margin:0 0 13px;font-size:16px}.note{width:100%;min-height:100px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:16px}.actions{display:flex;gap:10px;margin-top:12px}.primary,.danger{border:0;border-radius:11px;padding:11px 15px;font-weight:800}.primary{background:var(--ink);color:#fff}.danger{background:var(--red-bg);color:var(--red)}.activity{display:grid;gap:9px}.activity-item{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}.activity-item:last-child{border-bottom:0}.toast{position:fixed;left:50%;bottom:24px;z-index:80;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:12px 17px;border-radius:12px;opacity:0;pointer-events:none;transition:.2s;font-size:13px;box-shadow:var(--shadow)}.toast.show{opacity:1;transform:translate(-50%,0)}.toast.error{background:var(--red)}
+    .overlay{position:fixed;inset:0;z-index:50;background:rgba(15,22,19,.45);display:flex;justify-content:flex-end;opacity:0;pointer-events:none;transition:opacity .18s}.overlay.open{opacity:1;pointer-events:auto}.panel{width:min(560px,100%);height:100%;background:var(--paper);padding:26px;overflow:auto;transform:translateX(20px);transition:transform .18s}.overlay.open .panel{transform:none}.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.close{width:42px;height:42px;border:1px solid var(--line);background:#fff;border-radius:12px;font-size:22px}.panel h2{font-size:31px;letter-spacing:-.04em;margin:12px 0 4px}.panel-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:24px 0}.info{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}.info span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}.info strong{font-size:18px}.panel-section{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin:14px 0}.panel-section h3{margin:0 0 13px;font-size:16px}.delete-zone{border-color:#efb9b9;background:#fffafa}.note{width:100%;min-height:100px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:16px}.actions{display:flex;gap:10px;margin-top:12px}.primary,.danger{border:0;border-radius:11px;padding:11px 15px;font-weight:800}.primary{background:var(--ink);color:#fff}.danger{background:var(--red-bg);color:var(--red)}.danger-strong{background:var(--red);color:#fff}.danger-strong:disabled{opacity:.65;cursor:wait}.activity{display:grid;gap:9px}.activity-item{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}.activity-item:last-child{border-bottom:0}.toast{position:fixed;left:50%;bottom:24px;z-index:80;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:12px 17px;border-radius:12px;opacity:0;pointer-events:none;transition:.2s;font-size:13px;box-shadow:var(--shadow)}.toast.show{opacity:1;transform:translate(-50%,0)}.toast.error{background:var(--red)}
     @media(max-width:940px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.merchant-row{grid-template-columns:1.3fr 1fr repeat(2,.55fr) 105px}.merchant-row>:nth-child(5),.merchant-row>:nth-child(6){display:none}}
     @media(max-width:680px){.shell,.topbar-inner{width:min(100% - 22px,1220px)}.topbar-inner{height:68px}.identity span{display:none}.admin-chip{display:none}.hero{padding-top:30px;align-items:flex-start;flex-direction:column}.hero h1{font-size:38px}.metrics{gap:9px}.metric{padding:16px;border-radius:15px}.metric-value{font-size:28px}.section{border-radius:17px}.section-head{align-items:flex-start;flex-direction:column;padding:18px}.tools{width:100%}.field{width:100%;min-width:0}.merchant-row{grid-template-columns:1fr auto;padding:16px 18px}.merchant-row>:nth-child(2),.merchant-row>:nth-child(3),.merchant-row>:nth-child(4),.merchant-row>:nth-child(5),.merchant-row>:nth-child(6){display:none}.audit-row{grid-template-columns:1fr;padding:13px 18px;gap:5px}.panel{padding:20px}.panel-grid{grid-template-columns:1fr 1fr}.panel h2{font-size:27px}}
   </style>
@@ -561,17 +636,18 @@ function adminPage(identity: AdminIdentity): Response {
     const escapeHtml=(value)=>String(value??"").replace(/[&<>"']/g,(char)=>({38:"&amp;",60:"&lt;",62:"&gt;",34:"&quot;",39:"&#39;"}[char.charCodeAt(0)]));
     const formatNumber=(value)=>new Intl.NumberFormat("fr-FR").format(Number(value||0));
     const formatDate=(value)=>value?new Intl.DateTimeFormat("fr-FR",{dateStyle:"medium",timeStyle:"short"}).format(new Date(String(value).includes("T")?value:String(value).replace(" ","T")+"Z")):"—";
-    const actionLabel=(action)=>({"merchant.suspended":"Commerce suspendu","merchant.reactivated":"Commerce reactive","merchant.note_updated":"Note interne modifiee","admin.login":"Connexion administrateur","admin.logout":"Deconnexion administrateur"}[action]||action);
+    const actionLabel=(action)=>({"merchant.suspended":"Commerce suspendu","merchant.reactivated":"Commerce reactive","merchant.note_updated":"Note interne modifiee","merchant.deleted":"Compte commercant supprime","admin.login":"Connexion administrateur","admin.logout":"Deconnexion administrateur"}[action]||action);
     function toast(message,error=false){const el=$("toast");el.textContent=message;el.className="toast show"+(error?" error":"");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.className="toast",3200)}
     async function api(path,options={}){const response=await fetch(path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const body=await response.json().catch(()=>({}));if(response.status===401){location.replace("/login");throw new Error("Session expiree.")}if(!response.ok)throw new Error(body.error||"Une erreur est survenue.");return body}
     async function loadOverview(){const {overview}=await api("/api/overview");$("metric-merchants").textContent=formatNumber(overview.merchants);$("metric-active").textContent=formatNumber(overview.active_merchants)+" actifs · "+formatNumber(overview.suspended_merchants)+" suspendus";$("metric-customers").textContent=formatNumber(overview.customers);$("metric-passages").textContent=formatNumber(overview.passages);$("metric-rewards").textContent=formatNumber(overview.rewards);$("metric-points").textContent=formatNumber(overview.current_points)+" points en cours"}
     function renderMerchants(){const list=$("merchant-list");$("merchant-count").textContent=state.merchants.length+" commerce"+(state.merchants.length>1?"s":"")+" affiche"+(state.merchants.length>1?"s":"");if(!state.merchants.length){list.innerHTML='<div class="empty">Aucun commerce ne correspond a cette recherche.</div>';return}list.innerHTML=state.merchants.map((merchant)=>'<article class="merchant-row"><div><div class="merchant-name">'+escapeHtml(merchant.businessName)+'</div><div class="merchant-email">'+escapeHtml(merchant.email)+'</div></div><div><div class="program">'+escapeHtml(merchant.programName||"Sans programme")+'</div><span class="status status-'+escapeHtml(merchant.status)+'">'+(merchant.status==="suspended"?"Suspendu":"Actif")+'</span></div><div class="cell-number">'+formatNumber(merchant.customerCount)+'<span class="cell-label">Clients</span></div><div class="cell-number">'+formatNumber(merchant.passageCount)+'<span class="cell-label">Passages</span></div><div class="cell-number">'+formatNumber(merchant.employeeCount)+'<span class="cell-label">Equipe</span></div><div><div class="cell-number">'+formatDate(merchant.lastActivity)+'</div><span class="cell-label">Activite</span></div><button class="details-button" type="button" data-id="'+escapeHtml(merchant.id)+'">Ouvrir</button></article>').join("");list.querySelectorAll("[data-id]").forEach((button)=>button.addEventListener("click",()=>openMerchant(button.dataset.id)))}
     async function loadMerchants(){const query=encodeURIComponent($("search").value.trim());const status=encodeURIComponent($("status-filter").value);const {merchants}=await api("/api/merchants?q="+query+"&status="+status);state.merchants=merchants;renderMerchants()}
     async function loadAudit(){const {events}=await api("/api/audit");const list=$("audit-list");if(!events.length){list.innerHTML='<div class="empty">Aucune action pour le moment.</div>';return}list.innerHTML=events.map((event)=>'<div class="audit-row"><div class="audit-time">'+formatDate(event.createdAt)+'</div><div><div class="audit-action">'+escapeHtml(actionLabel(event.action))+'</div><div class="muted">'+escapeHtml(event.businessName||"Plateforme")+'</div></div><div class="audit-admin">'+escapeHtml(event.adminEmail)+'</div></div>').join("")}
-    async function openMerchant(id){const data=await api("/api/merchants/"+encodeURIComponent(id));state.selected=data.merchant;$("panel-title").textContent=data.merchant.businessName;$("panel-email").textContent=data.merchant.email;const m=data.merchant;const activity=data.activity.length?data.activity.map((item)=>'<div class="activity-item"><span>'+(Number(item.delta)>0?"Passage ajoute":"Correction")+' · '+escapeHtml(item.actorRole)+'</span><span class="muted">'+formatDate(item.createdAt)+'</span></div>').join(""):'<div class="muted">Aucune activite enregistree.</div>';$("panel-content").innerHTML='<div class="panel-grid"><div class="info"><span>Statut</span><strong>'+(m.status==="suspended"?"Suspendu":"Actif")+'</strong></div><div class="info"><span>Clients</span><strong>'+formatNumber(m.customerCount)+'</strong></div><div class="info"><span>Passages</span><strong>'+formatNumber(m.passageCount)+'</strong></div><div class="info"><span>Recompenses</span><strong>'+formatNumber(m.rewardCount)+'</strong></div></div><section class="panel-section"><h3>Programme</h3><div class="program">'+escapeHtml(m.programName||"Sans programme")+'</div><div class="muted">Objectif : '+formatNumber(m.goal)+' · '+escapeHtml(m.rewardText||"")+'</div><div class="muted">Lien public : /join/'+escapeHtml(m.slug)+'</div></section><section class="panel-section"><h3>Note interne</h3><textarea class="note" id="merchant-note" maxlength="600" placeholder="Informations de support, suivi commercial…">'+escapeHtml(m.internalNote||"")+'</textarea><div class="actions"><button class="primary" id="save-note" type="button">Enregistrer la note</button></div></section><section class="panel-section"><h3>Gestion de l’acces</h3><p class="muted">La suspension bloque le commercant et ses employes sans supprimer leurs donnees.</p><button class="'+(m.status==="suspended"?"primary":"danger")+'" id="toggle-status" type="button">'+(m.status==="suspended"?"Reactiver le commerce":"Suspendre le commerce")+'</button></section><section class="panel-section"><h3>Derniere activite</h3><div class="activity">'+activity+'</div></section>';$("overlay").classList.add("open");$("overlay").setAttribute("aria-hidden","false");$("close-panel").focus();$("save-note").onclick=saveNote;$("toggle-status").onclick=toggleStatus}
+    async function openMerchant(id){const data=await api("/api/merchants/"+encodeURIComponent(id));state.selected=data.merchant;$("panel-title").textContent=data.merchant.businessName;$("panel-email").textContent=data.merchant.email;const m=data.merchant;const activity=data.activity.length?data.activity.map((item)=>'<div class="activity-item"><span>'+(Number(item.delta)>0?"Passage ajoute":"Correction")+' · '+escapeHtml(item.actorRole)+'</span><span class="muted">'+formatDate(item.createdAt)+'</span></div>').join(""):'<div class="muted">Aucune activite enregistree.</div>';$("panel-content").innerHTML='<div class="panel-grid"><div class="info"><span>Statut</span><strong>'+(m.status==="suspended"?"Suspendu":"Actif")+'</strong></div><div class="info"><span>Clients</span><strong>'+formatNumber(m.customerCount)+'</strong></div><div class="info"><span>Passages</span><strong>'+formatNumber(m.passageCount)+'</strong></div><div class="info"><span>Recompenses</span><strong>'+formatNumber(m.rewardCount)+'</strong></div></div><section class="panel-section"><h3>Programme</h3><div class="program">'+escapeHtml(m.programName||"Sans programme")+'</div><div class="muted">Objectif : '+formatNumber(m.goal)+' · '+escapeHtml(m.rewardText||"")+'</div><div class="muted">Lien public : /join/'+escapeHtml(m.slug)+'</div></section><section class="panel-section"><h3>Note interne</h3><textarea class="note" id="merchant-note" maxlength="600" placeholder="Informations de support, suivi commercial…">'+escapeHtml(m.internalNote||"")+'</textarea><div class="actions"><button class="primary" id="save-note" type="button">Enregistrer la note</button></div></section><section class="panel-section"><h3>Gestion de l’acces</h3><p class="muted">La suspension bloque le commercant et ses employes sans supprimer leurs donnees.</p><button class="'+(m.status==="suspended"?"primary":"danger")+'" id="toggle-status" type="button">'+(m.status==="suspended"?"Reactiver le commerce":"Suspendre le commerce")+'</button></section><section class="panel-section delete-zone"><h3>Suppression definitive</h3><p class="muted">Supprime le compte commercant, ses employes, ses clients, ses cartes, ses points et ses historiques. Cette action est irreversible.</p><button class="danger danger-strong" id="delete-merchant" type="button">Supprimer definitivement</button></section><section class="panel-section"><h3>Derniere activite</h3><div class="activity">'+activity+'</div></section>';$("overlay").classList.add("open");$("overlay").setAttribute("aria-hidden","false");$("close-panel").focus();$("save-note").onclick=saveNote;$("toggle-status").onclick=toggleStatus;$("delete-merchant").onclick=deleteMerchant}
     function closePanel(){$("overlay").classList.remove("open");$("overlay").setAttribute("aria-hidden","true");state.selected=null}
     async function saveNote(){if(!state.selected)return;const note=$("merchant-note").value;await api("/api/merchants/"+encodeURIComponent(state.selected.id)+"/note",{method:"POST",body:JSON.stringify({note})});toast("Note enregistree.");await Promise.all([loadMerchants(),loadAudit()])}
     async function toggleStatus(){if(!state.selected)return;const next=state.selected.status==="suspended"?"active":"suspended";const verb=next==="suspended"?"suspendre":"reactiver";if(!confirm("Confirmer : "+verb+" "+state.selected.businessName+" ?"))return;await api("/api/merchants/"+encodeURIComponent(state.selected.id)+"/status",{method:"POST",body:JSON.stringify({status:next})});toast(next==="suspended"?"Commerce suspendu.":"Commerce reactive.");closePanel();await refreshAll()}
+    async function deleteMerchant(){if(!state.selected)return;const merchant={id:state.selected.id,businessName:state.selected.businessName};const confirmation=prompt('Suppression definitive : saisis exactement "'+merchant.businessName+'" pour confirmer.');if(confirmation===null)return;if(confirmation.trim()!==merchant.businessName){toast("Le nom saisi ne correspond pas. Le compte n’a pas ete supprime.",true);return}const button=$("delete-merchant");button.disabled=true;button.textContent="Suppression…";try{await api("/api/merchants/"+encodeURIComponent(merchant.id),{method:"DELETE",body:JSON.stringify({confirmation:confirmation.trim()})});closePanel();toast("Compte "+merchant.businessName+" supprime definitivement.");await refreshAll()}catch(error){button.disabled=false;button.textContent="Supprimer definitivement";toast(error.message||"Suppression impossible.",true)}}
     async function refreshAll(){try{await Promise.all([loadOverview(),loadMerchants(),loadAudit()])}catch(error){toast(error.message||"Chargement impossible.",true)}}
     $("refresh").addEventListener("click",refreshAll);$("search").addEventListener("input",()=>{clearTimeout(state.searchTimer);state.searchTimer=setTimeout(loadMerchants,250)});$("status-filter").addEventListener("change",loadMerchants);$("close-panel").addEventListener("click",closePanel);$("overlay").addEventListener("click",(event)=>{if(event.target===$("overlay"))closePanel()});document.addEventListener("keydown",(event)=>{if(event.key==="Escape")closePanel()});$("logout").addEventListener("click",async()=>{try{await api("/api/logout",{method:"POST",body:"{}"})}finally{location.replace("/login")}});$("admin-email").textContent=${serializedEmail};refreshAll();
   </script>
@@ -610,6 +686,9 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   const detailMatch = path.match(/^\/api\/merchants\/([^/]+)$/);
   if (request.method === "GET" && detailMatch) return getMerchant(env.DB, decodeURIComponent(detailMatch[1]));
+  if (request.method === "DELETE" && detailMatch) {
+    return deleteMerchantAccount(request, env, identity, decodeURIComponent(detailMatch[1]));
+  }
   const statusMatch = path.match(/^\/api\/merchants\/([^/]+)\/status$/);
   if (request.method === "POST" && statusMatch) {
     return setMerchantStatus(request, env, identity, decodeURIComponent(statusMatch[1]));
