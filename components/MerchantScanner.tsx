@@ -1,10 +1,7 @@
 "use client";
 
+import jsQR from "jsqr";
 import { FormEvent, useEffect, useRef, useState } from "react";
-
-type BarcodeHit = { rawValue: string };
-type BarcodeDetectorLike = { detect(source: HTMLVideoElement): Promise<BarcodeHit[]> };
-type BarcodeDetectorConstructor = new (options: { formats: string[] }) => BarcodeDetectorLike;
 
 function extractCode(value: string) {
   const trimmed = value.trim();
@@ -19,57 +16,97 @@ function extractCode(value: string) {
 
 export function MerchantScanner({ onDetected, busy }: { onDetected: (code: string, quantity: number) => void; busy: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const frameRef = useRef<number | null>(null);
+  const lastScanRef = useRef(0);
+  const startingRef = useRef(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [manual, setManual] = useState("");
   const [quantity, setQuantity] = useState(1);
 
-  function stop() {
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+  function releaseCamera() {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    startingRef.current = false;
+  }
+
+  function stop() {
+    releaseCamera();
     setCameraOpen(false);
   }
 
-  useEffect(() => stop, []);
+  useEffect(() => () => releaseCamera(), []);
 
   async function start() {
+    if (startingRef.current) return;
+    startingRef.current = true;
     setCameraError("");
-    const Detector = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
-    if (!Detector || !navigator.mediaDevices?.getUserMedia) {
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      startingRef.current = false;
       setCameraError("Le scan caméra n’est pas disponible ici. Saisis le code affiché sous le QR.");
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
       streamRef.current = stream;
       const video = videoRef.current;
-      if (!video) return;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) {
+        releaseCamera();
+        setCameraError("Impossible d’initialiser le scanner. Réessaie dans un instant.");
+        return;
+      }
       video.srcObject = stream;
       await video.play();
+      startingRef.current = false;
       setCameraOpen(true);
-      const detector = new Detector({ formats: ["qr_code"] });
-      const scan = async () => {
+
+      const scan = (now: number) => {
         if (!streamRef.current || !videoRef.current) return;
-        try {
-          const codes = await detector.detect(videoRef.current);
-          if (codes[0]?.rawValue) {
-            const code = extractCode(codes[0].rawValue);
-            stop();
-            onDetected(code, quantity);
-            return;
+        if (now - lastScanRef.current >= 120 && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0) {
+          lastScanRef.current = now;
+          const maxWidth = 720;
+          const scale = Math.min(1, maxWidth / video.videoWidth);
+          const width = Math.max(1, Math.round(video.videoWidth * scale));
+          const height = Math.max(1, Math.round(video.videoHeight * scale));
+          if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
           }
-        } catch {
-          // The next frame usually succeeds while the camera warms up.
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          if (context) {
+            context.drawImage(video, 0, 0, width, height);
+            const frame = context.getImageData(0, 0, width, height);
+            const result = jsQR(frame.data, width, height, { inversionAttempts: "dontInvert" });
+            if (result?.data) {
+              const code = extractCode(result.data);
+              stop();
+              onDetected(code, quantity);
+              return;
+            }
+          }
         }
         frameRef.current = requestAnimationFrame(scan);
       };
       frameRef.current = requestAnimationFrame(scan);
-    } catch {
-      setCameraError("Autorise la caméra, ou saisis le code client manuellement.");
-      stop();
+    } catch (error) {
+      releaseCamera();
+      setCameraOpen(false);
+      const name = error instanceof DOMException ? error.name : "";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        setCameraError("La caméra est bloquée. Autorise-la dans les réglages du navigateur, puis réessaie.");
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        setCameraError("Aucune caméra utilisable n’a été trouvée. Saisis le code affiché sous le QR.");
+      } else {
+        setCameraError("La caméra n’a pas pu démarrer. Réessaie, ou saisis le code client manuellement.");
+      }
     }
   }
 
@@ -88,6 +125,7 @@ export function MerchantScanner({ onDetected, busy }: { onDetected: (code: strin
       </div>
       <div className={`camera-frame ${cameraOpen ? "active" : ""}`}>
         <video ref={videoRef} playsInline muted />
+        <canvas ref={canvasRef} hidden aria-hidden="true" />
         <div className="scan-corners"><i /><i /><i /><i /></div>
         {!cameraOpen && <div className="camera-empty"><span>▦</span><p>Cadre le QR personnel du client</p></div>}
       </div>
