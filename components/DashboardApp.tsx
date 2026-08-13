@@ -1,6 +1,23 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowRight,
+  Check,
+  Copy,
+  ExternalLink,
+  Footprints,
+  Gift,
+  LayoutDashboard,
+  LogOut,
+  QrCode as QrCodeIcon,
+  RotateCcw,
+  ScanLine,
+  Sparkles,
+  Trophy,
+  UserRoundCog,
+  UsersRound,
+} from "lucide-react";
 import { Brand } from "./Brand";
 import { MerchantScanner } from "./MerchantScanner";
 import { QrCode } from "./QrCode";
@@ -33,11 +50,11 @@ type StampResult = {
 };
 
 const tabs = [
-  { id: "overview", label: "Vue d’ensemble", shortLabel: "Accueil" },
-  { id: "scan", label: "Scanner un client", shortLabel: "Scanner" },
-  { id: "customers", label: "Clients", shortLabel: "Clients" },
-  { id: "program", label: "Mon programme", shortLabel: "Programme" },
-  { id: "team", label: "Mon équipe", shortLabel: "Équipe" },
+  { id: "overview", label: "Vue d’ensemble", shortLabel: "Accueil", icon: LayoutDashboard },
+  { id: "scan", label: "Scanner un client", shortLabel: "Scanner", icon: ScanLine },
+  { id: "customers", label: "Clients", shortLabel: "Clients", icon: UsersRound },
+  { id: "program", label: "Mon programme", shortLabel: "Programme", icon: Gift },
+  { id: "team", label: "Mon équipe", shortLabel: "Équipe", icon: UserRoundCog },
 ] as const;
 
 type Tab = (typeof tabs)[number]["id"];
@@ -280,19 +297,19 @@ export function DashboardApp() {
       <aside className="sidebar">
         <Brand />
         <div className="merchant-pill"><span>{data.merchant.businessName.slice(0, 1)}</span><div><strong>{data.merchant.businessName}</strong><small>{data.merchant.role === "employee" ? `${data.merchant.employeeName} · Employé` : "Accès propriétaire"}</small></div></div>
-        <nav>{visibleTabs.map((item) => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />{item.label}</button>)}</nav>
-        <div className="sidebar-foot"><button onClick={logout}>↗ Se déconnecter</button><small>Tampo · version pilote</small></div>
+        <nav>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><Icon className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" />{item.label}</button>; })}</nav>
+        <div className="sidebar-foot"><button onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Tampo · version pilote</small></div>
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-top"><div><small>{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><h1>{visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <button className="button button-ghost" onClick={logout}>Se déconnecter</button> : <div className="dashboard-actions"><button className="button button-ghost qr-quick" onClick={showEnrollmentQr}>QR clients</button><button className="button scan-quick" onClick={() => setTab("scan")}>Scanner</button></div>}</header>
-        <nav className="mobile-tabs" aria-label="Navigation principale" style={{ "--tab-count": visibleTabs.length } as React.CSSProperties}>{visibleTabs.map((item) => <button key={item.id} aria-label={item.label} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}><span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" /><small>{item.shortLabel}</small></button>)}</nav>
+        <header className="dashboard-top"><div><small className="dashboard-date">{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><small className="dashboard-context">{data.merchant.businessName}</small><h1>{visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <button className="button button-ghost logout-quick" onClick={logout}><LogOut size={18} aria-hidden="true" /><span>Déconnexion</span></button> : <div className="dashboard-actions"><button className="button button-ghost qr-quick" onClick={showEnrollmentQr}><QrCodeIcon size={18} aria-hidden="true" /><span>QR clients</span></button><button className="button scan-quick" onClick={() => setTab("scan")}><ScanLine size={18} aria-hidden="true" />Scanner</button></div>}</header>
+        <nav className="mobile-tabs" aria-label="Navigation principale" style={{ "--tab-count": visibleTabs.length } as React.CSSProperties}>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} aria-label={item.label} aria-current={tab === item.id ? "page" : undefined} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><span className="mobile-tab-icon"><Icon className="nav-icon" size={21} strokeWidth={2} aria-hidden="true" /></span><small>{item.shortLabel}</small></button>; })}</nav>
         {error && <div className="dashboard-error" role="alert"><span>!</span>{error}<button onClick={() => setError("")}>×</button></div>}
 
         {tab === "overview" && <Overview data={data} joinUrl={joinUrl} onScan={() => setTab("scan")} onCustomers={() => setTab("customers")} onShowQr={showEnrollmentQr} />}
         {tab === "scan" && (
           <div className="scan-layout">
-            <div><span className="eyebrow">{data.merchant.role === "employee" ? `Session de ${data.merchant.employeeName}` : "Ajout instantané"}</span><h2>Scanne la carte du client.</h2><p>Choisis le nombre d’achats, puis scanne le QR. Une seconde validation rapprochée reste possible après confirmation.</p><MerchantScanner onDetected={stamp} busy={busy} /></div>
+            <div><span className="eyebrow scan-eyebrow"><ScanLine size={15} aria-hidden="true" />{data.merchant.role === "employee" ? `Session de ${data.merchant.employeeName}` : "Ajout instantané"}</span><h2>Scanne la carte du client.</h2><p>Choisis le nombre d’achats, puis scanne le QR. Une seconde validation rapprochée reste possible après confirmation.</p><MerchantScanner onDetected={stamp} busy={busy} /></div>
             <aside className="scan-side"><h3>{data.merchant.role === "employee" ? "Mes dernières opérations" : "Derniers passages"}</h3>{data.activity.length ? data.activity.slice(0, 6).map((item) => <Activity key={item.id} item={item} />) : <p className="muted">Les premières opérations apparaîtront ici.</p>}</aside>
           </div>
         )}
@@ -301,7 +318,7 @@ export function DashboardApp() {
             <div className="panel-head"><div><h2>{data.customers.length} client{data.customers.length !== 1 ? "s" : ""}</h2><p>Progression et récompenses en un coup d’œil.</p></div><input className="search-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher…" /></div>
             <div className="customer-table">
               <div className="table-head"><span>Client</span><span>Progression</span><span>Total</span><span>Récompense</span><span /></div>
-              {filteredCustomers.map((customer) => <div className="table-row" key={customer.code}><span className="customer-name"><i>{customer.firstName.slice(0, 1)}</i><span><b>{customer.firstName}</b><small>{customer.code}</small></span></span><span><b>{customer.points}/{data.program.goal}</b><i className="mini-progress"><i style={{ width: `${customer.points / data.program.goal * 100}%` }} /></i></span><span>{customer.totalPoints} passages</span><span>{customer.availableRewards ? <b className="reward-badge">{customer.availableRewards} disponible</b> : <small className="muted">Aucune</small>}</span><span className="row-actions"><button onClick={() => stamp(customer.code)} disabled={busy}>+ Passage</button>{customer.undoableStampId && <button className="undo-button" onClick={() => undoStamp(customer.undoableStampId!, customer.firstName)} disabled={busy}>↶ Annuler</button>}{customer.availableRewards > 0 && <button className="redeem-button" onClick={() => redeem(customer.code)} disabled={busy}>Remettre</button>}</span></div>)}
+              {filteredCustomers.map((customer) => <div className="table-row" key={customer.code}><span className="customer-name"><i>{customer.firstName.slice(0, 1)}</i><span><b>{customer.firstName}</b><small>{customer.code}</small></span></span><span data-label="Progression"><b>{customer.points}/{data.program.goal}</b><i className="mini-progress"><i style={{ width: `${customer.points / data.program.goal * 100}%` }} /></i></span><span data-label="Total">{customer.totalPoints} passages</span><span data-label="Récompense">{customer.availableRewards ? <b className="reward-badge">{customer.availableRewards} disponible</b> : <small className="muted">Aucune</small>}</span><span className="row-actions"><button onClick={() => stamp(customer.code)} disabled={busy}><Footprints size={16} aria-hidden="true" />Ajouter</button>{customer.undoableStampId && <button className="undo-button" onClick={() => undoStamp(customer.undoableStampId!, customer.firstName)} disabled={busy}><RotateCcw size={15} aria-hidden="true" />Annuler</button>}{customer.availableRewards > 0 && <button className="redeem-button" onClick={() => redeem(customer.code)} disabled={busy}><Gift size={15} aria-hidden="true" />Remettre</button>}</span></div>)}
               {!filteredCustomers.length && <div className="table-empty">Aucun client ne correspond à cette recherche.</div>}
             </div>
           </div>
@@ -342,7 +359,7 @@ export function DashboardApp() {
                   <span className={`access-status ${employee.active ? "active" : ""}`}>{employee.active ? "Actif" : "Désactivé"}</span>
                   <div className="employee-actions"><button onClick={() => copyEmployeeIdentifier(employee)} disabled={busy}>Copier l’identifiant</button><button onClick={() => resetEmployeePin(employee)} disabled={busy}>Changer le PIN</button><button className={employee.active ? "danger" : ""} onClick={() => setEmployeeActive(employee)} disabled={busy}>{employee.active ? "Désactiver" : "Réactiver"}</button></div>
                 </article>
-              )) : <div className="empty-activity"><span>♙</span><h3>Aucun employé pour le moment.</h3><p>Crée le premier accès individuel avec le formulaire.</p></div>}
+              )) : <div className="empty-activity"><span><UsersRound size={21} aria-hidden="true" /></span><h3>Aucun employé pour le moment.</h3><p>Crée le premier accès individuel avec le formulaire.</p></div>}
             </section>
           </div>
         )}
@@ -355,12 +372,17 @@ export function DashboardApp() {
 }
 
 function Overview({ data, joinUrl, onScan, onCustomers, onShowQr }: { data: DashboardData; joinUrl: string; onScan: () => void; onCustomers: () => void; onShowQr: () => void }) {
-  const copy = async () => { await navigator.clipboard.writeText(joinUrl); };
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(joinUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
   return <div className="overview-grid">
-    <section className="welcome-panel"><div><span className="eyebrow">Ton programme est en ligne</span><h2>Prêt pour le prochain passage.</h2><p>Affiche le QR d’inscription, puis scanne la carte personnelle du client à chaque visite.</p><div><button className="button button-light" onClick={onShowQr}>Afficher le QR client</button><button className="button button-outline-light" onClick={onScan}>Ajouter un passage</button><button className="button button-outline-light" onClick={onCustomers}>Voir les clients</button></div></div><div className="welcome-motif"><i /><i /><i /><span>✓</span></div></section>
-    <section className="stats-row"><article><span className="stat-icon orange">◎</span><div><small>Clients inscrits</small><strong>{data.stats.customers}</strong></div></article><article><span className="stat-icon green">↗</span><div><small>Passages ajoutés</small><strong>{data.stats.visits}</strong></div></article><article><span className="stat-icon purple">★</span><div><small>Récompenses gagnées</small><strong>{data.stats.rewards}</strong></div></article></section>
-    <section className="panel activity-panel"><div className="panel-head"><div><h2>Activité récente</h2><p>Les derniers mouvements du programme.</p></div><button className="text-link" onClick={onCustomers}>Tous les clients →</button></div><div className="activity-list">{data.activity.length ? data.activity.map((item) => <Activity key={item.id} item={item} />) : <div className="empty-activity"><span>↻</span><h3>Tout commence au premier scan.</h3><p>Inscris un client avec le QR, puis ajoute son premier passage.</p></div>}</div></section>
-    <section className="panel join-qr-panel" id="customer-enrollment-qr"><span className="eyebrow">QR d’inscription client</span><div className="dashboard-qr"><QrCode value={joinUrl} size={170} label="QR d’inscription au programme" /></div><h3>À montrer ou afficher à la caisse</h3><p>Le client scanne ce QR pour créer immédiatement sa carte de fidélité.</p><div className="copy-row"><code>{joinUrl.replace(/^https?:\/\//, "")}</code><button onClick={copy}>Copier le lien</button></div><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="text-link">Tester la création d’une carte ↗</a></section>
+    <section className="welcome-panel"><div><span className="eyebrow"><Sparkles size={15} aria-hidden="true" />Ton programme est en ligne</span><h2>Prêt pour le prochain passage.</h2><p>Inscris un nouveau client ou ajoute un passage en quelques secondes.</p><div className="welcome-actions"><button className="button button-light" onClick={onShowQr}><QrCodeIcon size={18} aria-hidden="true" />Créer une carte</button><button className="button button-outline-light" onClick={onScan}><ScanLine size={18} aria-hidden="true" />Scanner un client</button><button className="button button-outline-light welcome-clients" onClick={onCustomers}>Voir les clients<ArrowRight size={17} aria-hidden="true" /></button></div></div><div className="welcome-motif"><i /><i /><i /><span><Check size={32} strokeWidth={2.5} aria-hidden="true" /></span></div></section>
+    <section className="stats-row"><article><span className="stat-icon orange"><UsersRound size={20} aria-hidden="true" /></span><div><small>Clients</small><strong>{data.stats.customers}</strong></div></article><article><span className="stat-icon green"><Footprints size={20} aria-hidden="true" /></span><div><small>Passages</small><strong>{data.stats.visits}</strong></div></article><article><span className="stat-icon purple"><Trophy size={20} aria-hidden="true" /></span><div><small>Récompenses</small><strong>{data.stats.rewards}</strong></div></article></section>
+    <section className="panel activity-panel"><div className="panel-head"><div><h2>Activité récente</h2><p>Les derniers mouvements du programme.</p></div><button className="text-link activity-all" onClick={onCustomers}>Tous les clients<ArrowRight size={15} aria-hidden="true" /></button></div><div className="activity-list">{data.activity.length ? data.activity.map((item) => <Activity key={item.id} item={item} />) : <div className="empty-activity"><span><ScanLine size={21} aria-hidden="true" /></span><h3>Tout commence au premier scan.</h3><p>Inscris un client avec le QR, puis ajoute son premier passage.</p></div>}</div></section>
+    <section className="panel join-qr-panel" id="customer-enrollment-qr"><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />Inscription client</span><div className="dashboard-qr"><QrCode value={joinUrl} size={170} label="QR d’inscription au programme" /></div><h3>Scannez pour créer une carte</h3><p>Présente ce QR au client : sa carte est créée immédiatement sur son téléphone.</p><div className="copy-row"><code>{joinUrl.replace(/^https?:\/\//, "")}</code><button onClick={copy}>{copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}<span>{copied ? "Copié" : "Copier"}</span></button></div><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="text-link">Tester l’inscription<ExternalLink size={14} aria-hidden="true" /></a></section>
   </div>;
 }
 

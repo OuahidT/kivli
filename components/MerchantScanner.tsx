@@ -1,6 +1,7 @@
 "use client";
 
 import jsQR from "jsqr";
+import { Camera, Check, Keyboard, Minus, Plus, ScanLine, X } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 function extractCode(value: string) {
@@ -121,20 +122,20 @@ export function MerchantScanner({ onDetected, busy }: { onDetected: (code: strin
     <div className="scanner-card">
       <div className="quantity-picker">
         <div><strong>Nombre de points</strong><small>Un point par menu ou achat</small></div>
-        <div><button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={busy || cameraOpen || quantity === 1} aria-label="Retirer un point">−</button><output>{quantity}</output><button type="button" onClick={() => setQuantity((value) => Math.min(10, value + 1))} disabled={busy || cameraOpen || quantity === 10} aria-label="Ajouter un point">+</button></div>
+        <div><button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={busy || cameraOpen || quantity === 1} aria-label="Retirer un point"><Minus size={19} aria-hidden="true" /></button><output>{quantity}</output><button type="button" onClick={() => setQuantity((value) => Math.min(10, value + 1))} disabled={busy || cameraOpen || quantity === 10} aria-label="Ajouter un point"><Plus size={19} aria-hidden="true" /></button></div>
       </div>
       <div className={`camera-frame ${cameraOpen ? "active" : ""}`}>
         <video ref={videoRef} playsInline muted />
         <canvas ref={canvasRef} hidden aria-hidden="true" />
         <div className="scan-corners"><i /><i /><i /><i /></div>
-        {!cameraOpen && <div className="camera-empty"><span>▦</span><p>Cadre le QR personnel du client</p></div>}
+        {!cameraOpen && <div className="camera-empty"><span><ScanLine size={30} aria-hidden="true" /></span><p>Cadre le QR personnel du client</p><small>Le scan démarre dès l’ouverture</small></div>}
       </div>
-      <button className="button button-large button-full" onClick={cameraOpen ? stop : start} disabled={busy}>{cameraOpen ? "Fermer la caméra" : "Ouvrir la caméra"}</button>
+      <button className="button button-large button-full camera-button" onClick={cameraOpen ? stop : start} disabled={busy}>{cameraOpen ? <X size={19} aria-hidden="true" /> : <Camera size={19} aria-hidden="true" />}{cameraOpen ? "Fermer la caméra" : "Ouvrir la caméra"}</button>
       {cameraError && <p className="scanner-help" role="alert">{cameraError}</p>}
       <div className="or-divider"><span>ou</span></div>
       <form className="manual-code" onSubmit={submit}>
-        <label htmlFor="manual-code">Code sous le QR</label>
-        <div><input id="manual-code" value={manual} onChange={(event) => setManual(event.target.value.toUpperCase())} placeholder="EX. 7A9K2M4P" autoCapitalize="characters" /><button className="button" disabled={busy}>Valider</button></div>
+        <label htmlFor="manual-code"><Keyboard size={16} aria-hidden="true" />Code sous le QR</label>
+        <div><input id="manual-code" value={manual} onChange={(event) => setManual(event.target.value.toUpperCase())} placeholder="EX. 7A9K2M4P" autoCapitalize="characters" /><button className="button" disabled={busy}><Check size={17} aria-hidden="true" />Valider</button></div>
       </form>
     </div>
   );

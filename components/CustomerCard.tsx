@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, QrCode as QrCodeIcon, RefreshCw, Share2 } from "lucide-react";
 import { Brand } from "./Brand";
 import { QrCode } from "./QrCode";
 import type { CardData } from "../lib/types";
@@ -34,7 +35,7 @@ export function CustomerCard({ code }: { code: string }) {
 
   return (
     <main className="customer-page" style={{ "--merchant": card.accentColor } as React.CSSProperties}>
-      <nav className="customer-nav"><Brand /><button className="icon-button" onClick={share} aria-label="Partager la carte">{copied ? "✓" : "↗"}</button></nav>
+      <nav className="customer-nav"><Brand /><button className="icon-button" onClick={share} aria-label="Partager la carte">{copied ? <Check size={20} aria-hidden="true" /> : <Share2 size={19} aria-hidden="true" />}</button></nav>
       <section className="customer-wrap">
         <div className="loyalty-card">
           <div className="loyalty-head"><span className="merchant-avatar">{card.businessName.slice(0, 1)}</span><div><small>CARTE FIDÉLITÉ</small><strong>{card.businessName}</strong></div></div>
@@ -47,11 +48,11 @@ export function CustomerCard({ code }: { code: string }) {
         </div>
 
         <div className="qr-panel">
-          <div><span className="eyebrow">À présenter au comptoir</span><h2>Ton QR personnel</h2><p>Le commerçant le scanne pour ajouter ton passage ou remettre ta récompense.</p></div>
+          <div><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />À présenter au comptoir</span><h2>Ton QR personnel</h2><p>Le commerçant le scanne pour ajouter ton passage ou remettre ta récompense.</p></div>
           <div className="qr-box"><QrCode value={`${window.location.origin}/c/${card.code}`} size={210} label={`QR personnel de ${card.firstName}`} /><code>{card.code}</code></div>
         </div>
 
-        <div className="card-footnote"><span>↻ Carte mise à jour automatiquement</span><span>{card.totalPoints} passage{card.totalPoints !== 1 ? "s" : ""} au total</span></div>
+        <div className="card-footnote"><span><RefreshCw size={14} aria-hidden="true" />Carte mise à jour automatiquement</span><span>{card.totalPoints} passage{card.totalPoints !== 1 ? "s" : ""} au total</span></div>
       </section>
     </main>
   );
