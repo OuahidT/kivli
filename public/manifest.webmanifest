@@ -1,0 +1,11 @@
+{
+  "name": "Tampo — Fidélité digitale",
+  "short_name": "Tampo",
+  "description": "Cartes de fidélité digitales pour commerces de proximité.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f0e8",
+  "theme_color": "#f05b3c",
+  "lang": "fr",
+  "icons": []
+}
