@@ -93,7 +93,7 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
   const iterations = Number(iterationValue);
   const salt = hexToBytes(saltValue ?? "");
   const expected = hexToBytes(expectedValue ?? "");
-  if (scheme !== "pbkdf2" || !salt || !expected || !Number.isInteger(iterations) || iterations < 210_000) {
+  if (scheme !== "pbkdf2" || !salt || !expected || !Number.isInteger(iterations) || iterations < 100_000) {
     return false;
   }
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
