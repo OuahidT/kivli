@@ -40,7 +40,7 @@ export function MerchantLogin() {
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="button button-large button-full" disabled={busy}>{busy ? "Connexion…" : "Ouvrir mon espace"}</button>
         </form>
-        <div className="auth-foot">Pas encore de programme ? <Link href="/">Créer gratuitement</Link></div>
+        <div className="auth-foot">Pas encore de programme ? <Link href="/" prefetch={false}>Créer gratuitement</Link></div>
       </section>
     </main>
   );
