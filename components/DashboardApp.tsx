@@ -33,11 +33,11 @@ type StampResult = {
 };
 
 const tabs = [
-  { id: "overview", label: "Vue d’ensemble", icon: "⌂" },
-  { id: "scan", label: "Scanner un client", icon: "▦" },
-  { id: "customers", label: "Clients", icon: "◎" },
-  { id: "program", label: "Mon programme", icon: "◇" },
-  { id: "team", label: "Mon équipe", icon: "♙" },
+  { id: "overview", label: "Vue d’ensemble", shortLabel: "Accueil" },
+  { id: "scan", label: "Scanner un client", shortLabel: "Scanner" },
+  { id: "customers", label: "Clients", shortLabel: "Clients" },
+  { id: "program", label: "Mon programme", shortLabel: "Programme" },
+  { id: "team", label: "Mon équipe", shortLabel: "Équipe" },
 ] as const;
 
 type Tab = (typeof tabs)[number]["id"];
@@ -265,6 +265,13 @@ export function DashboardApp() {
   );
   const joinUrl = data && typeof window !== "undefined" ? `${window.location.origin}/join/${data.merchant.slug}` : "";
 
+  function showEnrollmentQr() {
+    setTab("overview");
+    window.setTimeout(() => {
+      document.getElementById("customer-enrollment-qr")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }
+
   if (loading) return <main className="dashboard-loading"><Brand /><div className="loading-bar"><span /></div><p>Ouverture de ton espace…</p></main>;
   if (!data) return <main className="dashboard-loading"><Brand /><p>{error || "Tableau de bord indisponible."}</p><a href="/merchant" className="button">Se reconnecter</a></main>;
 
@@ -273,16 +280,16 @@ export function DashboardApp() {
       <aside className="sidebar">
         <Brand />
         <div className="merchant-pill"><span>{data.merchant.businessName.slice(0, 1)}</span><div><strong>{data.merchant.businessName}</strong><small>{data.merchant.role === "employee" ? `${data.merchant.employeeName} · Employé` : "Accès propriétaire"}</small></div></div>
-        <nav>{visibleTabs.map((item) => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><span>{item.icon}</span>{item.label}</button>)}</nav>
+        <nav>{visibleTabs.map((item) => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />{item.label}</button>)}</nav>
         <div className="sidebar-foot"><button onClick={logout}>↗ Se déconnecter</button><small>Tampo · version pilote</small></div>
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-top"><div><small>{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><h1>{visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <button className="button button-ghost" onClick={logout}>Se déconnecter</button> : <button className="button scan-quick" onClick={() => setTab("scan")}>▦ Scanner</button>}</header>
-        <nav className="mobile-tabs" style={{ "--tab-count": visibleTabs.length } as React.CSSProperties}>{visibleTabs.map((item) => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}><span>{item.icon}</span><small>{item.label.split(" ")[0]}</small></button>)}</nav>
+        <header className="dashboard-top"><div><small>{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><h1>{visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <button className="button button-ghost" onClick={logout}>Se déconnecter</button> : <div className="dashboard-actions"><button className="button button-ghost qr-quick" onClick={showEnrollmentQr}>QR clients</button><button className="button scan-quick" onClick={() => setTab("scan")}>Scanner</button></div>}</header>
+        <nav className="mobile-tabs" aria-label="Navigation principale" style={{ "--tab-count": visibleTabs.length } as React.CSSProperties}>{visibleTabs.map((item) => <button key={item.id} aria-label={item.label} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}><span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" /><small>{item.shortLabel}</small></button>)}</nav>
         {error && <div className="dashboard-error" role="alert"><span>!</span>{error}<button onClick={() => setError("")}>×</button></div>}
 
-        {tab === "overview" && <Overview data={data} joinUrl={joinUrl} onScan={() => setTab("scan")} onCustomers={() => setTab("customers")} />}
+        {tab === "overview" && <Overview data={data} joinUrl={joinUrl} onScan={() => setTab("scan")} onCustomers={() => setTab("customers")} onShowQr={showEnrollmentQr} />}
         {tab === "scan" && (
           <div className="scan-layout">
             <div><span className="eyebrow">{data.merchant.role === "employee" ? `Session de ${data.merchant.employeeName}` : "Ajout instantané"}</span><h2>Scanne la carte du client.</h2><p>Choisis le nombre d’achats, puis scanne le QR. Une seconde validation rapprochée reste possible après confirmation.</p><MerchantScanner onDetected={stamp} busy={busy} /></div>
@@ -347,13 +354,13 @@ export function DashboardApp() {
   );
 }
 
-function Overview({ data, joinUrl, onScan, onCustomers }: { data: DashboardData; joinUrl: string; onScan: () => void; onCustomers: () => void }) {
+function Overview({ data, joinUrl, onScan, onCustomers, onShowQr }: { data: DashboardData; joinUrl: string; onScan: () => void; onCustomers: () => void; onShowQr: () => void }) {
   const copy = async () => { await navigator.clipboard.writeText(joinUrl); };
   return <div className="overview-grid">
-    <section className="welcome-panel"><div><span className="eyebrow">Ton programme est en ligne</span><h2>Prêt pour le prochain passage.</h2><p>Affiche le QR d’inscription, puis scanne la carte personnelle du client à chaque visite.</p><div><button className="button button-light" onClick={onScan}>▦ Ajouter un passage</button><button className="button button-outline-light" onClick={onCustomers}>Voir les clients</button></div></div><div className="welcome-motif"><i /><i /><i /><span>✓</span></div></section>
+    <section className="welcome-panel"><div><span className="eyebrow">Ton programme est en ligne</span><h2>Prêt pour le prochain passage.</h2><p>Affiche le QR d’inscription, puis scanne la carte personnelle du client à chaque visite.</p><div><button className="button button-light" onClick={onShowQr}>Afficher le QR client</button><button className="button button-outline-light" onClick={onScan}>Ajouter un passage</button><button className="button button-outline-light" onClick={onCustomers}>Voir les clients</button></div></div><div className="welcome-motif"><i /><i /><i /><span>✓</span></div></section>
     <section className="stats-row"><article><span className="stat-icon orange">◎</span><div><small>Clients inscrits</small><strong>{data.stats.customers}</strong></div></article><article><span className="stat-icon green">↗</span><div><small>Passages ajoutés</small><strong>{data.stats.visits}</strong></div></article><article><span className="stat-icon purple">★</span><div><small>Récompenses gagnées</small><strong>{data.stats.rewards}</strong></div></article></section>
     <section className="panel activity-panel"><div className="panel-head"><div><h2>Activité récente</h2><p>Les derniers mouvements du programme.</p></div><button className="text-link" onClick={onCustomers}>Tous les clients →</button></div><div className="activity-list">{data.activity.length ? data.activity.map((item) => <Activity key={item.id} item={item} />) : <div className="empty-activity"><span>↻</span><h3>Tout commence au premier scan.</h3><p>Inscris un client avec le QR, puis ajoute son premier passage.</p></div>}</div></section>
-    <section className="panel join-qr-panel"><span className="eyebrow">QR d’inscription</span><div className="dashboard-qr"><QrCode value={joinUrl} size={150} label="QR d’inscription au programme" /></div><h3>À afficher à la caisse</h3><p>Les nouveaux clients le scannent pour obtenir leur carte.</p><div className="copy-row"><code>{joinUrl.replace(/^https?:\/\//, "")}</code><button onClick={copy}>Copier</button></div><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="text-link">Tester l’inscription ↗</a></section>
+    <section className="panel join-qr-panel" id="customer-enrollment-qr"><span className="eyebrow">QR d’inscription client</span><div className="dashboard-qr"><QrCode value={joinUrl} size={170} label="QR d’inscription au programme" /></div><h3>À montrer ou afficher à la caisse</h3><p>Le client scanne ce QR pour créer immédiatement sa carte de fidélité.</p><div className="copy-row"><code>{joinUrl.replace(/^https?:\/\//, "")}</code><button onClick={copy}>Copier le lien</button></div><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="text-link">Tester la création d’une carte ↗</a></section>
   </div>;
 }
 
