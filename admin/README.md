@@ -12,6 +12,6 @@ Tableau de bord prive de la plateforme Tampo.
 
 Variables Worker requises :
 
-- `ADMIN_EMAIL` : adresse de connexion de l'administrateur.
-- `ADMIN_PASSWORD_HASH` : empreinte PBKDF2 du mot de passe.
-- `SESSION_PEPPER` : secret aleatoire servant a proteger les sessions.
+- `ADMIN_EMAIL_V2` : adresse de connexion de l'administrateur.
+- `ADMIN_PASSWORD_HASH_V2` : empreinte PBKDF2 du mot de passe.
+- `SESSION_PEPPER_V2` : secret aleatoire servant a proteger les sessions.

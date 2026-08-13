@@ -17,9 +17,9 @@ interface D1Database {
 
 interface Env {
   DB: D1Database;
-  ADMIN_EMAIL?: string;
-  ADMIN_PASSWORD_HASH?: string;
-  SESSION_PEPPER?: string;
+  ADMIN_EMAIL_V2?: string;
+  ADMIN_PASSWORD_HASH_V2?: string;
+  SESSION_PEPPER_V2?: string;
 }
 
 type AdminIdentity = {
@@ -106,13 +106,13 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
 }
 
 function requireAdminConfig(env: Env): { email: string; passwordHash: string; pepper: string } {
-  if (!env.ADMIN_EMAIL || !env.ADMIN_PASSWORD_HASH || !env.SESSION_PEPPER) {
+  if (!env.ADMIN_EMAIL_V2 || !env.ADMIN_PASSWORD_HASH_V2 || !env.SESSION_PEPPER_V2) {
     throw new Response("Administration non configuree.", { status: 503 });
   }
   return {
-    email: env.ADMIN_EMAIL.trim().toLowerCase(),
-    passwordHash: env.ADMIN_PASSWORD_HASH,
-    pepper: env.SESSION_PEPPER,
+    email: env.ADMIN_EMAIL_V2.trim().toLowerCase(),
+    passwordHash: env.ADMIN_PASSWORD_HASH_V2,
+    pepper: env.SESSION_PEPPER_V2,
   };
 }
 
