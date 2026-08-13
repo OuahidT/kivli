@@ -15,7 +15,7 @@
     {
       "binding": "DB",
       "database_name": "tampo-production-eu",
-      "database_id": "00000000-0000-4000-8000-000000000000",
+      "database_id": "1d784147-027b-47c1-ab03-78e5b24d73fb",
       "migrations_dir": "drizzle"
     }
   ],
