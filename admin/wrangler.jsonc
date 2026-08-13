@@ -5,6 +5,10 @@
   "compatibility_date": "2026-08-13",
   "workers_dev": true,
   "preview_urls": false,
+  "keep_vars": true,
+  "vars": {
+    "ADMIN_EMAIL_V2": "ouahid.taileb@gmail.com"
+  },
   "observability": {
     "enabled": true
   },
