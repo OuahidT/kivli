@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { Gift, QrCode, ShieldCheck, Sparkles } from "lucide-react";
 import { Brand } from "./Brand";
 import type { Program } from "../lib/types";
+import { visibleProgramTerms } from "../lib/program-style";
 
 export function JoinProgram({ slug }: { slug: string }) {
   const [program, setProgram] = useState<Program | null>(null);
@@ -43,20 +45,23 @@ export function JoinProgram({ slug }: { slug: string }) {
 
   if (loading) return <main className="public-card-page"><div className="loading-card">Préparation de ta carte…</div></main>;
   if (!program) return <main className="public-card-page"><div className="empty-card"><Brand /><h1>Ce programme est introuvable.</h1><p>{error}</p></div></main>;
+  const terms = visibleProgramTerms(program.terms);
 
   return (
     <main className="public-card-page" style={{ "--merchant": program.accentColor } as React.CSSProperties}>
       <section className="join-card">
-        <div className="join-preview">
-          <div className="join-preview-top"><span className="merchant-avatar">{program.businessName.slice(0, 1)}</span><span>{program.businessName}</span></div>
+        <div className="join-preview join-preview-modern">
+          <div className="card-orbit card-orbit-one" /><div className="card-orbit card-orbit-two" />
+          <div className="join-preview-top"><span className="merchant-avatar">{program.businessName.slice(0, 1)}</span><span><small>CARTE FIDÉLITÉ DIGITALE</small><strong>{program.businessName}</strong></span><i><Sparkles size={13} aria-hidden="true" />Gratuite</i></div>
           <span className="card-kicker">{program.name}</span>
           <h1>Une récompense t’attend.</h1>
+          <p className="join-promise">À chaque passage, ton commerçant scanne ta carte et ta progression se met à jour instantanément.</p>
           <div className="join-stamps">{Array.from({ length: Math.min(program.goal, 10) }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
-          <div className="reward-line"><span>Au bout de {program.goal} passages</span><strong>{program.rewardText}</strong></div>
+          <div className="reward-line"><span className="reward-symbol"><Gift size={20} aria-hidden="true" /></span><span>Au bout de {program.goal} passages</span><strong>{program.rewardText}</strong></div>
         </div>
         <div className="join-form-wrap">
           <Brand />
-          <span className="eyebrow">Carte gratuite · sans application</span>
+          <span className="eyebrow"><QrCode size={15} aria-hidden="true" />Carte gratuite · sans application</span>
           <h2>Crée ta carte en quelques secondes.</h2>
           <p>Présente ensuite ton QR personnel à chaque passage.</p>
           <form onSubmit={submit} className="form-grid">
@@ -66,6 +71,7 @@ export function JoinProgram({ slug }: { slug: string }) {
             <button className="button button-large button-full merchant-button" disabled={busy}>{busy ? "Création…" : "Obtenir ma carte"}</button>
           </form>
           <small>En t’inscrivant, tu acceptes que {program.businessName} conserve ta carte et son historique de passages.</small>
+          <aside className="join-terms"><ShieldCheck size={17} aria-hidden="true" /><span><strong>Conditions</strong>{terms}</span></aside>
         </div>
       </section>
     </main>

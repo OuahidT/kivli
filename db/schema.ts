@@ -47,7 +47,7 @@ export const programs = sqliteTable(
     name: text("name").notNull(),
     goal: integer("goal").notNull().default(10),
     rewardText: text("reward_text").notNull(),
-    terms: text("terms").notNull().default("Une visite par jour et par client."),
+    terms: text("terms").notNull().default("Un point est accordé par achat éligible. Le commerçant peut annuler tout point attribué par erreur ou de manière frauduleuse."),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),

@@ -18,7 +18,7 @@ const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS programs (
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
     goal INTEGER NOT NULL DEFAULT 10, reward_text TEXT NOT NULL,
-    terms TEXT NOT NULL DEFAULT 'Une visite par jour et par client.', active INTEGER NOT NULL DEFAULT 1,
+    terms TEXT NOT NULL DEFAULT 'Un point est accordé par achat éligible. Le commerçant peut annuler tout point attribué par erreur ou de manière frauduleuse.', active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS employees (

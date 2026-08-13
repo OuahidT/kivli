@@ -1,9 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { ArrowRight, Check, QrCode, ScanLine, UserPlus } from "lucide-react";
 import { Brand } from "./Brand";
-
-const colors = ["#f05b3c", "#2b6e5c", "#5e45b8", "#bd7a19"];
+import { PROGRAM_COLORS } from "../lib/program-style";
 
 export function HomePage() {
   const [step, setStep] = useState<"intro" | "form">("intro");
@@ -45,7 +45,7 @@ export function HomePage() {
           <h1>Chaque visite donne envie de revenir.</h1>
           <p className="hero-lead">Crée une carte de fidélité digitale en quelques minutes. Tes clients scannent, tu tamponnes, ils reviennent.</p>
           <div className="hero-actions">
-            <button className="button button-large" onClick={() => setStep("form")}>Lancer mon programme <span aria-hidden="true">→</span></button>
+            <button className="button button-large" onClick={() => setStep("form")}>Lancer mon programme <ArrowRight size={18} aria-hidden="true" /></button>
             <a href="#comment-ca-marche" className="button button-ghost button-large">Voir comment ça marche</a>
           </div>
           <div className="trust-row">
@@ -76,16 +76,16 @@ export function HomePage() {
         <div className="shell">
           <div className="section-heading"><span className="eyebrow">Simple pour tout le monde</span><h2>Du comptoir au prochain passage.</h2></div>
           <div className="steps-grid">
-            <article><span className="step-number">01</span><div className="step-icon">▦</div><h3>Tu affiches ton QR</h3><p>À la caisse, sur une affiche ou directement sur ton téléphone.</p></article>
-            <article><span className="step-number">02</span><div className="step-icon">⌁</div><h3>Le client s’inscrit</h3><p>Un prénom suffit. Sa carte digitale apparaît immédiatement.</p></article>
-            <article><span className="step-number">03</span><div className="step-icon">✓</div><h3>Tu ajoutes un passage</h3><p>Scanne son QR personnel. La progression et la récompense sont automatiques.</p></article>
+            <article><span className="step-number">01</span><div className="step-icon"><QrCode size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Tu affiches ton QR</h3><p>À la caisse, sur une affiche ou directement sur ton téléphone.</p></article>
+            <article><span className="step-number">02</span><div className="step-icon"><UserPlus size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Le client s’inscrit</h3><p>Un prénom suffit. Sa carte digitale apparaît immédiatement.</p></article>
+            <article><span className="step-number">03</span><div className="step-icon"><ScanLine size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Tu ajoutes un passage</h3><p>Scanne son QR personnel. La progression et la récompense sont automatiques.</p></article>
           </div>
         </div>
       </section>
 
       <section className="feature-band shell">
         <div><span className="eyebrow">Pensé pour le terrain</span><h2>Tu pilotes. Tampo fait le reste.</h2><p>Ton tableau de bord garde les cartes, les passages, les récompenses et l’historique au même endroit.</p></div>
-        <div className="feature-list"><span>✓ QR unique par client</span><span>✓ Progression en temps réel</span><span>✓ Récompenses automatiques</span><span>✓ Installable sur mobile</span></div>
+        <div className="feature-list"><span><Check size={17} aria-hidden="true" />QR unique par client</span><span><Check size={17} aria-hidden="true" />Progression en temps réel</span><span><Check size={17} aria-hidden="true" />Récompenses automatiques</span><span><Check size={17} aria-hidden="true" />Installable sur mobile</span></div>
       </section>
 
       <footer className="footer"><div className="shell"><Brand light /><p>La fidélité locale, simplement.</p><a href="/merchant">Espace commerçant →</a></div></footer>
@@ -103,7 +103,7 @@ export function HomePage() {
               <div className="field-row"><label>Nom de la carte<input name="programName" defaultValue="Carte fidélité" required /></label><label>Objectif<input name="goal" type="number" min="3" max="20" defaultValue="10" required /></label></div>
               <label>Récompense<input name="rewardText" placeholder="1 boisson offerte" required /></label>
               <label>Code d’accès à 6 chiffres<input name="pin" type="password" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="••••••" required /><small>À garder pour te reconnecter au tableau de bord.</small></label>
-              <fieldset><legend>Couleur de la carte</legend><div className="color-options">{colors.map((color, index) => <label key={color} className="color-choice" style={{ backgroundColor: color }}><input type="radio" name="accentColor" value={color} defaultChecked={index === 0} /><span>{color}</span></label>)}</div></fieldset>
+              <fieldset className="color-fieldset"><legend>Style de la carte</legend><small>Choisis la couleur qui correspond le mieux à ton commerce.</small><div className="color-options">{PROGRAM_COLORS.map((color, index) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={index === 0} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset>
               {error && <p className="form-error" role="alert">{error}</p>}
               <button className="button button-large button-full" disabled={busy}>{busy ? "Création en cours…" : "Créer mon espace"}</button>
               <small className="form-note">En continuant, tu acceptes que les données de démonstration soient enregistrées pour faire fonctionner ton programme.</small>

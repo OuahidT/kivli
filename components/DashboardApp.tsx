@@ -13,6 +13,7 @@ import {
   QrCode as QrCodeIcon,
   RotateCcw,
   ScanLine,
+  ShieldCheck,
   Sparkles,
   Trophy,
   UserRoundCog,
@@ -21,6 +22,7 @@ import {
 import { Brand } from "./Brand";
 import { MerchantScanner } from "./MerchantScanner";
 import { QrCode } from "./QrCode";
+import { PROGRAM_COLORS, visibleProgramTerms } from "../lib/program-style";
 
 type DashboardData = {
   merchant: {
@@ -326,7 +328,7 @@ export function DashboardApp() {
         {tab === "program" && data.merchant.role === "owner" && (
           <div className="program-layout">
             <div className="settings-stack">
-              <form className="panel settings-form" onSubmit={saveProgram}><div className="panel-head"><div><h2>Règles du programme</h2><p>Les modifications s’appliquent aux cartes existantes.</p></div></div><div className="form-grid"><label>Nom de la carte<input name="name" defaultValue={data.program.name} required /></label><div className="field-row"><label>Passages nécessaires<input name="goal" type="number" min="3" max="20" defaultValue={data.program.goal} /></label><label>Récompense<input name="rewardText" defaultValue={data.program.rewardText} required /></label></div><label>Conditions<textarea name="terms" defaultValue={data.program.terms} rows={3} /></label><button className="button button-large" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer"}</button></div></form>
+              <form className="panel settings-form" onSubmit={saveProgram}><div className="panel-head"><div><h2>Personnaliser le programme</h2><p>Les modifications s’appliquent immédiatement aux cartes existantes.</p></div></div><div className="form-grid"><label>Nom de la carte<input name="name" defaultValue={data.program.name} required /></label><div className="field-row"><label>Passages nécessaires<input name="goal" type="number" min="3" max="20" defaultValue={data.program.goal} /></label><label>Récompense<input name="rewardText" defaultValue={data.program.rewardText} required /></label></div><fieldset className="color-fieldset program-colors"><legend>Couleur de la carte</legend><small>Cette couleur personnalise la carte et la page d’inscription.</small><div className="color-options">{PROGRAM_COLORS.map((color) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={data.merchant.accentColor.toLowerCase() === color.value} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset><label>Conditions affichées au client<textarea name="terms" defaultValue={visibleProgramTerms(data.program.terms)} rows={4} maxLength={200} /><small>Ce texte apparaît désormais sous le QR personnel de chaque carte.</small></label><button className="button button-large" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button></div></form>
               <section className="panel security-panel">
                 <div className="panel-head"><div><h2>Sécurité du propriétaire</h2><p>Les accès individuels des employés se gèrent dans l’onglet Mon équipe.</p></div></div>
                 <form className="form-grid owner-pin-form" onSubmit={(event) => updateSecurity(event, "change_owner_pin")}>
@@ -336,7 +338,7 @@ export function DashboardApp() {
                 </form>
               </section>
             </div>
-            <div className="panel program-preview"><span className="eyebrow">Aperçu client</span><div className="mini-loyalty"><small>{data.program.name.toUpperCase()}</small><h3>Encore {data.program.goal} passages.</h3><div>{Array.from({ length: Math.min(data.program.goal, 10) }, (_, index) => <span key={index}>{index + 1}</span>)}</div><p><span>Récompense</span><b>{data.program.rewardText}</b></p></div><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="text-link">Ouvrir la page d’inscription ↗</a></div>
+            <div className="panel program-preview"><span className="eyebrow"><Sparkles size={15} aria-hidden="true" />Aperçu client</span><div className="mini-loyalty mini-loyalty-modern"><div className="mini-card-head"><span>{data.merchant.businessName.slice(0, 1)}</span><div><small>CARTE FIDÉLITÉ</small><strong>{data.merchant.businessName}</strong></div></div><span className="mini-card-kicker">{data.program.name}</span><h3>Encore {data.program.goal} passages.</h3><div className="mini-card-stamps">{Array.from({ length: Math.min(data.program.goal, 10) }, (_, index) => <span key={index}>{index + 1}</span>)}</div><p><span><Gift size={16} aria-hidden="true" />Récompense</span><b>{data.program.rewardText}</b></p></div><p className="preview-terms"><ShieldCheck size={16} aria-hidden="true" />{visibleProgramTerms(data.program.terms)}</p><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="button button-ghost preview-open">Ouvrir la page d’inscription<ExternalLink size={16} aria-hidden="true" /></a></div>
           </div>
         )}
         {tab === "team" && data.merchant.role === "owner" && (

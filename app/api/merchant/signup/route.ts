@@ -2,6 +2,7 @@ import { ensureSchema, getD1 } from "../../../../db";
 import { createPinHash, createSession } from "../../../../lib/auth";
 import { cleanText, isHexColor, jsonError, readJson, safeApiError, validEmail } from "../../../../lib/http";
 import { makeCode, makeId, slugify } from "../../../../lib/ids";
+import { DEFAULT_PROGRAM_TERMS } from "../../../../lib/program-style";
 
 type SignupPayload = {
   businessName?: string;
@@ -43,8 +44,8 @@ export async function POST(request: Request) {
         "INSERT INTO merchants (id, business_name, slug, email, pin_hash, accent_color) VALUES (?, ?, ?, ?, ?, ?)",
       ).bind(merchantId, businessName, slug, email, pinHash, accentColor),
       db.prepare(
-        "INSERT INTO programs (id, merchant_id, name, goal, reward_text) VALUES (?, ?, ?, ?, ?)",
-      ).bind(programId, merchantId, programName, goal, rewardText),
+        "INSERT INTO programs (id, merchant_id, name, goal, reward_text, terms) VALUES (?, ?, ?, ?, ?, ?)",
+      ).bind(programId, merchantId, programName, goal, rewardText, DEFAULT_PROGRAM_TERMS),
     ]);
 
     const cookie = await createSession(merchantId, request.url);
