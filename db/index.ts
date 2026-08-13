@@ -72,6 +72,16 @@ const schemaStatements = [
     window_started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, locked_until TEXT,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS merchant_admin_state (
+    merchant_id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'active',
+    internal_note TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_by TEXT NOT NULL DEFAULT ''
+  )`,
+  `CREATE TABLE IF NOT EXISTS admin_audit_log (
+    id TEXT PRIMARY KEY, admin_email TEXT NOT NULL, action TEXT NOT NULL,
+    merchant_id TEXT, details_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_slug ON merchants(slug)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_email ON merchants(email)`,
   `CREATE INDEX IF NOT EXISTS idx_employees_merchant ON employees(merchant_id)`,
@@ -90,6 +100,9 @@ const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_stamp_reward_links_stamp ON stamp_reward_links(stamp_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_reward_links_reward ON stamp_reward_links(reward_id)`,
   `CREATE INDEX IF NOT EXISTS idx_login_attempts_updated ON login_attempts(updated_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_admin_state_status ON merchant_admin_state(status)`,
+  `CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_admin_audit_merchant ON admin_audit_log(merchant_id, created_at)`,
   `PRAGMA optimize`,
 ];
 

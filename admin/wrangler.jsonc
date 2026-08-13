@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tampo-admin",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-13",
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tampo-production-eu",
+      "database_id": "1d784147-027b-47c1-ab03-78e5b24d73fb"
+    }
+  ]
+}

@@ -121,6 +121,14 @@ export async function POST(request: Request) {
       return jsonError("Identifiant ou code d’accès incorrect.", 401);
     }
 
+    const adminState = await queryFirst<{ status: string }>(
+      "SELECT status FROM merchant_admin_state WHERE merchant_id = ?",
+      merchant.id,
+    );
+    if (adminState?.status === "suspended") {
+      return jsonError("Ce compte est temporairement suspendu. Contacte l’assistance Tampo.", 403);
+    }
+
     await ensureSchema();
     const cleanup = [
       getD1().prepare("DELETE FROM login_attempts WHERE key_hash IN (?, ?)").bind(networkKey, accountKey),

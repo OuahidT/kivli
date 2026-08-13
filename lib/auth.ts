@@ -110,9 +110,11 @@ export async function getMerchant(request: Request): Promise<MerchantIdentity | 
        es.employee_id AS employeeId, e.display_name AS employeeName
      FROM merchant_sessions s
      JOIN merchants m ON m.id = s.merchant_id
+     LEFT JOIN merchant_admin_state mas ON mas.merchant_id = m.id
      LEFT JOIN employee_sessions es ON es.session_id = s.id
      LEFT JOIN employees e ON e.id = es.employee_id AND e.merchant_id = m.id AND e.active = 1
      WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP
+       AND COALESCE(mas.status, 'active') = 'active'
        AND (s.role = 'owner' OR (s.role = 'employee' AND e.id IS NOT NULL))`,
     tokenHash,
   );

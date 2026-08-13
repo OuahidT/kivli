@@ -189,3 +189,31 @@ export const loginAttempts = sqliteTable(
   },
   (table) => [index("idx_login_attempts_updated").on(table.updatedAt)],
 );
+
+export const merchantAdminState = sqliteTable(
+  "merchant_admin_state",
+  {
+    merchantId: text("merchant_id").primaryKey(),
+    status: text("status").notNull().default("active"),
+    internalNote: text("internal_note").notNull().default(""),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedBy: text("updated_by").notNull().default(""),
+  },
+  (table) => [index("idx_admin_state_status").on(table.status)],
+);
+
+export const adminAuditLog = sqliteTable(
+  "admin_audit_log",
+  {
+    id: text("id").primaryKey(),
+    adminEmail: text("admin_email").notNull(),
+    action: text("action").notNull(),
+    merchantId: text("merchant_id"),
+    detailsJson: text("details_json").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("idx_admin_audit_created").on(table.createdAt),
+    index("idx_admin_audit_merchant").on(table.merchantId, table.createdAt),
+  ],
+);
