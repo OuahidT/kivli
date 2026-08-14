@@ -575,3 +575,43 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .loyalty-progress { grid-template-columns: 1fr auto; }
   .loyalty-progress > span { grid-column: 1 / 3; }
 }
+
+
+/* Employee accounts are intentionally reduced to one focused scanning screen. */
+@media (max-width: 760px) {
+  .employee-dashboard { min-height: 100dvh; padding-bottom: 0; }
+  .employee-dashboard .dashboard-main { padding: 0 13px calc(18px + env(safe-area-inset-bottom)); }
+  .employee-dashboard .dashboard-top {
+    min-height: calc(62px + env(safe-area-inset-top));
+    margin-bottom: 10px;
+    padding-top: calc(7px + env(safe-area-inset-top));
+    padding-bottom: 7px;
+  }
+  .employee-dashboard .dashboard-context { max-width: 70vw; margin-bottom: 1px; font-size: 9px; }
+  .employee-dashboard .dashboard-top h1 { max-width: 70vw; font-size: 22px; }
+  .employee-dashboard .logout-quick { width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 0; }
+  .employee-dashboard .scan-layout { margin: 0; }
+  .employee-dashboard .scan-layout > div > h2 { margin: 0 0 4px; font-size: clamp(25px, 7.2vw, 30px); line-height: 1.02; }
+  .employee-dashboard .scan-layout > div > p { margin: 0 0 10px; font-size: 12px; line-height: 1.35; }
+  .employee-dashboard .scanner-card { padding: 10px; border-radius: 18px; }
+  .employee-dashboard .quantity-picker { margin-bottom: 9px; padding: 9px 10px; }
+  .employee-dashboard .quantity-picker button { width: 38px; height: 38px; border-radius: 10px; }
+  .employee-dashboard .quantity-picker > div:last-child { grid-template-columns: 38px 38px 38px; }
+  .employee-dashboard .camera-frame { aspect-ratio: 16 / 9; margin-bottom: 9px; border-radius: 13px; }
+  .employee-dashboard .scan-corners { inset: 15% 27%; }
+  .employee-dashboard .camera-button { min-height: 46px; border-radius: 12px; }
+  .employee-dashboard .scanner-help { margin: 8px 2px; padding: 9px 10px; }
+  .employee-dashboard .or-divider { height: 28px; }
+  .employee-dashboard .manual-code { margin-bottom: 0; }
+  .employee-dashboard .manual-code label { margin-bottom: 6px; font-size: 12px; }
+  .employee-dashboard .manual-code input,
+  .employee-dashboard .manual-code button { min-height: 44px; }
+  .employee-dashboard .toast { bottom: 15px; }
+}
+
+@media (max-width: 390px) {
+  .employee-dashboard .dashboard-context,
+  .employee-dashboard .dashboard-top h1 { max-width: 67vw; }
+  .employee-dashboard .quantity-picker small { display: none; }
+  .employee-dashboard .camera-frame { aspect-ratio: 16 / 8.7; }
+}
