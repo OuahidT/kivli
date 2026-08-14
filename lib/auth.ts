@@ -1,7 +1,7 @@
 import { queryFirst } from "../db";
 import { makeId, sha256 } from "./ids";
 
-const COOKIE_NAME = "tampo_session";
+const COOKIE_NAME = "kivli_session";
 const SESSION_DAYS = 30;
 
 export type MerchantIdentity = {
@@ -16,10 +16,6 @@ export type MerchantIdentity = {
 };
 
 const PIN_ITERATIONS = 100_000;
-
-export async function hashPin(merchantId: string, pin: string) {
-  return sha256(`tampo:${merchantId}:${pin}`);
-}
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -53,11 +49,8 @@ export async function createPinHash(pin: string) {
   return `pbkdf2$${PIN_ITERATIONS}$${bytesToHex(salt)}$${bytesToHex(derived)}`;
 }
 
-export async function verifyPin(merchantId: string, pin: string, storedHash: string) {
-  if (!storedHash.startsWith("pbkdf2$")) {
-    const legacy = await hashPin(merchantId, pin);
-    return safeEqual(new TextEncoder().encode(legacy), new TextEncoder().encode(storedHash));
-  }
+export async function verifyPin(pin: string, storedHash: string) {
+  if (!storedHash.startsWith("pbkdf2$")) return false;
   const [, iterationValue, saltValue, expectedValue] = storedHash.split("$");
   const iterations = Number(iterationValue);
   const salt = hexToBytes(saltValue ?? "");

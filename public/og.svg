@@ -1,0 +1,53 @@
+<svg width="1536" height="1024" viewBox="0 0 1536 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1536" height="1024" fill="#f4f1e9"/>
+  <circle cx="144" cy="94" r="270" fill="#fffdf9" fill-opacity=".7"/>
+  <rect x="885" y="-75" width="750" height="1174" rx="160" transform="rotate(5 885 -75)" fill="#f05b3c"/>
+  <g transform="translate(108 100)">
+    <g transform="rotate(-3 40 40)">
+      <rect width="80" height="80" rx="24" fill="#171714"/>
+      <rect x="25" y="37" width="9" height="23" rx="4.5" fill="#f05b3c"/>
+      <rect x="36" y="23" width="9" height="37" rx="4.5" fill="#f05b3c"/>
+      <rect x="47" y="31" width="9" height="29" rx="4.5" fill="#f05b3c"/>
+    </g>
+    <text x="104" y="59" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="58" font-weight="800" letter-spacing="-2">Kivli</text>
+  </g>
+  <text x="108" y="350" fill="#d8462b" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" letter-spacing="3">LA FIDÉLITÉ, SIMPLEMENT.</text>
+  <text x="108" y="430" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="800" letter-spacing="-4">Créez une</text>
+  <text x="108" y="505" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="800" letter-spacing="-4">habitude, pas</text>
+  <text x="108" y="580" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="800" letter-spacing="-4">juste une carte.</text>
+  <text x="108" y="700" fill="#5f5b53" font-family="Arial, Helvetica, sans-serif" font-size="27">Carte digitale, scan, récompenses</text>
+  <text x="108" y="741" fill="#5f5b53" font-family="Arial, Helvetica, sans-serif" font-size="27">et suivi client, dans un seul outil.</text>
+  <g transform="translate(928 120) rotate(3 245 390)">
+    <rect width="490" height="780" rx="62" fill="#171714"/>
+    <rect x="18" y="18" width="454" height="744" rx="48" fill="#fffaf2"/>
+    <text x="60" y="92" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="800">Atelier Nova</text>
+    <rect x="60" y="126" width="122" height="30" rx="15" fill="#f05b3c" fill-opacity=".13"/>
+    <text x="77" y="147" fill="#d8462b" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" letter-spacing="1">CARTE PRIVILÈGE</text>
+    <text x="60" y="235" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800" letter-spacing="-2">Encore 2 passages,</text>
+    <text x="60" y="282" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800" letter-spacing="-2">Léa.</text>
+    <g fill="#f05b3c">
+      <circle cx="95" cy="390" r="27"/><circle cx="163" cy="390" r="27"/><circle cx="231" cy="390" r="27"/>
+      <circle cx="299" cy="390" r="27"/><circle cx="367" cy="390" r="27"/><circle cx="95" cy="458" r="27"/>
+    </g>
+    <g fill="none" stroke="#cec8bd" stroke-width="3">
+      <circle cx="163" cy="458" r="27"/><circle cx="231" cy="458" r="27"/>
+    </g>
+    <g fill="white" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="800" text-anchor="middle">
+      <text x="95" y="397">✓</text><text x="163" y="397">✓</text><text x="231" y="397">✓</text>
+      <text x="299" y="397">✓</text><text x="367" y="397">✓</text><text x="95" y="465">✓</text>
+    </g>
+    <line x1="60" y1="555" x2="430" y2="555" stroke="#d9d3c8"/>
+    <text x="60" y="603" fill="#77726a" font-family="Arial, Helvetica, sans-serif" font-size="16">Prochaine récompense</text>
+    <text x="60" y="642" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="800">Un avantage au choix</text>
+    <rect x="56" y="690" width="378" height="1" fill="#e1dbd0"/>
+    <text x="60" y="724" fill="#77726a" font-family="Arial, Helvetica, sans-serif" font-size="15">Progression mise à jour en temps réel</text>
+  </g>
+  <g transform="translate(810 690) rotate(-3 0 0)">
+    <rect width="300" height="104" rx="24" fill="white"/>
+    <circle cx="52" cy="52" r="25" fill="#dff2e9"/>
+    <text x="52" y="60" fill="#2b6e5c" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="800" text-anchor="middle">✓</text>
+    <text x="92" y="45" fill="#171714" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800">Passage ajouté</text>
+    <text x="92" y="70" fill="#77726a" font-family="Arial, Helvetica, sans-serif" font-size="14">Carte mise à jour</text>
+    <text x="254" y="61" fill="#f05b3c" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800">+1</text>
+  </g>
+</svg>

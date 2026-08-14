@@ -54,7 +54,7 @@ export function CustomerCard({ code }: { code: string }) {
         </div>
 
         <div className="qr-panel">
-          <div><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />À présenter au comptoir</span><h2>Ton QR personnel</h2><p>Présente cet écran au commerçant. Le scan ajoute ton passage ou permet de remettre ta récompense.</p><div className="qr-instruction"><span>1</span>Ouvre cette carte au comptoir<i /><span>2</span>Présente le QR au commerçant</div></div>
+          <div><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />À présenter sur place</span><h2>Ton QR personnel</h2><p>Présente cet écran au professionnel. Le scan ajoute ton passage ou permet de remettre ta récompense.</p><div className="qr-instruction"><span>1</span>Ouvre cette carte lors de ta visite<i /><span>2</span>Présente le QR à l’équipe</div></div>
           <div className="qr-box"><QrCode value={`${window.location.origin}/c/${card.code}`} size={210} label={`QR personnel de ${card.firstName}`} /><code>{card.code}</code></div>
         </div>
 

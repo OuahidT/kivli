@@ -39,7 +39,7 @@ export function JoinProgram({ slug }: { slug: string }) {
       setBusy(false);
       return;
     }
-    window.localStorage.setItem(`tampo-card-${slug}`, result.code);
+    window.localStorage.setItem(`kivli-card-${slug}`, result.code);
     window.location.href = `/c/${result.code}`;
   }
 

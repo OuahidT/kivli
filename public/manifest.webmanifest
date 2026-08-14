@@ -1,11 +1,24 @@
 {
-  "name": "Tampo — Fidélité digitale",
-  "short_name": "Tampo",
-  "description": "Cartes de fidélité digitales pour commerces de proximité.",
+  "name": "Kivli — La fidélité, simplement",
+  "short_name": "Kivli",
+  "description": "Carte digitale, scan, récompenses et suivi client pour tous les commerces et professionnels.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f3f0e8",
   "theme_color": "#f05b3c",
   "lang": "fr",
-  "icons": []
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
 }

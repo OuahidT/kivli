@@ -1,6 +1,12 @@
-const CACHE = "tampo-shell-v1";
-self.addEventListener("install", (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(["/"]))));
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+const CACHE = "kivli-shell-v1";
+self.addEventListener("install", (event) => event.waitUntil(
+  caches.open(CACHE).then((cache) => cache.addAll(["/"])).then(() => self.skipWaiting()),
+));
+self.addEventListener("activate", (event) => event.waitUntil(
+  caches.keys()
+    .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+    .then(() => self.clients.claim()),
+));
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || new URL(request.url).pathname.startsWith("/api/")) return;

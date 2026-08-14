@@ -217,3 +217,30 @@ export const adminAuditLog = sqliteTable(
     index("idx_admin_audit_merchant").on(table.merchantId, table.createdAt),
   ],
 );
+
+export const adminSessions = sqliteTable(
+  "admin_sessions",
+  {
+    id: text("id").primaryKey(),
+    adminEmail: text("admin_email").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_admin_sessions_token").on(table.tokenHash),
+    index("idx_admin_sessions_expires").on(table.expiresAt),
+  ],
+);
+
+export const adminLoginAttempts = sqliteTable(
+  "admin_login_attempts",
+  {
+    keyHash: text("key_hash").primaryKey(),
+    failedCount: integer("failed_count").notNull().default(0),
+    windowStartedAt: text("window_started_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    lockedUntil: text("locked_until"),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("idx_admin_login_updated").on(table.updatedAt)],
+);

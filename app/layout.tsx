@@ -12,14 +12,15 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const base = new URL(`${protocol}://${host}`);
-  const title = "Tampo — La fidélité qui fait revenir";
-  const description = "Créez une carte de fidélité digitale en quelques minutes. QR client, passages, récompenses et tableau de bord.";
+  const title = "Kivli — Créez une habitude, pas juste une carte";
+  const description = "Carte digitale, scan, récompenses et suivi client : Kivli simplifie la fidélité pour tous les commerces et professionnels.";
   return {
     metadataBase: base,
-    title: { default: title, template: "%s · Tampo" },
+    title: { default: title, template: "%s · Kivli" },
     description,
     manifest: "/manifest.webmanifest",
-    openGraph: { title, description, type: "website", images: [{ url: new URL("/og.png", base), width: 1536, height: 1024, alt: "Tampo — La fidélité qui fait revenir" }] },
+    icons: { icon: "/favicon.svg", apple: "/icon.svg" },
+    openGraph: { title, description, type: "website", images: [{ url: new URL("/og.png", base), width: 1536, height: 1024, alt: "Kivli — Créez une habitude, pas juste une carte" }] },
     twitter: { card: "summary_large_image", title, description, images: [new URL("/og.png", base)] },
   };
 }

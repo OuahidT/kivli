@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 const workerUrl = new URL("../dist/server/index.js", import.meta.url);
 workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
 const workerPromise = import(workerUrl.href).then((module) => module.default);
 
-test("publishes the Tampo product routes", async () => {
+test("publishes the Kivli product routes", async () => {
   const worker = await workerPromise;
   const response = await worker.fetch(
     new Request("http://localhost/", { headers: { accept: "text/html", host: "localhost" } }),
@@ -15,8 +15,8 @@ test("publishes the Tampo product routes", async () => {
   );
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /Tampo/);
-  assert.match(html, /La fidélité qui fait revenir/);
+  assert.match(html, /Kivli/);
+  assert.match(html, /Créez une habitude, pas juste une carte/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
@@ -33,7 +33,7 @@ test("publishes individual employee access and protected stamp controls", async 
     );
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.match(html, /Tampo/);
+    assert.match(html, /Kivli/);
   }
 
   const [employeesRoute, stampRoute, undoRoute, dashboard] = await Promise.all([
@@ -48,4 +48,28 @@ test("publishes individual employee access and protected stamp controls", async 
   assert.match(undoRoute, /employee_actions/);
   assert.match(undoRoute, /-5 minutes/);
   assert.match(dashboard, /item\.id === "scan"/);
+});
+
+test("contains no retired brand in active source", async () => {
+  const root = new URL("../", import.meta.url);
+  const retiredBrand = [116, 97, 109, 112, 111].map((code) => String.fromCharCode(code)).join("");
+  const forbidden = new RegExp(retiredBrand, "i");
+  const ignored = new Set([".git", ".next", "dist", "node_modules"]);
+  const textExtensions = /\.(?:css|html|js|json|jsonc|md|mjs|sql|svg|ts|tsx|yaml|yml)$/i;
+  const violations = [];
+
+  async function scan(directory, relative = "") {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (ignored.has(entry.name)) continue;
+      const nextRelative = relative ? `${relative}/${entry.name}` : entry.name;
+      const nextUrl = new URL(`${nextRelative}${entry.isDirectory() ? "/" : ""}`, root);
+      if (entry.isDirectory()) await scan(nextUrl, nextRelative);
+      else if (textExtensions.test(entry.name) && forbidden.test(await readFile(nextUrl, "utf8"))) {
+        violations.push(nextRelative);
+      }
+    }
+  }
+
+  await scan(root);
+  assert.deepEqual(violations, []);
 });

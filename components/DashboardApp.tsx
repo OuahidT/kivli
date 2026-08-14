@@ -300,7 +300,7 @@ export function DashboardApp() {
         <Brand />
         <div className="merchant-pill"><span>{data.merchant.businessName.slice(0, 1)}</span><div><strong>{data.merchant.businessName}</strong><small>{data.merchant.role === "employee" ? `${data.merchant.employeeName} · Employé` : "Accès propriétaire"}</small></div></div>
         <nav>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><Icon className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" />{item.label}</button>; })}</nav>
-        <div className="sidebar-foot"><button onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Tampo · version pilote</small></div>
+        <div className="sidebar-foot"><button onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Kivli · version pilote</small></div>
       </aside>
 
       <section className="dashboard-main">

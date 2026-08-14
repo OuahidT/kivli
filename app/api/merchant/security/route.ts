@@ -32,7 +32,7 @@ export async function PATCH(request: Request) {
       `SELECT pin_hash AS pinHash FROM merchants WHERE id = ?`,
       merchant.id,
     );
-    if (!security || !(await verifyPin(merchant.id, currentPin, security.pinHash))) {
+    if (!security || !(await verifyPin(currentPin, security.pinHash))) {
       return jsonError("Le code propriétaire actuel est incorrect.", 401);
     }
 
@@ -41,7 +41,7 @@ export async function PATCH(request: Request) {
 
     if (action === "change_owner_pin") {
       if (!/^\d{6}$/.test(newPin)) return jsonError("Le nouveau code doit contenir 6 chiffres.");
-      if (await verifyPin(merchant.id, newPin, security.pinHash)) {
+      if (await verifyPin(newPin, security.pinHash)) {
         return jsonError("Choisis un nouveau code différent de l’ancien.");
       }
       await db.batch([

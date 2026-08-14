@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tampo",
+  "name": "kivli",
   "compatibility_date": "2026-08-13",
   "compatibility_flags": [
     "nodejs_compat"
@@ -14,8 +14,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "tampo-production-eu",
-      "database_id": "1d784147-027b-47c1-ab03-78e5b24d73fb",
+      "database_name": "kivli-production-eu",
+      "database_id": "2294e62a-ebce-4514-b440-36fbd3569363",
       "migrations_dir": "drizzle"
     }
   ],

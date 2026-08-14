@@ -1,7 +1,19 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { ArrowRight, Check, QrCode, ScanLine, UserPlus } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  Check,
+  Gift,
+  History,
+  QrCode,
+  ScanLine,
+  ShieldCheck,
+  Sparkles,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { Brand } from "./Brand";
 import { PROGRAM_COLORS } from "../lib/program-style";
 
@@ -41,12 +53,12 @@ export function HomePage() {
 
       <section className="hero shell">
         <div className="hero-copy">
-          <span className="eyebrow">La fidélité, sans carte à perdre</span>
-          <h1>Chaque visite donne envie de revenir.</h1>
-          <p className="hero-lead">Crée une carte de fidélité digitale en quelques minutes. Tes clients scannent, tu tamponnes, ils reviennent.</p>
+          <span className="eyebrow">La fidélité digitale pour tous les commerces</span>
+          <h1>Créez une habitude, pas juste une carte.</h1>
+          <p className="hero-lead">Kivli réunit carte digitale, scan, récompenses et suivi client dans un outil simple pour les commerces et professionnels du quotidien.</p>
           <div className="hero-actions">
-            <button className="button button-large" onClick={() => setStep("form")}>Lancer mon programme <ArrowRight size={18} aria-hidden="true" /></button>
-            <a href="#comment-ca-marche" className="button button-ghost button-large">Voir comment ça marche</a>
+            <button className="button button-large" onClick={() => setStep("form")}>Créer mon programme <ArrowRight size={18} aria-hidden="true" /></button>
+            <a href="#produit" className="button button-ghost button-large">Voir le produit</a>
           </div>
           <div className="trust-row">
             <span><b>0 €</b> pour commencer</span>
@@ -55,58 +67,102 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="hero-visual" aria-label="Aperçu d’une carte fidélité Tampo">
+        <div className="hero-visual" aria-label="Aperçu de la carte digitale et du suivi Kivli">
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />
           <div className="phone-card">
             <div className="phone-top"><span>9:41</span><span>● ● ●</span></div>
             <div className="demo-card">
-              <div className="demo-card-head"><span className="mini-logo">M</span><span>Maison Moka</span></div>
-              <div><small>CARTE CAFÉ</small><h3>Plus que 2 visites, Léa.</h3></div>
-              <div className="stamp-grid" aria-label="8 visites sur 10">
-                {Array.from({ length: 10 }, (_, index) => <span key={index} className={index < 8 ? "filled" : ""}>{index < 8 ? "✓" : index + 1}</span>)}
+              <div className="demo-card-head"><span className="mini-logo">A</span><span>Atelier Nova</span><i><Sparkles size={11} aria-hidden="true" /> Active</i></div>
+              <div><small>CARTE PRIVILÈGE</small><h3>Encore 2 passages, Léa.</h3></div>
+              <div className="stamp-grid" aria-label="6 passages sur 8">
+                {Array.from({ length: 8 }, (_, index) => <span key={index} className={index < 6 ? "filled" : ""}>{index < 6 ? "✓" : index + 1}</span>)}
               </div>
-              <div className="reward-line"><span>Ta récompense</span><strong>1 boisson offerte</strong></div>
+              <div className="reward-line"><span>Prochaine récompense</span><strong>Un avantage au choix</strong></div>
             </div>
-            <div className="demo-note"><span>✓</span><div><b>Passage ajouté</b><small>Ta carte est à jour</small></div><strong>+1</strong></div>
+            <div className="demo-note"><span>✓</span><div><b>Passage ajouté</b><small>Progression mise à jour</small></div><strong>+1</strong></div>
           </div>
+          <div className="hero-stat"><BarChart3 size={18} aria-hidden="true" /><span><b>128</b><small>passages suivis</small></span></div>
         </div>
       </section>
 
       <section className="steps-section" id="comment-ca-marche">
         <div className="shell">
-          <div className="section-heading"><span className="eyebrow">Simple pour tout le monde</span><h2>Du comptoir au prochain passage.</h2></div>
+          <div className="section-heading"><span className="eyebrow">Simple à chaque étape</span><h2>Du premier scan à la prochaine récompense.</h2></div>
           <div className="steps-grid">
-            <article><span className="step-number">01</span><div className="step-icon"><QrCode size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Tu affiches ton QR</h3><p>À la caisse, sur une affiche ou directement sur ton téléphone.</p></article>
-            <article><span className="step-number">02</span><div className="step-icon"><UserPlus size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Le client s’inscrit</h3><p>Un prénom suffit. Sa carte digitale apparaît immédiatement.</p></article>
-            <article><span className="step-number">03</span><div className="step-icon"><ScanLine size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Tu ajoutes un passage</h3><p>Scanne son QR personnel. La progression et la récompense sont automatiques.</p></article>
+            <article><span className="step-number">01</span><div className="step-icon"><QrCode size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Vous partagez votre QR</h3><p>Sur place, sur une affiche, dans un message ou directement depuis votre écran.</p></article>
+            <article><span className="step-number">02</span><div className="step-icon"><UserPlus size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Le client crée sa carte</h3><p>Quelques secondes suffisent. Sa carte digitale et son QR personnel sont prêts.</p></article>
+            <article><span className="step-number">03</span><div className="step-icon"><ScanLine size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Votre équipe suit les passages</h3><p>Un scan met à jour la progression, l’historique et les récompenses disponibles.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section className="product-section shell" id="produit">
+        <div className="section-heading product-heading">
+          <span className="eyebrow">Le produit, sans détour</span>
+          <h2>Chaque écran a un rôle clair.</h2>
+          <p>Le client garde sa carte. L’équipe scanne. Le responsable pilote. Tout le monde voit uniquement ce dont il a besoin.</p>
+        </div>
+        <div className="product-grid">
+          <article className="product-shot product-shot-card">
+            <div className="product-shot-head"><span><QrCode size={18} aria-hidden="true" /></span><div><small>CARTE CLIENT</small><strong>Une progression toujours accessible</strong></div></div>
+            <div className="mini-progress"><div><b>6</b><span>/ 8 passages</span></div><i><i /></i><strong>75%</strong></div>
+            <div className="mini-stamps">{Array.from({ length: 8 }, (_, index) => <span key={index} className={index < 6 ? "filled" : ""}>{index < 6 ? "✓" : index + 1}</span>)}</div>
+            <p><Gift size={17} aria-hidden="true" />Un avantage au choix</p>
+          </article>
+
+          <article className="product-shot product-shot-scan">
+            <div className="product-shot-head"><span><ScanLine size={18} aria-hidden="true" /></span><div><small>SCAN</small><strong>Un passage validé en un geste</strong></div></div>
+            <div className="scan-preview"><i /><i /><i /><i /><QrCode size={70} strokeWidth={1.25} aria-hidden="true" /></div>
+            <div className="scan-success"><Check size={16} aria-hidden="true" /><span><strong>Carte reconnue</strong><small>Prête à recevoir 1 point</small></span></div>
+          </article>
+
+          <article className="product-shot product-shot-dashboard">
+            <div className="product-shot-head"><span><BarChart3 size={18} aria-hidden="true" /></span><div><small>TABLEAU DE BORD</small><strong>L’activité utile, au même endroit</strong></div></div>
+            <div className="metric-preview"><span><small>Clients</small><b>48</b></span><span><small>Passages</small><b>128</b></span><span><small>Récompenses</small><b>14</b></span></div>
+            <div className="history-preview"><span><History size={15} aria-hidden="true" />Historique récent</span><i /><i /><i /></div>
+          </article>
+
+          <article className="product-shot product-shot-team">
+            <div className="product-shot-head"><span><Users size={18} aria-hidden="true" /></span><div><small>ESPACE ÉQUIPE</small><strong>Le bon accès pour chaque rôle</strong></div></div>
+            <div className="team-preview"><span>Y</span><div><strong>Yas · Équipe</strong><small>Scanner et annuler ses propres actions</small></div><i>Actif</i></div>
+            <p><ShieldCheck size={17} aria-hidden="true" />Les données clients restent réservées au responsable.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="sector-section">
+        <div className="shell">
+          <span className="eyebrow">Une fidélité qui s’adapte à votre activité</span>
+          <div className="sector-list" aria-label="Activités compatibles avec Kivli">
+            <span>Boutiques</span><span>Beauté</span><span>Restauration</span><span>Sport</span><span>Services</span><span>Commerces locaux</span>
           </div>
         </div>
       </section>
 
       <section className="feature-band shell">
-        <div><span className="eyebrow">Pensé pour le terrain</span><h2>Tu pilotes. Tampo fait le reste.</h2><p>Ton tableau de bord garde les cartes, les passages, les récompenses et l’historique au même endroit.</p></div>
-        <div className="feature-list"><span><Check size={17} aria-hidden="true" />QR unique par client</span><span><Check size={17} aria-hidden="true" />Progression en temps réel</span><span><Check size={17} aria-hidden="true" />Récompenses automatiques</span><span><Check size={17} aria-hidden="true" />Installable sur mobile</span></div>
+        <div><span className="eyebrow">Kivli — La fidélité, simplement.</span><h2>Vous gardez le lien. Kivli garde le rythme.</h2><p>Cartes, passages, récompenses, historique et accès équipe restent réunis dans un outil lisible sur mobile comme sur ordinateur.</p></div>
+        <div className="feature-list"><span><Check size={17} aria-hidden="true" />QR unique par client</span><span><Check size={17} aria-hidden="true" />Progression en temps réel</span><span><Check size={17} aria-hidden="true" />Récompenses automatiques</span><span><Check size={17} aria-hidden="true" />Accès équipe limité</span></div>
       </section>
 
-      <footer className="footer"><div className="shell"><Brand light /><p>La fidélité locale, simplement.</p><a href="/merchant">Espace commerçant →</a></div></footer>
+      <footer className="footer"><div className="shell"><Brand light /><p>La fidélité, simplement.</p><a href="/merchant">Espace commerçant →</a></div></footer>
 
       {step === "form" && (
         <div className="modal-backdrop" role="presentation">
           <section className="signup-modal" role="dialog" aria-modal="true" aria-labelledby="signup-title">
             <button className="modal-close" aria-label="Fermer" onClick={() => setStep("intro")}>×</button>
-            <span className="eyebrow">Ton espace en 2 minutes</span>
-            <h2 id="signup-title">Crée ton premier programme.</h2>
-            <p>Tu pourras tout modifier ensuite depuis ton tableau de bord.</p>
+            <span className="eyebrow">Votre espace en 2 minutes</span>
+            <h2 id="signup-title">Créez votre premier programme.</h2>
+            <p>Vous pourrez tout modifier ensuite depuis votre tableau de bord.</p>
             <form onSubmit={submit} className="form-grid">
-              <label>Nom du commerce<input name="businessName" placeholder="Maison Moka" required /></label>
-              <label>E-mail professionnel<input name="email" type="email" placeholder="bonjour@maisonmoka.fr" required /></label>
-              <div className="field-row"><label>Nom de la carte<input name="programName" defaultValue="Carte fidélité" required /></label><label>Objectif<input name="goal" type="number" min="3" max="20" defaultValue="10" required /></label></div>
-              <label>Récompense<input name="rewardText" placeholder="1 boisson offerte" required /></label>
-              <label>Code d’accès à 6 chiffres<input name="pin" type="password" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="••••••" required /><small>À garder pour te reconnecter au tableau de bord.</small></label>
-              <fieldset className="color-fieldset"><legend>Style de la carte</legend><small>Choisis la couleur qui correspond le mieux à ton commerce.</small><div className="color-options">{PROGRAM_COLORS.map((color, index) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={index === 0} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset>
+              <label>Nom du commerce<input name="businessName" placeholder="Atelier Nova" required /></label>
+              <label>E-mail professionnel<input name="email" type="email" placeholder="bonjour@ateliernova.fr" required /></label>
+              <div className="field-row"><label>Nom de la carte<input name="programName" defaultValue="Carte fidélité" required /></label><label>Objectif<input name="goal" type="number" min="3" max="20" defaultValue="8" required /></label></div>
+              <label>Récompense<input name="rewardText" placeholder="Un avantage au choix" required /></label>
+              <label>Code d’accès à 6 chiffres<input name="pin" type="password" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="••••••" required /><small>À conserver pour vous reconnecter au tableau de bord.</small></label>
+              <fieldset className="color-fieldset"><legend>Style de la carte</legend><small>Choisissez la couleur qui correspond le mieux à votre activité.</small><div className="color-options">{PROGRAM_COLORS.map((color, index) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={index === 0} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset>
               {error && <p className="form-error" role="alert">{error}</p>}
               <button className="button button-large button-full" disabled={busy}>{busy ? "Création en cours…" : "Créer mon espace"}</button>
-              <small className="form-note">En continuant, tu acceptes que les données de démonstration soient enregistrées pour faire fonctionner ton programme.</small>
+              <small className="form-note">En continuant, vous acceptez que les données nécessaires soient enregistrées pour faire fonctionner votre programme.</small>
             </form>
           </section>
         </div>

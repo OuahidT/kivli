@@ -121,7 +121,7 @@ export function MerchantScanner({ onDetected, busy }: { onDetected: (code: strin
   return (
     <div className="scanner-card">
       <div className="quantity-picker">
-        <div><strong>Nombre de points</strong><small>Un point par menu ou achat</small></div>
+        <div><strong>Nombre de points</strong><small>Un point par visite ou achat éligible</small></div>
         <div><button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={busy || cameraOpen || quantity === 1} aria-label="Retirer un point"><Minus size={19} aria-hidden="true" /></button><output>{quantity}</output><button type="button" onClick={() => setQuantity((value) => Math.min(10, value + 1))} disabled={busy || cameraOpen || quantity === 10} aria-label="Ajouter un point"><Plus size={19} aria-hidden="true" /></button></div>
       </div>
       <div className={`camera-frame ${cameraOpen ? "active" : ""}`}>

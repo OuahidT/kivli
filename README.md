@@ -1,4 +1,4 @@
-# Tampo
+# Kivli
 
 MVP SaaS de fidélité digitale multi-commerçants.
 

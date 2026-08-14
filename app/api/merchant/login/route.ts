@@ -1,5 +1,5 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
-import { createPinHash, createSession, verifyPin } from "../../../../lib/auth";
+import { createSession, verifyPin } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError, validEmail } from "../../../../lib/http";
 import { sha256 } from "../../../../lib/ids";
 
@@ -28,7 +28,7 @@ function asDate(value: string | null) {
 }
 
 async function attemptKey(value: string) {
-  return sha256(`tampo-login:${value}`);
+  return sha256(`kivli-login:${value}`);
 }
 
 async function getActiveLock(keys: string[]) {
@@ -110,9 +110,9 @@ export async function POST(request: Request) {
         identifier.toUpperCase(),
       ),
     ]);
-    const ownerMatch = owner ? await verifyPin(owner.id, pin, owner.pinHash) : false;
+    const ownerMatch = owner ? await verifyPin(pin, owner.pinHash) : false;
     const employeeMatch = employee
-      ? await verifyPin(employee.employeeId, pin, employee.employeePinHash)
+      ? await verifyPin(pin, employee.employeePinHash)
       : false;
     const merchant = ownerMatch ? owner : employeeMatch ? employee : null;
     if (!merchant) {
@@ -126,19 +126,13 @@ export async function POST(request: Request) {
       merchant.id,
     );
     if (adminState?.status === "suspended") {
-      return jsonError("Ce compte est temporairement suspendu. Contacte l’assistance Tampo.", 403);
+      return jsonError("Ce compte est temporairement suspendu. Contacte l’assistance Kivli.", 403);
     }
 
     await ensureSchema();
     const cleanup = [
       getD1().prepare("DELETE FROM login_attempts WHERE key_hash IN (?, ?)").bind(networkKey, accountKey),
     ];
-    if (ownerMatch && !merchant.pinHash.startsWith("pbkdf2$")) {
-      cleanup.push(
-        getD1().prepare("UPDATE merchants SET pin_hash = ? WHERE id = ?")
-          .bind(await createPinHash(pin), merchant.id),
-      );
-    }
     await getD1().batch(cleanup);
 
     const role = ownerMatch ? "owner" : "employee";

@@ -31,7 +31,7 @@ const JSON_HEADERS = {
   "Cache-Control": "no-store, private",
 };
 
-const ADMIN_COOKIE = "__Host-tampo_admin";
+const ADMIN_COOKIE = "__Host-kivli_admin";
 const SESSION_HOURS = 12;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 let schemaReady = false;
@@ -556,7 +556,7 @@ function loginPage(): Response {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow,noarchive">
-  <title>Connexion administrateur · Tampo</title>
+  <title>Connexion administrateur · Kivli</title>
   <style nonce="${nonce}">
     :root{color-scheme:light;--ink:#17201d;--muted:#66706c;--paper:#f6f5f0;--card:#fff;--line:#e2e2da;--brand:#f05b3c;--brand-dark:#ce3f24;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     *{box-sizing:border-box}html,body{margin:0;min-width:0;overflow-x:hidden}body{min-height:100vh;background:var(--paper);color:var(--ink);display:grid;place-items:center;padding:max(22px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom))}
@@ -566,7 +566,7 @@ function loginPage(): Response {
 </head>
 <body>
   <main class="card">
-    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Tampo</span><span class="chip">Administration</span></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Kivli</span><span class="chip">Administration</span></div>
     <h1>Bienvenue.</h1>
     <p>Connectez-vous à l’espace privé de pilotage de la plateforme.</p>
     <form id="login-form">
@@ -595,7 +595,7 @@ function adminPage(identity: AdminIdentity): Response {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow,noarchive">
-  <title>Administration · Tampo</title>
+  <title>Administration · Kivli</title>
   <style nonce="${nonce}">
     :root{color-scheme:light;--ink:#17201d;--muted:#66706c;--paper:#f6f5f0;--card:#fff;--line:#e2e2da;--brand:#f05b3c;--brand-dark:#ce3f24;--green:#19734a;--green-bg:#e8f6ee;--red:#b52828;--red-bg:#fbeaea;--shadow:0 18px 60px rgba(30,39,35,.08);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);min-height:100vh}button,input,select,textarea{font:inherit}button{cursor:pointer}.shell{width:min(1220px,calc(100% - 32px));margin:0 auto;padding-bottom:64px}
@@ -610,7 +610,7 @@ function adminPage(identity: AdminIdentity): Response {
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Tampo</span><span class="admin-chip">Administration</span></div><div class="identity"><span id="admin-email"></span><button class="logout" id="logout" type="button">Se deconnecter</button></div></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Kivli</span><span class="admin-chip">Administration</span></div><div class="identity"><span id="admin-email"></span><button class="logout" id="logout" type="button">Se deconnecter</button></div></div></header>
   <main class="shell">
     <section class="hero"><div><div class="eyebrow">Pilotage de la plateforme</div><h1>Vue d'ensemble.</h1><p>Surveille les commerces, leur activite et leur acces sans exposer les donnees personnelles des clients.</p></div><button class="sync" id="refresh" type="button">Actualiser</button></section>
     <section class="metrics" aria-label="Indicateurs principaux">
@@ -706,7 +706,7 @@ export default {
       return await handleRequest(request, env);
     } catch (error) {
       if (error instanceof Response) return error;
-      console.error("Tampo Admin error", error);
+      console.error("Kivli Admin error", error);
       return json({ error: "Erreur interne de l'administration." }, 500);
     }
   },
