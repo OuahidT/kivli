@@ -1,9 +1,9 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
-import { createSession, verifyPin } from "../../../../lib/auth";
+import { createSession, verifyPassword, verifyPin } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError, validEmail } from "../../../../lib/http";
 import { sha256 } from "../../../../lib/ids";
 
-type LoginPayload = { identifier?: string; email?: string; pin?: string };
+type LoginPayload = { identifier?: string; email?: string; password?: string; pin?: string };
 type MerchantRow = {
   id: string;
   businessName: string;
@@ -70,11 +70,12 @@ export async function POST(request: Request) {
     const payload = await readJson<LoginPayload>(request);
     const identifier = cleanText(payload?.identifier ?? payload?.email, 160);
     const normalizedIdentifier = identifier.toLowerCase();
-    const pin = cleanText(payload?.pin, 12);
+    const credentialValue = payload?.password ?? payload?.pin;
+    const credential = typeof credentialValue === "string" ? credentialValue.slice(0, 128) : "";
     const identifierIsEmail = validEmail(normalizedIdentifier);
     const identifierIsCode = /^[a-z0-9-]{4,40}$/i.test(identifier);
-    if ((!identifierIsEmail && !identifierIsCode) || !/^\d{6}$/.test(pin)) {
-      return jsonError("Identifiant ou code d’accès incorrect.", 401);
+    if ((!identifierIsEmail && !identifierIsCode) || !credential) {
+      return jsonError("Identifiant ou accès incorrect.", 401);
     }
 
     const network = request.headers.get("cf-connecting-ip")
@@ -110,15 +111,15 @@ export async function POST(request: Request) {
         identifier.toUpperCase(),
       ),
     ]);
-    const ownerMatch = owner ? await verifyPin(pin, owner.pinHash) : false;
-    const employeeMatch = employee
-      ? await verifyPin(pin, employee.employeePinHash)
+    const ownerMatch = owner ? await verifyPassword(credential, owner.pinHash) : false;
+    const employeeMatch = employee && /^\d{6}$/.test(credential)
+      ? await verifyPin(credential, employee.employeePinHash)
       : false;
     const merchant = ownerMatch ? owner : employeeMatch ? employee : null;
     if (!merchant) {
       await recordFailure(networkKey, 5);
       await recordFailure(accountKey, 12);
-      return jsonError("Identifiant ou code d’accès incorrect.", 401);
+      return jsonError("Identifiant ou accès incorrect.", 401);
     }
 
     const adminState = await queryFirst<{ status: string }>(
