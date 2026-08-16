@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Download, Gift, Home, QrCode as QrCodeIcon, RefreshCw, Share2, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
+import { Check, ChevronDown, Download, Gift, Home, QrCode as QrCodeIcon, RefreshCw, Share2, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 import { Brand } from "./Brand";
 import { QrCode } from "./QrCode";
 import type { CardData } from "../lib/types";
@@ -88,6 +88,24 @@ export function CustomerCard({ code }: { code: string }) {
           </div>
           <div className="reward-line"><span className="reward-symbol"><Gift size={20} aria-hidden="true" /></span><span>Prochaine récompense</span><strong>{card.rewardText}</strong></div>
           {card.availableRewards > 0 && <div className="reward-ready"><Sparkles size={17} aria-hidden="true" />{card.availableRewards} récompense{card.availableRewards > 1 ? "s" : ""} disponible{card.availableRewards > 1 ? "s" : ""}</div>}
+
+          <div className="card-qr-mobile">
+            <div className="card-qr-mobile-copy"><span><QrCodeIcon size={14} aria-hidden="true" />À présenter</span><strong>Ton QR code</strong><small>Montre simplement cet écran à l’équipe.</small></div>
+            <div className="card-qr-mobile-box"><QrCode value={`${appOrigin}/c/${card.code}`} size={140} label={`QR code personnel de ${card.firstName}`} /><code>{card.code}</code></div>
+          </div>
+
+          <div className="card-mobile-tools">
+            <details>
+              <summary><Home size={15} aria-hidden="true" /><span>Garder ma carte</span><ChevronDown size={15} aria-hidden="true" /></summary>
+              <div className="card-mobile-tools-content">
+                <strong>Garde ta carte à portée de main</strong>
+                <p>{installCopy}</p>
+                {installEnvironment === "android" && installPrompt ? <button className="save-card-install" type="button" onClick={install}><Download size={16} aria-hidden="true" />Installer Kivli</button> : null}
+                <div><ShieldCheck size={17} aria-hidden="true" /><p><strong>Conditions du programme</strong>{terms}</p></div>
+              </div>
+            </details>
+            <small><WalletCards size={14} aria-hidden="true" />Bientôt, ta carte pourra être ajoutée à Apple Wallet et Google Wallet.</small>
+          </div>
         </div>
 
         <div className="qr-panel">
