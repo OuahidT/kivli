@@ -761,7 +761,7 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   transition: background-color .28s ease, border-color .28s ease, box-shadow .28s ease, backdrop-filter .28s ease;
 }
 .nav-inner { min-height: 82px; display: flex; align-items: center; justify-content: space-between; transition: min-height .28s ease; }
-.nav-scrolled { background: rgba(247,245,239,.96); border-color: rgba(215,211,201,.8); box-shadow: 0 12px 34px rgba(27,24,18,.08); backdrop-filter: blur(20px) saturate(1.12); -webkit-backdrop-filter: blur(20px) saturate(1.12); }
+.nav-scrolled { background: #f7f5ef; border-color: rgba(215,211,201,.8); box-shadow: 0 12px 34px rgba(27,24,18,.08); backdrop-filter: blur(20px) saturate(1.12); -webkit-backdrop-filter: blur(20px) saturate(1.12); }
 .nav-scrolled .nav-inner { min-height: 74px; }
 .nav-actions .button { box-shadow: 0 8px 22px rgba(23,23,20,.12); }
 .hero-copy, .hero-visual { animation: hero-enter .65s cubic-bezier(.22,.8,.25,1) both; }
@@ -909,11 +909,19 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 .sector-list { margin-top: 18px; }
 .feature-band { margin: 38px auto 72px; padding: 58px 64px; border: 1px solid rgba(218,215,207,.88); border-radius: 28px; background: rgba(255,255,255,.5); box-shadow: 0 18px 55px rgba(30,27,20,.045); }
 
-@media (min-width: 761px) and (max-width: 1040px) {
+@media (min-width: 761px) and (max-width: 860px) {
   .hero { grid-template-columns: 1fr; gap: 34px; padding-top: 72px; text-align: center; }
   .hero-copy h1, .hero-lead { margin-inline: auto; }
   .hero-actions, .trust-row { justify-content: center; }
   .hero-visual { min-height: 570px; }
+}
+
+@media (min-width: 861px) and (max-width: 1040px) {
+  .hero { min-height: 720px; grid-template-columns: minmax(0, 1.06fr) minmax(285px, .94fr); align-items: center; gap: 28px; padding-block: 52px 66px; }
+  .hero-copy h1 { font-size: clamp(54px, 6vw, 63px); }
+  .hero-lead { font-size: 17px; }
+  .hero-visual { min-height: 550px; }
+  .phone-card { width: 285px; }
 }
 
 @media (max-width: 899px) {
