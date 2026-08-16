@@ -1093,3 +1093,139 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 @media (prefers-reduced-motion: reduce) {
   .hero-copy, .hero-visual, .public-state-loading { animation: none!important; }
 }
+
+/* Authenticated experience refinement */
+.owner-logout-quick { display: none; }
+
+.table-empty-onboarding {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.table-empty-onboarding > span {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--merchant) 11%, #fff);
+  color: var(--merchant);
+}
+.table-empty-onboarding strong { color: var(--ink); font-size: 16px; }
+.table-empty-onboarding p { margin: 0 0 6px; line-height: 1.5; }
+
+.save-card-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 18px 19px;
+  border: 1px solid #dedbd2;
+  border-radius: 18px;
+  background: rgba(255,255,255,.76);
+  box-shadow: 0 12px 32px rgba(27,24,18,.04);
+  color: var(--muted);
+}
+.save-card-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--merchant) 11%, #fff);
+  color: var(--merchant);
+}
+.save-card-panel > div { min-width: 0; }
+.save-card-panel strong { display: block; margin: 1px 0 5px; color: var(--ink); font-size: 13px; }
+.save-card-panel p { margin: 0; font-size: 11px; line-height: 1.55; }
+.save-card-panel p strong { display: inline; margin: 0; font-size: inherit; }
+.save-card-panel small {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid #e8e4db;
+  color: #817d74;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.save-card-panel small svg { flex: 0 0 auto; color: var(--merchant); }
+.save-card-install {
+  min-height: 39px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--ink);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (min-width: 1181px) {
+  .customer-wrap .loyalty-card { grid-row: 1 / 5; }
+  .save-card-panel { grid-column: 2; }
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .customer-panel { overflow: visible; border: 0; background: transparent; box-shadow: none; }
+  .customer-panel .panel-head { padding: 0; }
+  .customer-table { display: grid; gap: 12px; overflow: visible; }
+  .table-head { display: none; }
+  .table-row {
+    min-width: 0;
+    padding: 18px;
+    border: 1px solid #e2dfd7;
+    border-radius: 18px;
+    background: #fff;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px 18px;
+    box-shadow: 0 8px 24px rgba(29,26,20,.04);
+  }
+  .table-row > span { min-width: 0; }
+  .table-row > span[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 5px;
+    color: #858179;
+    font-size: 9px;
+    font-weight: 780;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .customer-name { grid-column: 1 / -1; padding-bottom: 14px; border-bottom: 1px solid #eeece6; }
+  .row-actions { grid-column: 1 / -1; justify-content: flex-start; padding-top: 2px; }
+  .save-card-panel, .card-terms, .card-footnote { grid-column: 1; }
+}
+
+@media (max-width: 760px) {
+  .owner-logout-quick {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(28,26,21,.05);
+  }
+  .save-card-panel { margin-top: 12px; padding: 16px; border-radius: 17px; }
+  .save-card-panel + .card-terms { margin-top: 12px; }
+  .save-card-panel strong { font-size: 13px; }
+  .save-card-panel p { font-size: 11px; }
+  .loyalty-title > span { color: rgba(255,255,255,.72); }
+}
+
+@media (max-width: 390px) {
+  .dashboard-actions { gap: 5px; }
+  .owner-logout-quick { width: 42px; min-width: 42px; height: 42px; min-height: 42px; }
+  .save-card-panel { gap: 11px; padding: 15px; }
+  .save-card-icon { width: 37px; height: 37px; flex-basis: 37px; }
+}
