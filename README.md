@@ -2,16 +2,15 @@
 
 MVP SaaS de fidélité digitale multi-commerçants.
 
-## Infrastructure cible
+## Infrastructure de production
 
-- code source privé sur GitHub ;
-- application déployée sur Cloudflare Workers ;
-- base relationnelle Cloudflare D1 créée avec juridiction UE ;
+- code source privé sur GitHub, branche `main` ;
+- application déployée sur Cloudflare Worker :
+  <https://kivli.ouahid-taileb.workers.dev> ;
+- administration déployée sur un Worker séparé :
+  <https://kivli-admin.ouahid-taileb.workers.dev> ;
+- base relationnelle `kivli-production-eu` sur Cloudflare D1 avec juridiction UE ;
 - aucun service Supabase ou Vercel.
-
-La branche `main` conserve l'import exact de la version 6 de ChatGPT Sites.
-La préparation de la production Cloudflare se fait sur la branche
-`migration/cloudflare-workers` jusqu'à la validation complète.
 
 ## Développement
 
@@ -23,9 +22,7 @@ pnpm run dev
 pnpm run build
 ```
 
-Le binding D1 attendu par l'application s'appelle `DB`. L'identifiant nul dans
-`wrangler.jsonc` est volontaire : il sera remplacé par l'identifiant réel de la
-nouvelle base D1 européenne avant tout déploiement.
+Le binding D1 utilisé par l'application et l'administration s'appelle `DB`.
 
 ## Déploiement
 
@@ -34,4 +31,5 @@ pnpm run deploy
 ```
 
 Le déploiement ne doit être lancé qu'après création de la base D1, application
-des migrations, import des données et contrôle d'intégrité.
+des migrations et contrôle d'intégrité. Les deux Workers sont également reliés
+à GitHub pour redéployer automatiquement la branche `main`.
