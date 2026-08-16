@@ -683,14 +683,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
     padding-top: calc(7px + env(safe-area-inset-top));
     padding-bottom: 7px;
   }
-  .employee-dashboard .dashboard-context { max-width: 70vw; margin-bottom: 1px; font-size: 9px; }
-  .employee-dashboard .dashboard-top h1 { max-width: 70vw; font-size: 22px; }
+  .employee-dashboard .dashboard-top > div:first-child { min-width: 0; flex: 1; }
+  .employee-dashboard .dashboard-context { width: 100%; max-width: none; margin-bottom: 1px; font-size: 9px; }
+  .employee-dashboard .dashboard-top h1 { width: 100%; max-width: none; font-size: 22px; }
   .employee-dashboard .logout-quick { width: 42px; min-width: 42px; height: 42px; min-height: 42px; padding: 0; }
+  .employee-dashboard .scan-layout,
+  .employee-dashboard .scan-layout > div,
+  .employee-dashboard .scanner-card { min-width: 0; width: 100%; max-width: 100%; }
   .employee-dashboard .scan-layout { margin: 0; }
   .employee-dashboard .scan-layout > div > h2 { margin: 0 0 4px; font-size: clamp(25px, 7.2vw, 30px); line-height: 1.02; }
   .employee-dashboard .scan-layout > div > p { margin: 0 0 10px; font-size: 12px; line-height: 1.35; }
   .employee-dashboard .scanner-card { padding: 10px; border-radius: 18px; }
-  .employee-dashboard .quantity-picker { margin-bottom: 9px; padding: 9px 10px; }
+  .employee-dashboard .quantity-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto; margin-bottom: 9px; padding: 9px 10px; }
+  .employee-dashboard .quantity-picker > div:first-child { min-width: 0; }
+  .employee-dashboard .quantity-picker small { display: none; }
   .employee-dashboard .quantity-picker button { width: 38px; height: 38px; border-radius: 10px; }
   .employee-dashboard .quantity-picker > div:last-child { grid-template-columns: 38px 38px 38px; }
   .employee-dashboard .camera-frame { aspect-ratio: 16 / 9; margin-bottom: 9px; border-radius: 13px; }
@@ -706,9 +712,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 @media (max-width: 390px) {
-  .employee-dashboard .dashboard-context,
-  .employee-dashboard .dashboard-top h1 { max-width: 67vw; }
-  .employee-dashboard .quantity-picker small { display: none; }
   .employee-dashboard .camera-frame { aspect-ratio: 16 / 8.7; }
 }
 
