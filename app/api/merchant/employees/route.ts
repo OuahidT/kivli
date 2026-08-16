@@ -8,7 +8,6 @@ type EmployeePayload = {
   employeeId?: string;
   displayName?: string;
   email?: string;
-  pin?: string;
   active?: boolean;
 };
 
@@ -18,8 +17,14 @@ type EmployeeRow = {
   email: string | null;
   loginCode: string;
   active: number;
+  mustChangePin: number;
   createdAt: string;
 };
+
+function generateTemporaryPin() {
+  const value = crypto.getRandomValues(new Uint32Array(1))[0];
+  return String(100000 + (value % 900000));
+}
 
 async function revokeEmployeeSessions(employeeId: string) {
   const db = getD1();
@@ -39,7 +44,7 @@ export async function GET(request: Request) {
     const { queryAll } = await import("../../../../db");
     const employees = await queryAll<EmployeeRow>(
       `SELECT id, display_name AS displayName, email, login_code AS loginCode,
-        active, created_at AS createdAt
+        active, must_change_pin AS mustChangePin, created_at AS createdAt
        FROM employees WHERE merchant_id = ? ORDER BY active DESC, display_name`,
       merchant.id,
     );
@@ -58,10 +63,8 @@ export async function POST(request: Request) {
     const payload = await readJson<EmployeePayload>(request);
     const displayName = cleanText(payload?.displayName, 60);
     const email = cleanText(payload?.email, 160).toLowerCase();
-    const pin = cleanText(payload?.pin, 12);
     if (displayName.length < 2) return jsonError("Indique le prénom de l’employé.");
     if (email && !validEmail(email)) return jsonError("L’adresse e-mail de l’employé est invalide.");
-    if (!/^\d{6}$/.test(pin)) return jsonError("Le code employé doit contenir 6 chiffres.");
 
     if (email) {
       const duplicate = await queryFirst<{ email: string }>(
@@ -76,13 +79,14 @@ export async function POST(request: Request) {
     const employeeId = makeId("emp");
     const prefix = slugify(displayName).replaceAll("-", "").toUpperCase().slice(0, 10) || "EQUIPE";
     const loginCode = `${prefix}-${makeCode(4)}`;
+    const temporaryPin = generateTemporaryPin();
     await ensureSchema();
     await getD1().prepare(
-      `INSERT INTO employees (id, merchant_id, display_name, email, login_code, pin_hash)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    ).bind(employeeId, merchant.id, displayName, email || null, loginCode, await createPinHash(pin)).run();
+      `INSERT INTO employees (id, merchant_id, display_name, email, login_code, pin_hash, must_change_pin)
+       VALUES (?, ?, ?, ?, ?, ?, 1)`,
+    ).bind(employeeId, merchant.id, displayName, email || null, loginCode, await createPinHash(temporaryPin)).run();
     return Response.json(
-      { employee: { id: employeeId, displayName, email: email || null, loginCode, active: 1 } },
+      { employee: { id: employeeId, displayName, email: email || null, loginCode, temporaryPin, active: 1, mustChangePin: 1 } },
       { status: 201 },
     );
   } catch (error) {
@@ -116,13 +120,12 @@ export async function PATCH(request: Request) {
     }
 
     if (payload?.action === "reset_pin") {
-      const pin = cleanText(payload.pin, 12);
-      if (!/^\d{6}$/.test(pin)) return jsonError("Le nouveau code doit contenir 6 chiffres.");
+      const temporaryPin = generateTemporaryPin();
       await getD1().prepare(
-        "UPDATE employees SET pin_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND merchant_id = ?",
-      ).bind(await createPinHash(pin), employeeId, merchant.id).run();
+        "UPDATE employees SET pin_hash = ?, must_change_pin = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND merchant_id = ?",
+      ).bind(await createPinHash(temporaryPin), employeeId, merchant.id).run();
       await revokeEmployeeSessions(employeeId);
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, temporaryPin });
     }
 
     return jsonError("Action inconnue.");
