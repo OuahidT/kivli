@@ -23,7 +23,8 @@ export function CustomerCard({ code }: { code: string }) {
   }, [code]);
 
   if (!card) return <main className="public-card-page"><div className="loading-card">{error || "Chargement de ta carte…"}</div></main>;
-  const shareUrl = typeof window === "undefined" ? `/c/${card.code}` : window.location.href;
+  const appOrigin = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? window.location.origin : "https://kivli.fr";
+  const shareUrl = `${appOrigin}/c/${card.code}`;
   const remaining = Math.max(0, card.goal - card.points);
   const progress = Math.min(100, Math.round(card.points / card.goal * 100));
   const terms = visibleProgramTerms(card.terms);
@@ -55,7 +56,7 @@ export function CustomerCard({ code }: { code: string }) {
 
         <div className="qr-panel">
           <div><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />À présenter sur place</span><h2>Ton QR personnel</h2><p>Présente cet écran au professionnel. Le scan ajoute ton passage ou permet de remettre ta récompense.</p><div className="qr-instruction"><span>1</span>Ouvre cette carte lors de ta visite<i /><span>2</span>Présente le QR à l’équipe</div></div>
-          <div className="qr-box"><QrCode value={`${window.location.origin}/c/${card.code}`} size={210} label={`QR personnel de ${card.firstName}`} /><code>{card.code}</code></div>
+          <div className="qr-box"><QrCode value={`${appOrigin}/c/${card.code}`} size={210} label={`QR personnel de ${card.firstName}`} /><code>{card.code}</code></div>
         </div>
 
         <aside className="card-terms"><span><ShieldCheck size={21} aria-hidden="true" /></span><div><strong>Conditions du programme</strong><p>{terms}</p></div></aside>

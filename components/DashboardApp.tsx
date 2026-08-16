@@ -282,7 +282,8 @@ export function DashboardApp() {
     () => data?.merchant.role === "employee" ? tabs.filter((item) => item.id === "scan") : tabs,
     [data],
   );
-  const joinUrl = data && typeof window !== "undefined" ? `${window.location.origin}/join/${data.merchant.slug}` : "";
+  const appOrigin = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") ? window.location.origin : "https://kivli.fr";
+  const joinUrl = data ? `${appOrigin}/join/${data.merchant.slug}` : "";
 
   function showEnrollmentQr() {
     setTab("overview");

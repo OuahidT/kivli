@@ -5,7 +5,8 @@ MVP SaaS de fidélité digitale multi-commerçants.
 ## Infrastructure de production
 
 - code source privé sur GitHub, branche `main` ;
-- application déployée sur Cloudflare Worker :
+- application officielle : <https://kivli.fr>, déployée sur Cloudflare Worker ;
+- ancienne adresse Worker conservée pour la compatibilité des liens existants :
   <https://kivli.ouahid-taileb.workers.dev> ;
 - administration déployée sur un Worker séparé :
   <https://kivli-admin.ouahid-taileb.workers.dev> ;

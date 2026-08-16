@@ -11,16 +11,18 @@ export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const base = new URL(`${protocol}://${host}`);
+  const isLocal = host.startsWith("localhost") || host.startsWith("127.0.0.1");
+  const base = new URL(isLocal ? `${protocol}://${host}` : "https://kivli.fr");
   const title = "Kivli — Créez une habitude, pas juste une carte";
   const description = "Carte digitale, scan, récompenses et suivi client : Kivli simplifie la fidélité pour tous les commerces et professionnels.";
   return {
     metadataBase: base,
     title: { default: title, template: "%s · Kivli" },
     description,
+    alternates: { canonical: "/" },
     manifest: "/manifest.webmanifest",
     icons: { icon: "/favicon.svg", apple: "/icon.svg" },
-    openGraph: { title, description, type: "website", images: [{ url: new URL("/og.png", base), width: 1536, height: 1024, alt: "Kivli — Créez une habitude, pas juste une carte" }] },
+    openGraph: { title, description, type: "website", url: new URL("/", base), images: [{ url: new URL("/og.png", base), width: 1536, height: 1024, alt: "Kivli — Créez une habitude, pas juste une carte" }] },
     twitter: { card: "summary_large_image", title, description, images: [new URL("/og.png", base)] },
   };
 }
