@@ -6,13 +6,17 @@ const SESSION_DAYS = 30;
 
 export type MerchantIdentity = {
   id: string;
+  firstName: string;
+  lastName: string;
   businessName: string;
   slug: string;
   email: string;
+  phone: string | null;
   accentColor: string;
   role: "owner" | "employee";
   employeeId: string | null;
   employeeName: string | null;
+  employeeMustChangePin: number;
 };
 
 const PIN_ITERATIONS = 100_000;
@@ -33,8 +37,8 @@ function safeEqual(left: Uint8Array, right: Uint8Array) {
   return difference === 0;
 }
 
-async function derivePin(pin: string, salt: Uint8Array, iterations: number) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveBits"]);
+async function deriveSecret(secret: string, salt: Uint8Array, iterations: number) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveBits"]);
   const result = await crypto.subtle.deriveBits(
     { name: "PBKDF2", hash: "SHA-256", salt: salt as BufferSource, iterations },
     key,
@@ -43,21 +47,34 @@ async function derivePin(pin: string, salt: Uint8Array, iterations: number) {
   return new Uint8Array(result);
 }
 
-export async function createPinHash(pin: string) {
+async function createSecretHash(secret: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const derived = await derivePin(pin, salt, PIN_ITERATIONS);
+  const derived = await deriveSecret(secret, salt, PIN_ITERATIONS);
   return `pbkdf2$${PIN_ITERATIONS}$${bytesToHex(salt)}$${bytesToHex(derived)}`;
 }
 
-export async function verifyPin(pin: string, storedHash: string) {
+async function verifySecret(secret: string, storedHash: string) {
   if (!storedHash.startsWith("pbkdf2$")) return false;
   const [, iterationValue, saltValue, expectedValue] = storedHash.split("$");
   const iterations = Number(iterationValue);
   const salt = hexToBytes(saltValue ?? "");
   const expected = hexToBytes(expectedValue ?? "");
   if (!salt || !expected || !Number.isInteger(iterations) || iterations < 100_000) return false;
-  return safeEqual(await derivePin(pin, salt, iterations), expected);
+  return safeEqual(await deriveSecret(secret, salt, iterations), expected);
 }
+
+export function validOwnerPassword(password: string) {
+  return password.length >= 8
+    && password.length <= 128
+    && /[A-Z]/.test(password)
+    && /[a-z]/.test(password)
+    && /[0-9]/.test(password);
+}
+
+export const createPinHash = createSecretHash;
+export const verifyPin = verifySecret;
+export const createPasswordHash = createSecretHash;
+export const verifyPassword = verifySecret;
 
 function readCookie(request: Request, name: string) {
   const raw = request.headers.get("cookie") ?? "";
@@ -98,9 +115,12 @@ export async function getMerchant(request: Request): Promise<MerchantIdentity | 
   if (!token) return null;
   const tokenHash = await sha256(token);
   return queryFirst<MerchantIdentity>(
-    `SELECT m.id, m.business_name AS businessName, m.slug, m.email, m.accent_color AS accentColor,
+    `SELECT m.id, m.first_name AS firstName, m.last_name AS lastName,
+       m.business_name AS businessName, m.slug, m.email, m.phone,
+       m.accent_color AS accentColor,
        CASE WHEN s.role = 'employee' THEN 'employee' ELSE 'owner' END AS role,
-       es.employee_id AS employeeId, e.display_name AS employeeName
+       es.employee_id AS employeeId, e.display_name AS employeeName,
+       COALESCE(e.must_change_pin, 0) AS employeeMustChangePin
      FROM merchant_sessions s
      JOIN merchants m ON m.id = s.merchant_id
      LEFT JOIN merchant_admin_state mas ON mas.merchant_id = m.id
