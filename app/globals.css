@@ -913,7 +913,8 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .hero { grid-template-columns: 1fr; gap: 34px; padding-top: 72px; text-align: center; }
   .hero-copy h1, .hero-lead { margin-inline: auto; }
   .hero-actions, .trust-row { justify-content: center; }
-  .hero-visual { min-height: 570px; }
+  .hero-visual { min-height: 550px; }
+  .phone-card { width: 290px; }
 }
 
 @media (min-width: 861px) and (max-width: 1040px) {
