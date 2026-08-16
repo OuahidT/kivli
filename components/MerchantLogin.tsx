@@ -46,10 +46,10 @@ export function MerchantLogin() {
         <section className="auth-card auth-card-merchant">
           <span className="eyebrow">Espace commerçant</span>
           <h1>Content de te revoir.</h1>
-          <p>Propriétaire ou employé : connecte-toi avec l’accès qui t’a été attribué.</p>
+          <p>Propriétaire : utilise ton mot de passe. Employé : utilise ton identifiant et ton code PIN.</p>
           <form onSubmit={submit} className="form-grid">
             <label><span className="field-title"><UserRound size={15} aria-hidden="true" />E-mail ou identifiant employé</span><input name="identifier" type="text" autoComplete="username" autoCapitalize="none" required /></label>
-            <label><span className="field-title"><LockKeyhole size={15} aria-hidden="true" />Code d’accès</span><input name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required /></label>
+            <label><span className="field-title"><LockKeyhole size={15} aria-hidden="true" />Mot de passe ou PIN employé</span><input name="password" type="password" autoComplete="current-password" maxLength={128} required /><small>Le PIN employé contient 6 chiffres.</small></label>
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="button button-large button-full" disabled={busy}>{busy ? "Connexion…" : <>Ouvrir mon espace<ArrowRight size={18} aria-hidden="true" /></>}</button>
           </form>
