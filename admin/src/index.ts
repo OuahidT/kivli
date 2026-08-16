@@ -113,7 +113,7 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 function validateNewPassword(password: string): string | null {
-  if (password.length < 12) return "Le mot de passe doit contenir au moins 12 caractères.";
+  if (password.length < 10) return "Le mot de passe doit contenir au moins 10 caractères.";
   if (password.length > 200) return "Le mot de passe est trop long.";
   if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
     return "Ajoutez une majuscule, une minuscule, un chiffre et un symbole.";
@@ -874,7 +874,7 @@ function loginPage(): Response {
       <form id="confirm-form">
         <label class="field"><span>Code à 6 chiffres</span><input class="input code" id="reset-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></label>
         <label class="field"><span>Nouveau mot de passe</span><input class="input" id="new-password" type="password" autocomplete="new-password" minlength="12" required></label>
-        <div class="hint">12 caractères minimum, avec majuscule, minuscule, chiffre et symbole.</div>
+        <div class="hint">10 caractères minimum, avec majuscule, minuscule, chiffre et symbole.</div>
         <label class="field"><span>Confirmer le mot de passe</span><input class="input" id="confirm-password" type="password" autocomplete="new-password" minlength="12" required></label>
         <button class="submit" id="confirm-submit" type="submit">Enregistrer le nouveau mot de passe</button>
         <button class="link" id="resend-code" type="button">Renvoyer un code</button>
