@@ -43,8 +43,8 @@ export function JoinProgram({ slug }: { slug: string }) {
     window.location.href = `/c/${result.code}`;
   }
 
-  if (loading) return <main className="public-card-page"><div className="loading-card">Préparation de ta carte…</div></main>;
-  if (!program) return <main className="public-card-page"><div className="empty-card"><Brand /><h1>Ce programme est introuvable.</h1><p>{error}</p></div></main>;
+  if (loading) return <main className="public-card-page"><div className="loading-card public-state"><Brand /><span className="public-state-icon public-state-loading"><QrCode size={24} aria-hidden="true" /></span><p>Préparation de ta carte…</p></div></main>;
+  if (!program) return <main className="public-card-page"><div className="empty-card public-state"><Brand /><span className="public-state-icon"><QrCode size={24} aria-hidden="true" /></span><h1>Programme introuvable.</h1><p>Ce lien n’est plus disponible ou contient une erreur.</p><a className="button" href="/">Découvrir Kivli</a></div></main>;
   const terms = visibleProgramTerms(program.terms);
 
   return (

@@ -22,7 +22,8 @@ export function CustomerCard({ code }: { code: string }) {
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Carte introuvable."));
   }, [code]);
 
-  if (!card) return <main className="public-card-page"><div className="loading-card">{error || "Chargement de ta carte…"}</div></main>;
+  if (!card && !error) return <main className="public-card-page"><div className="loading-card public-state"><Brand /><span className="public-state-icon public-state-loading"><RefreshCw size={23} aria-hidden="true" /></span><p>Chargement de ta carte…</p></div></main>;
+  if (!card) return <main className="public-card-page"><div className="empty-card public-state"><Brand /><span className="public-state-icon"><QrCodeIcon size={24} aria-hidden="true" /></span><h1>Carte introuvable.</h1><p>Vérifie le lien ou demande un nouveau QR à ton commerçant.</p><a className="button" href="/">Revenir à Kivli</a></div></main>;
   const appOrigin = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? window.location.origin : "https://kivli.fr";
   const shareUrl = `${appOrigin}/c/${card.code}`;
   const remaining = Math.max(0, card.goal - card.points);
