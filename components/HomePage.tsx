@@ -6,6 +6,7 @@ import {
   BarChart3,
   Check,
   Gift,
+  House,
   History,
   QrCode,
   ScanLine,
@@ -21,6 +22,14 @@ export function HomePage() {
   const [step, setStep] = useState<"intro" | "form">("intro");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [navScrolled, setNavScrolled] = useState(false);
+
+  useEffect(() => {
+    const updateNavigation = () => setNavScrolled(window.scrollY > 18);
+    updateNavigation();
+    window.addEventListener("scroll", updateNavigation, { passive: true });
+    return () => window.removeEventListener("scroll", updateNavigation);
+  }, []);
 
   useEffect(() => {
     if (step !== "form") return;
@@ -57,11 +66,13 @@ export function HomePage() {
 
   return (
     <main>
-      <nav className="nav shell">
-        <Brand />
-        <div className="nav-actions">
-          <a href="/merchant" className="text-link">Se connecter</a>
-          <button className="button button-small nav-cta" onClick={() => setStep("form")}><span>Créer mon programme</span></button>
+      <nav className={`nav${navScrolled ? " nav-scrolled" : ""}`}>
+        <div className="nav-inner shell">
+          <Brand />
+          <div className="nav-actions">
+            <a href="/merchant" className="text-link">Se connecter</a>
+            <button className="button button-small nav-cta" onClick={() => setStep("form")}><span>Créer mon programme</span></button>
+          </div>
         </div>
       </nav>
 
@@ -85,19 +96,29 @@ export function HomePage() {
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />
           <div className="phone-card iphone-mockup">
             <img className="iphone-frame-image" src="/kivli-iphone-frame.png" alt="" aria-hidden="true" draggable="false" />
-            <div className="phone-top"><span>9:41</span><span className="phone-status" aria-hidden="true"><i className="phone-signal" /><i className="phone-wifi" /><i className="phone-battery" /></span></div>
-            <div className="demo-card">
-              <div className="demo-card-head"><span className="mini-logo">A</span><span>Atelier Nova</span><i><Sparkles size={11} aria-hidden="true" /> Active</i></div>
-              <div><small>CARTE PRIVILÈGE</small><h3>Encore 2 passages, Léa.</h3></div>
-              <div className="stamp-grid" aria-label="6 passages sur 8">
-                {Array.from({ length: 8 }, (_, index) => <span key={index} className={index < 6 ? "filled" : ""}>{index < 6 ? "✓" : index + 1}</span>)}
+            <div className="iphone-screen">
+              <div className="phone-top"><span>9:41</span><span className="phone-status" aria-hidden="true"><i className="phone-signal" /><i className="phone-wifi" /><i className="phone-battery" /></span></div>
+              <div className="kivli-app">
+                <div className="kivli-app-head">
+                  <span className="kivli-app-brand"><i className="kivli-app-mark" aria-hidden="true"><i /><i /><i /></i><b>Kivli</b></span>
+                  <span className="kivli-app-avatar">L</span>
+                </div>
+                <div className="kivli-app-greeting"><small>BONJOUR LÉA</small><h3>Ta fidélité prend forme.</h3></div>
+                <section className="kivli-app-card">
+                  <div className="kivli-app-merchant"><span>A</span><div><small>CARTE FIDÉLITÉ</small><strong>Atelier Nova</strong></div><i><Sparkles size={10} aria-hidden="true" />Active</i></div>
+                  <div className="kivli-app-progress"><span><b>6</b> / 8 passages</span><strong>75%</strong></div>
+                  <div className="kivli-app-progressbar"><i /></div>
+                  <div className="kivli-app-stamps" aria-label="6 passages sur 8">
+                    {Array.from({ length: 8 }, (_, index) => <span key={index} className={index < 6 ? "filled" : ""}>{index < 6 ? "✓" : index + 1}</span>)}
+                  </div>
+                  <div className="kivli-app-reward"><span><Gift size={15} aria-hidden="true" /></span><div><small>PROCHAINE RÉCOMPENSE</small><strong>Un avantage au choix</strong></div></div>
+                </section>
+                <div className="kivli-app-latest"><span><Check size={14} aria-hidden="true" /></span><div><small>AUJOURD’HUI, 12:42</small><strong>Passage ajouté</strong></div><b>+1</b></div>
               </div>
-              <div className="reward-line"><span>Prochaine récompense</span><strong>Un avantage au choix</strong></div>
+              <div className="kivli-app-tabs" aria-hidden="true"><span className="active"><House size={14} />Accueil</span><span><QrCode size={14} />Carte</span><span><Gift size={14} />Cadeaux</span></div>
+              <div className="home-indicator" aria-hidden="true" />
             </div>
-            <div className="demo-note"><span>✓</span><div><b>Passage ajouté</b><small>Progression mise à jour</small></div><strong>+1</strong></div>
-            <div className="home-indicator" aria-hidden="true" />
           </div>
-          <div className="hero-stat"><BarChart3 size={18} aria-hidden="true" /><span><b>128</b><small>passages suivis</small></span></div>
         </div>
       </section>
 
