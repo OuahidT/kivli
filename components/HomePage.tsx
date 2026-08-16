@@ -84,8 +84,7 @@ export function HomePage() {
         <div className="hero-visual" aria-label="Aperçu de la carte digitale et du suivi Kivli">
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />
           <div className="phone-card iphone-mockup">
-            <i className="phone-button phone-mute" aria-hidden="true" /><i className="phone-button phone-volume-up" aria-hidden="true" /><i className="phone-button phone-volume-down" aria-hidden="true" /><i className="phone-button phone-power" aria-hidden="true" />
-            <div className="dynamic-island" aria-hidden="true"><i /></div>
+            <img className="iphone-frame-image" src="/kivli-iphone-frame.png" alt="" aria-hidden="true" draggable="false" />
             <div className="phone-top"><span>9:41</span><span className="phone-status" aria-hidden="true"><i className="phone-signal" /><i className="phone-wifi" /><i className="phone-battery" /></span></div>
             <div className="demo-card">
               <div className="demo-card-head"><span className="mini-logo">A</span><span>Atelier Nova</span><i><Sparkles size={11} aria-hidden="true" /> Active</i></div>

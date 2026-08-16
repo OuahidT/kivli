@@ -763,37 +763,32 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 .feature-list span { box-shadow: 0 7px 22px rgba(30,27,20,.035); }
 .sector-list span { transition: background .18s ease, color .18s ease, transform .18s ease; }
 
-/* A physically credible, licence-free iPhone-style product mockup */
+/* User-provided iPhone mockup framing the live Kivli product preview */
 .iphone-mockup {
   position: relative;
   isolation: isolate;
-  padding: 13px 10px 22px;
-  border: 1px solid #060605;
-  background: linear-gradient(145deg, #282724 0%, #10100f 48%, #262522 100%);
-  box-shadow: 0 42px 90px rgba(24,20,16,.34), 0 0 0 1px rgba(255,255,255,.14) inset;
+  aspect-ratio: 320 / 650;
+  display: flex;
+  flex-direction: column;
+  padding: 11.5% 6.25% 6.5%;
+  overflow: hidden;
+  border: 0;
+  border-radius: 16% / 8%;
+  background: #181816;
+  box-shadow: 0 42px 90px rgba(24,20,16,.34);
 }
-.iphone-mockup::after {
-  content: "";
+.iphone-frame-image {
   position: absolute;
-  inset: 5px;
-  z-index: -1;
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 31px;
-  pointer-events: none;
-}
-.dynamic-island {
-  position: absolute;
-  z-index: 7;
-  top: 11px;
+  z-index: 20;
   left: 50%;
-  width: 78px;
-  height: 22px;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: #030303;
-  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
+  top: 50%;
+  width: 247%;
+  height: auto;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
 }
-.dynamic-island i { position: absolute; right: 8px; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #1b3150, #050608 65%); }
 .phone-top { position: relative; z-index: 6; min-height: 28px; align-items: center; padding: 2px 13px 8px; font-size: 9px; font-weight: 720; }
 .phone-status { display: flex; align-items: center; gap: 5px; }
 .phone-status i { display: block; position: relative; }
@@ -803,12 +798,8 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 .phone-battery { width: 15px; height: 8px; border: 1px solid rgba(255,255,255,.82); border-radius: 2px; }
 .phone-battery::before { content: ""; position: absolute; inset: 1px; border-radius: 1px; background: #fff; }
 .phone-battery::after { content: ""; position: absolute; right: -3px; top: 2px; width: 2px; height: 4px; border-radius: 0 2px 2px 0; background: rgba(255,255,255,.7); }
-.phone-button { position: absolute; z-index: 0; width: 4px; border-radius: 3px 0 0 3px; background: #151412; box-shadow: -1px 0 0 #3b3935; }
-.phone-mute { left: -10px; top: 76px; height: 25px; }
-.phone-volume-up { left: -10px; top: 116px; height: 48px; }
-.phone-volume-down { left: -10px; top: 174px; height: 48px; }
-.phone-power { right: -10px; top: 132px; height: 72px; border-radius: 0 3px 3px 0; box-shadow: 1px 0 0 #3b3935; }
-.iphone-mockup .demo-card { box-shadow: 0 0 0 1px rgba(255,255,255,.05); }
+.iphone-mockup .demo-card { position: relative; z-index: 2; flex: 1; min-height: 0; box-shadow: 0 0 0 1px rgba(255,255,255,.05); }
+.iphone-mockup .demo-note { z-index: 3; }
 .home-indicator { width: 82px; height: 4px; margin: 13px auto -12px; border-radius: 999px; background: rgba(255,255,255,.82); }
 .iphone-mockup { animation: phone-float 5.5s ease-in-out infinite; }
 
@@ -875,7 +866,6 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .hero-visual { min-height: 455px; overflow: visible; }
   .hero-visual::before { inset: 24px 0 16px; border-radius: 30px; transform: rotate(-2deg); }
   .phone-card { width: min(270px, calc(100vw - 58px)); }
-  .phone-button { display: none; }
   .hero-stat { right: -3px; bottom: 52px; transform: rotate(-2deg) scale(.92); }
   .steps-grid article { border-radius: 18px; }
   .signup-modal { border-radius: 24px; box-shadow: 0 30px 80px rgba(0,0,0,.36); }
