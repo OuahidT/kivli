@@ -952,6 +952,7 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .phone-card { width: min(270px, calc(100vw - 58px)); }
   .steps-grid article { border-radius: 18px; }
   .signup-modal { border-radius: 24px; box-shadow: 0 30px 80px rgba(0,0,0,.36); }
+  .signup-modal .modal-close { position: sticky; z-index: 4; top: 0; display: block; margin: 0 -4px -36px auto; background: rgba(255,253,249,.96); box-shadow: 0 7px 20px rgba(30,27,20,.09); backdrop-filter: blur(10px); }
   .auth-page { display: block; min-height: 100dvh; padding: calc(92px + env(safe-area-inset-top)) 18px 34px; }
   .auth-brand { left: 22px; top: calc(24px + env(safe-area-inset-top)); }
   .auth-shell { margin: 0 auto; }
