@@ -840,14 +840,11 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 .kivli-app-stamps span.filled { border-color: #fff; background: #fff; color: var(--orange-dark); }
 .kivli-app-reward { display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 8px; margin-top: 13px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.23); }
 .kivli-app-reward > span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9px; background: rgba(255,255,255,.15); }.kivli-app-reward > div { display: grid; gap: 2px; }.kivli-app-reward strong { font-size: 9px; }
-.kivli-app-qr { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; margin-top: 11px; padding: 9px 9px 8px 11px; border-radius: 13px; background: rgba(255,255,255,.97); color: var(--ink); box-shadow: 0 10px 24px rgba(95,30,18,.16); }
-.kivli-app-qr > div:first-child { min-width: 0; display: grid; gap: 2px; }
-.kivli-app-qr > div:first-child small { color: var(--orange-dark); font-size: 6px; font-weight: 850; letter-spacing: .11em; }
-.kivli-app-qr > div:first-child strong { font-size: 13px; letter-spacing: -.035em; }
-.kivli-app-qr > div:first-child span { max-width: 82px; color: #77736b; font-size: 6px; line-height: 1.35; }
-.kivli-app-qr > div:last-child { display: grid; justify-items: center; padding: 3px; border: 1px solid #e8e3da; border-radius: 9px; background: #fff; }
-.kivli-app-qr canvas { width: 70px!important; height: 70px!important; }
-.kivli-app-qr code { padding: 1px 0 2px; color: #77736b; font-size: 5px; font-weight: 760; letter-spacing: .08em; }
+.kivli-app-qr { position: relative; z-index: 1; display: grid; justify-items: center; gap: 4px; margin-top: 10px; }
+.kivli-app-qr > small { color: rgba(255,255,255,.73); font-size: 5.5px; font-weight: 850; letter-spacing: .12em; }
+.kivli-app-qr > div { width: 104px; height: 104px; display: grid; place-items: center; padding: 7px; border-radius: 15px; background: #fff; box-shadow: 0 11px 25px rgba(95,30,18,.19); }
+.kivli-app-qr canvas { width: 90px!important; height: 90px!important; }
+.kivli-app-qr code { color: #fff; font-size: 5px; font-weight: 800; letter-spacing: .1em; }
 .kivli-app-wallet { position: relative; z-index: 1; margin: 7px 2px 0; color: rgba(255,255,255,.68); font-size: 6px; line-height: 1.3; text-align: center; }
 .kivli-app-latest { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 9px; margin-top: 10px; padding: 10px 11px; border: 1px solid #e5e1d8; border-radius: 14px; background: rgba(255,255,255,.84); box-shadow: 0 8px 22px rgba(30,27,20,.06); }
 .kivli-app-latest > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 10px; background: #e4f3eb; color: var(--green); }.kivli-app-latest > div { display: grid; gap: 2px; }.kivli-app-latest small { color: #959189; font-size: 6px; letter-spacing: .08em; }.kivli-app-latest strong { font-size: 9px; }.kivli-app-latest > b { color: var(--orange); font-size: 13px; }
@@ -1323,37 +1320,28 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .customer-wrap .reward-ready { min-height: 34px; padding: 7px 10px; border-radius: 10px; font-size: 10px; }
 
   .card-qr-mobile {
-    height: clamp(190px, 29svh, 240px);
-    min-height: 190px;
+    height: clamp(218px, 31svh, 258px);
+    min-height: 218px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    overflow: hidden;
-    padding: 10px 11px;
-    border: 1px solid rgba(255,255,255,.65);
-    border-radius: 17px;
-    background: rgba(255,255,255,.96);
-    color: var(--ink);
-    box-shadow: 0 12px 32px rgba(18,14,10,.16);
-  }
-  .card-qr-mobile-copy { min-width: 0; display: grid; align-content: center; gap: 4px; }
-  .card-qr-mobile-copy > span { display: inline-flex; align-items: center; gap: 5px; color: var(--orange-dark); font-size: 7px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
-  .card-qr-mobile-copy > strong { font-size: clamp(18px, 5.5vw, 23px); line-height: 1; letter-spacing: -.04em; }
-  .card-qr-mobile-copy > small { max-width: 150px; color: #77736b; font-size: 9px; line-height: 1.35; }
-  .card-qr-mobile-box {
-    width: min(33vw, 132px);
-    align-self: center;
-    display: grid;
-    place-content: center;
     justify-items: center;
-    padding: 5px;
-    border: 1px solid #e6e1d8;
-    border-radius: 13px;
-    background: #fff;
+    align-content: center;
+    gap: 6px;
+    padding: 2px;
+    color: #fff;
   }
-  .card-qr-mobile-box canvas { width: min(29vw, 116px)!important; height: auto!important; }
-  .card-qr-mobile-box code { padding-top: 3px; color: #68645d; font: 7px var(--font-geist-mono), monospace; letter-spacing: .1em; }
+  .card-qr-mobile-label { display: inline-flex; align-items: center; gap: 5px; color: rgba(255,255,255,.78); font-size: 7px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+  .card-qr-mobile-box {
+    width: min(48vw, 190px);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    padding: 10px;
+    border-radius: 22px;
+    background: #fff;
+    box-shadow: 0 18px 38px rgba(82,26,16,.22);
+  }
+  .card-qr-mobile-box canvas { width: min(42vw, 166px)!important; height: auto!important; }
+  .card-qr-mobile-code { color: rgba(255,255,255,.82); font: 800 8px var(--font-geist-mono), monospace; letter-spacing: .14em; }
 
   .card-mobile-tools {
     position: relative;
@@ -1412,17 +1400,18 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .customer-wrap .loyalty-head .merchant-avatar { width: 36px; height: 36px; flex-basis: 36px; }
   .customer-wrap .loyalty-title h1 { font-size: clamp(21px, 6.6vw, 25px); }
   .customer-wrap .customer-stamps span { width: min(7.7vw, 27px); }
-  .card-qr-mobile { height: 180px; min-height: 180px; padding: 7px 9px; }
-  .card-qr-mobile-copy > small { display: none; }
-  .card-qr-mobile-box { width: min(30vw, 112px); }
-  .card-qr-mobile-box canvas { width: min(25vw, 96px)!important; }
+  .card-qr-mobile { height: 190px; min-height: 190px; }
+  .card-qr-mobile-box { width: min(38vw, 150px); border-radius: 18px; }
+  .card-qr-mobile-box canvas { width: min(33vw, 130px)!important; }
   .card-mobile-tools summary { min-height: 28px; padding-block: 5px; }
 }
 
 @media (max-width: 760px) and (max-height: 600px) {
   .customer-wrap .customer-stamps { display: none; }
   .customer-wrap .loyalty-card { grid-template-rows: repeat(6, auto); }
-  .card-qr-mobile { height: 162px; min-height: 162px; }
+  .card-qr-mobile { height: 164px; min-height: 164px; }
+  .card-qr-mobile-box { width: min(34vw, 128px); }
+  .card-qr-mobile-box canvas { width: min(29vw, 110px)!important; }
   .customer-wrap .loyalty-title > span { display: none; }
 }
 
