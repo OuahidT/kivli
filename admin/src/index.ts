@@ -41,7 +41,7 @@ const ADMIN_COOKIE = "__Host-kivli_admin";
 const SESSION_HOURS = 12;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const RESET_CODE_MINUTES = 10;
-const PASSWORD_ITERATIONS = 210_000;
+// Cloudflare Workers Web Crypto caps PBKDF2 at 100,000 iterations.\nconst PASSWORD_ITERATIONS = 100_000;
 let schemaReady = false;
 
 function json(data: unknown, status = 200): Response {
