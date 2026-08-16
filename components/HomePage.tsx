@@ -162,7 +162,7 @@ export function HomePage() {
 
           <article className="product-shot product-shot-team">
             <div className="product-shot-head"><span><Users size={18} aria-hidden="true" /></span><div><small>ESPACE ÉQUIPE</small><strong>Le bon accès pour chaque rôle</strong></div></div>
-            <div className="team-preview"><span>Y</span><div><strong>Yas · Équipe</strong><small>Scanner et annuler ses propres actions</small></div><i>Actif</i></div>
+            <div className="team-preview"><span>A</span><div><strong>Anaïs · Équipe</strong><small>Scanner et annuler ses propres actions</small></div><i>Actif</i></div>
             <p><ShieldCheck size={17} aria-hidden="true" />Les données clients restent réservées au responsable.</p>
           </article>
         </div>
