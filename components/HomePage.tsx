@@ -83,7 +83,7 @@ export function HomePage() {
           <p className="hero-lead">Kivli réunit carte digitale, scan, récompenses et suivi client dans un outil simple pour les commerces et professionnels du quotidien.</p>
           <div className="hero-actions">
             <button className="button button-large" onClick={() => setStep("form")}>Créer mon programme <ArrowRight size={18} aria-hidden="true" /></button>
-            <a href="#produit" className="button button-ghost button-large">Voir le produit</a>
+            <button type="button" className="button button-ghost button-large" onClick={() => document.getElementById("produit")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Voir le produit</button>
           </div>
           <div className="trust-row">
             <span><b>0 €</b> pour commencer</span>
@@ -114,7 +114,7 @@ export function HomePage() {
                   <div className="kivli-app-reward"><span><Gift size={15} aria-hidden="true" /></span><div><small>PROCHAINE RÉCOMPENSE</small><strong>Un avantage au choix</strong></div></div>
                 </section>
                 <div className="kivli-app-latest"><span><Check size={14} aria-hidden="true" /></span><div><small>AUJOURD’HUI, 12:42</small><strong>Passage ajouté</strong></div><b>+1</b></div>
-                <div className="kivli-app-next"><span><QrCode size={14} aria-hidden="true" /></span><div><small>MA CARTE</small><strong>Afficher mon QR</strong></div><ArrowRight size={13} aria-hidden="true" /></div>
+                <div className="kivli-app-next"><span><QrCode size={14} aria-hidden="true" /></span><div><small>MA CARTE</small><strong>Afficher mon QR code</strong></div><ArrowRight size={13} aria-hidden="true" /></div>
               </div>
               <div className="kivli-app-tabs" aria-hidden="true"><span className="active"><House size={14} />Accueil</span><span><QrCode size={14} />Carte</span><span><Gift size={14} />Cadeaux</span></div>
               <div className="home-indicator" aria-hidden="true" />
@@ -127,8 +127,8 @@ export function HomePage() {
         <div className="shell">
           <div className="section-heading"><span className="eyebrow">Simple à chaque étape</span><h2>Du premier scan à la prochaine récompense.</h2></div>
           <div className="steps-grid">
-            <article><span className="step-number">01</span><div className="step-icon"><QrCode size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Vous partagez votre QR</h3><p>Sur place, sur une affiche, dans un message ou directement depuis votre écran.</p></article>
-            <article><span className="step-number">02</span><div className="step-icon"><UserPlus size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Le client crée sa carte</h3><p>Quelques secondes suffisent. Sa carte digitale et son QR personnel sont prêts.</p></article>
+            <article><span className="step-number">01</span><div className="step-icon"><QrCode size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Vous partagez votre QR code</h3><p>Sur place, sur une affiche, dans un message ou directement depuis votre écran.</p></article>
+            <article><span className="step-number">02</span><div className="step-icon"><UserPlus size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Le client crée sa carte</h3><p>Quelques secondes suffisent. Sa carte digitale et son QR code personnel sont prêts.</p></article>
             <article><span className="step-number">03</span><div className="step-icon"><ScanLine size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Votre équipe suit les passages</h3><p>Un scan met à jour la progression, l’historique et les récompenses disponibles.</p></article>
           </div>
         </div>
@@ -179,7 +179,7 @@ export function HomePage() {
 
       <section className="feature-band shell">
         <div><span className="eyebrow">Kivli — La fidélité, simplement.</span><h2>Vous gardez le lien. Kivli garde le rythme.</h2><p>Cartes, passages, récompenses, historique et accès équipe restent réunis dans un outil lisible sur mobile comme sur ordinateur.</p></div>
-        <div className="feature-list"><span><Check size={17} aria-hidden="true" />QR unique par client</span><span><Check size={17} aria-hidden="true" />Progression en temps réel</span><span><Check size={17} aria-hidden="true" />Récompenses automatiques</span><span><Check size={17} aria-hidden="true" />Accès équipe limité</span></div>
+        <div className="feature-list"><span><Check size={17} aria-hidden="true" />QR code unique par client</span><span><Check size={17} aria-hidden="true" />Progression en temps réel</span><span><Check size={17} aria-hidden="true" />Récompenses automatiques</span><span><Check size={17} aria-hidden="true" />Accès équipe limité</span></div>
       </section>
 
       <footer className="footer"><div className="shell"><Brand light /><p>La fidélité, simplement.</p><a href="/merchant">Espace commerçant →</a></div></footer>

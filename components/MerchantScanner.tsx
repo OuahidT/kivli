@@ -48,7 +48,7 @@ export function MerchantScanner({ onDetected, busy }: { onDetected: (code: strin
     setCameraError("");
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       startingRef.current = false;
-      setCameraError("Le scan caméra n’est pas disponible ici. Saisis le code affiché sous le QR.");
+      setCameraError("Le scan caméra n’est pas disponible ici. Saisis le code affiché sous le QR code.");
       return;
     }
     try {
@@ -104,7 +104,7 @@ export function MerchantScanner({ onDetected, busy }: { onDetected: (code: strin
       if (name === "NotAllowedError" || name === "SecurityError") {
         setCameraError("La caméra est bloquée. Autorise-la dans les réglages du navigateur, puis réessaie.");
       } else if (name === "NotFoundError" || name === "OverconstrainedError") {
-        setCameraError("Aucune caméra utilisable n’a été trouvée. Saisis le code affiché sous le QR.");
+        setCameraError("Aucune caméra utilisable n’a été trouvée. Saisis le code affiché sous le QR code.");
       } else {
         setCameraError("La caméra n’a pas pu démarrer. Réessaie, ou saisis le code client manuellement.");
       }
@@ -128,13 +128,13 @@ export function MerchantScanner({ onDetected, busy }: { onDetected: (code: strin
         <video ref={videoRef} playsInline muted />
         <canvas ref={canvasRef} hidden aria-hidden="true" />
         <div className="scan-corners"><i /><i /><i /><i /></div>
-        {!cameraOpen && <div className="camera-empty"><span><ScanLine size={30} aria-hidden="true" /></span><p>Cadre le QR personnel du client</p><small>Le scan démarre dès l’ouverture</small></div>}
+        {!cameraOpen && <div className="camera-empty"><span><ScanLine size={30} aria-hidden="true" /></span><p>Cadre le QR code personnel du client</p><small>Le scan démarre dès l’ouverture</small></div>}
       </div>
       <button className="button button-large button-full camera-button" onClick={cameraOpen ? stop : start} disabled={busy}>{cameraOpen ? <X size={19} aria-hidden="true" /> : <Camera size={19} aria-hidden="true" />}{cameraOpen ? "Fermer la caméra" : "Ouvrir la caméra"}</button>
       {cameraError && <p className="scanner-help" role="alert">{cameraError}</p>}
       <div className="or-divider"><span>ou</span></div>
       <form className="manual-code" onSubmit={submit}>
-        <label htmlFor="manual-code"><Keyboard size={16} aria-hidden="true" />Code sous le QR</label>
+        <label htmlFor="manual-code"><Keyboard size={16} aria-hidden="true" />Code sous le QR code</label>
         <div><input id="manual-code" value={manual} onChange={(event) => setManual(event.target.value.toUpperCase())} placeholder="EX. 7A9K2M4P" autoCapitalize="characters" /><button className="button" disabled={busy}><Check size={17} aria-hidden="true" />Valider</button></div>
       </form>
     </div>

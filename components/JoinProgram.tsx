@@ -63,7 +63,7 @@ export function JoinProgram({ slug }: { slug: string }) {
           <Brand />
           <span className="eyebrow"><QrCode size={15} aria-hidden="true" />Carte gratuite · sans application</span>
           <h2>Crée ta carte en quelques secondes.</h2>
-          <p>Présente ensuite ton QR personnel à chaque passage.</p>
+          <p>Présente ensuite ton QR code personnel à chaque passage.</p>
           <form onSubmit={submit} className="form-grid">
             <label>Ton prénom<input name="firstName" autoComplete="given-name" placeholder="Léa" required /></label>
             <label>Ton e-mail <em>facultatif</em><input name="email" type="email" autoComplete="email" placeholder="lea@email.fr" /></label>

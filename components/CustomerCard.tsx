@@ -23,7 +23,7 @@ export function CustomerCard({ code }: { code: string }) {
   }, [code]);
 
   if (!card && !error) return <main className="public-card-page"><div className="loading-card public-state"><Brand /><span className="public-state-icon public-state-loading"><RefreshCw size={23} aria-hidden="true" /></span><p>Chargement de ta carte…</p></div></main>;
-  if (!card) return <main className="public-card-page"><div className="empty-card public-state"><Brand /><span className="public-state-icon"><QrCodeIcon size={24} aria-hidden="true" /></span><h1>Carte introuvable.</h1><p>Vérifie le lien ou demande un nouveau QR à ton commerçant.</p><a className="button" href="/">Revenir à Kivli</a></div></main>;
+  if (!card) return <main className="public-card-page"><div className="empty-card public-state"><Brand /><span className="public-state-icon"><QrCodeIcon size={24} aria-hidden="true" /></span><h1>Carte introuvable.</h1><p>Vérifie le lien ou demande un nouveau QR code à ton commerçant.</p><a className="button" href="/">Revenir à Kivli</a></div></main>;
   const appOrigin = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? window.location.origin : "https://kivli.fr";
   const shareUrl = `${appOrigin}/c/${card.code}`;
   const remaining = Math.max(0, card.goal - card.points);
@@ -56,8 +56,8 @@ export function CustomerCard({ code }: { code: string }) {
         </div>
 
         <div className="qr-panel">
-          <div><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />À présenter sur place</span><h2>Ton QR personnel</h2><p>Présente cet écran au professionnel. Le scan ajoute ton passage ou permet de remettre ta récompense.</p><div className="qr-instruction"><span>1</span>Ouvre cette carte lors de ta visite<i /><span>2</span>Présente le QR à l’équipe</div></div>
-          <div className="qr-box"><QrCode value={`${appOrigin}/c/${card.code}`} size={210} label={`QR personnel de ${card.firstName}`} /><code>{card.code}</code></div>
+          <div><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />À présenter sur place</span><h2>Ton QR code personnel</h2><p>Présente cet écran au professionnel. Le scan ajoute ton passage ou permet de remettre ta récompense.</p><div className="qr-instruction"><span>1</span>Ouvre cette carte lors de ta visite<i /><span>2</span>Présente le QR code à l’équipe</div></div>
+          <div className="qr-box"><QrCode value={`${appOrigin}/c/${card.code}`} size={210} label={`QR code personnel de ${card.firstName}`} /><code>{card.code}</code></div>
         </div>
 
         <aside className="card-terms"><span><ShieldCheck size={21} aria-hidden="true" /></span><div><strong>Conditions du programme</strong><p>{terms}</p></div></aside>
