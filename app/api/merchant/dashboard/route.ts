@@ -14,7 +14,7 @@ type CustomerRow = {
 };
 type ActivityRow = { id: string; firstName: string; delta: number; reason: string; actorName: string; createdAt: string };
 type StatsRow = { customers: number; visits: number; rewards: number };
-type EmployeeRow = { id: string; displayName: string; email: string | null; loginCode: string; active: number; createdAt: string };
+type EmployeeRow = { id: string; displayName: string; email: string | null; loginCode: string; active: number; mustChangePin: number; createdAt: string };
 
 export async function GET(request: Request) {
   try {
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
       ) : Promise.resolve({ customers: 0, visits: 0, rewards: 0 }),
       owner ? queryAll<EmployeeRow>(
         `SELECT id, display_name AS displayName, email, login_code AS loginCode,
-          active, created_at AS createdAt
+          active, must_change_pin AS mustChangePin, created_at AS createdAt
          FROM employees WHERE merchant_id = ? ORDER BY active DESC, display_name`,
         merchant.id,
       ) : Promise.resolve([]),
