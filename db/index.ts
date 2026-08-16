@@ -10,8 +10,9 @@ export function getD1(): D1Database {
 
 const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS merchants (
-    id TEXT PRIMARY KEY, business_name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE, pin_hash TEXT NOT NULL, employee_pin_hash TEXT,
+    id TEXT PRIMARY KEY, first_name TEXT NOT NULL DEFAULT '', last_name TEXT NOT NULL DEFAULT '',
+    business_name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE, phone TEXT, pin_hash TEXT NOT NULL, employee_pin_hash TEXT,
     accent_color TEXT NOT NULL DEFAULT '#f05b3c',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
@@ -24,7 +25,8 @@ const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS employees (
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, display_name TEXT NOT NULL,
     email TEXT UNIQUE, login_code TEXT NOT NULL UNIQUE, pin_hash TEXT NOT NULL,
-    active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    must_change_pin INTEGER NOT NULL DEFAULT 1, active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS customers (
@@ -121,7 +123,33 @@ const schemaStatements = [
 export async function ensureSchema() {
   if (!schemaReady) {
     const db = getD1();
-    schemaReady = db.batch(schemaStatements.map((statement) => db.prepare(statement))).then(() => undefined);
+    schemaReady = (async () => {
+      await db.batch(schemaStatements.map((statement) => db.prepare(statement)));
+      const columns = await db.prepare("PRAGMA table_info(merchants)").all<{ name: string }>();
+      const existing = new Set((columns.results ?? []).map((column) => column.name));
+      const migrations = [
+        ["first_name", "ALTER TABLE merchants ADD COLUMN first_name TEXT NOT NULL DEFAULT ''"],
+        ["last_name", "ALTER TABLE merchants ADD COLUMN last_name TEXT NOT NULL DEFAULT ''"],
+        ["phone", "ALTER TABLE merchants ADD COLUMN phone TEXT"],
+      ] as const;
+      for (const [column, statement] of migrations) {
+        if (existing.has(column)) continue;
+        try {
+          await db.prepare(statement).run();
+        } catch (error) {
+          if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+        }
+      }
+      const employeeColumns = await db.prepare("PRAGMA table_info(employees)").all<{ name: string }>();
+      const existingEmployeeColumns = new Set((employeeColumns.results ?? []).map((column) => column.name));
+      if (!existingEmployeeColumns.has("must_change_pin")) {
+        try {
+          await db.prepare("ALTER TABLE employees ADD COLUMN must_change_pin INTEGER NOT NULL DEFAULT 0").run();
+        } catch (error) {
+          if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+        }
+      }
+    })();
   }
   return schemaReady;
 }
