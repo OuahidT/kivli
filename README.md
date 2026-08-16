@@ -32,4 +32,6 @@ pnpm run deploy
 
 Le déploiement ne doit être lancé qu'après création de la base D1, application
 des migrations et contrôle d'intégrité. Les deux Workers sont également reliés
-à GitHub pour redéployer automatiquement la branche `main`.
+à GitHub pour redéployer automatiquement la branche `main` avec un jeton de
+build Kivli dédié. Les branches temporaires ne sont pas conservées après
+validation.
