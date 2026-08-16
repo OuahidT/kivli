@@ -1248,3 +1248,335 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .save-card-panel { gap: 11px; padding: 15px; }
   .save-card-icon { width: 37px; height: 37px; flex-basis: 37px; }
 }
+
+/* The mobile client card behaves like a real pass: progress, reward and QR code stay in one view. */
+.card-qr-mobile,
+.card-mobile-tools { display: none; }
+
+@media (max-width: 760px) {
+  .customer-page {
+    height: 100svh;
+    min-height: 100svh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .customer-nav {
+    width: calc(100% - 20px);
+    height: calc(60px + env(safe-area-inset-top));
+    flex: 0 0 calc(60px + env(safe-area-inset-top));
+  }
+  .customer-nav .brand { font-size: 21px; }
+  .customer-nav .brand-mark { width: 31px; height: 31px; }
+  .customer-nav .icon-button { width: 40px; height: 40px; border-radius: 13px; }
+  .customer-wrap {
+    width: calc(100% - 16px);
+    height: auto;
+    min-height: 0;
+    flex: 1;
+    margin: 0 auto;
+    padding: 0 0 max(8px, env(safe-area-inset-bottom));
+  }
+  .customer-wrap .loyalty-card {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 15px;
+    border-radius: 23px;
+    gap: 9px;
+    grid-template-rows: auto auto auto auto auto minmax(112px, 1fr) auto;
+    align-content: stretch;
+  }
+  .customer-wrap .loyalty-head { gap: 9px; }
+  .customer-wrap .loyalty-head .merchant-avatar { width: 40px; height: 40px; flex-basis: 40px; border-radius: 13px; font-size: 15px; }
+  .customer-wrap .loyalty-head > div { gap: 1px; }
+  .customer-wrap .loyalty-head > div small { font-size: 8px; }
+  .customer-wrap .loyalty-head > div strong { font-size: 13px; }
+  .customer-wrap .card-live { padding: 5px 7px; font-size: 7px; }
+  .customer-wrap .card-live svg { width: 10px; }
+  .customer-wrap .loyalty-title { align-self: auto; padding-top: 1px; }
+  .customer-wrap .loyalty-title > span { font-size: 8px; letter-spacing: .11em; }
+  .customer-wrap .loyalty-title h1 { margin-top: 4px; font-size: clamp(23px, 7vw, 29px); line-height: .98; }
+  .customer-wrap .loyalty-progress { gap: 7px; }
+  .customer-wrap .loyalty-progress > span { font-size: 8px; }
+  .customer-wrap .loyalty-progress > span b { font-size: 12px; }
+  .customer-wrap .loyalty-progress > i { height: 5px; }
+  .customer-wrap .customer-stamps { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .customer-wrap .customer-stamps span { width: min(8.2vw, 31px); min-width: 0; justify-self: start; font-size: 8px; }
+  .customer-wrap .loyalty-card-modern .reward-line { min-height: 42px; padding-top: 8px; gap: 2px 8px; }
+  .customer-wrap .loyalty-card-modern .reward-line .reward-symbol { width: 34px; height: 34px; border-radius: 11px; }
+  .customer-wrap .loyalty-card-modern .reward-line .reward-symbol svg { width: 17px; }
+  .customer-wrap .loyalty-card-modern .reward-line > span:not(.reward-symbol) { font-size: 8px; }
+  .customer-wrap .loyalty-card-modern .reward-line strong { font-size: 12px; line-height: 1.2; }
+  .customer-wrap .reward-ready { min-height: 34px; padding: 7px 10px; border-radius: 10px; font-size: 10px; }
+
+  .card-qr-mobile {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+    padding: 10px 11px;
+    border: 1px solid rgba(255,255,255,.65);
+    border-radius: 17px;
+    background: rgba(255,255,255,.96);
+    color: var(--ink);
+    box-shadow: 0 12px 32px rgba(18,14,10,.16);
+  }
+  .card-qr-mobile-copy { min-width: 0; display: grid; align-content: center; gap: 4px; }
+  .card-qr-mobile-copy > span { display: inline-flex; align-items: center; gap: 5px; color: var(--orange-dark); font-size: 7px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+  .card-qr-mobile-copy > strong { font-size: clamp(18px, 5.5vw, 23px); line-height: 1; letter-spacing: -.04em; }
+  .card-qr-mobile-copy > small { max-width: 150px; color: #77736b; font-size: 9px; line-height: 1.35; }
+  .card-qr-mobile-box {
+    width: min(33vw, 132px);
+    align-self: stretch;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    padding: 5px;
+    border: 1px solid #e6e1d8;
+    border-radius: 13px;
+    background: #fff;
+  }
+  .card-qr-mobile-box canvas { width: min(29vw, 116px)!important; height: auto!important; }
+  .card-qr-mobile-box code { padding-top: 3px; color: #68645d; font: 7px var(--font-geist-mono), monospace; letter-spacing: .1em; }
+
+  .card-mobile-tools {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+  }
+  .card-mobile-tools details { flex: 0 0 auto; }
+  .card-mobile-tools summary {
+    min-height: 31px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 9px;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 10px;
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 780;
+    list-style: none;
+    cursor: pointer;
+  }
+  .card-mobile-tools summary::-webkit-details-marker { display: none; }
+  .card-mobile-tools summary svg:last-child { transition: transform .16s ease; }
+  .card-mobile-tools details[open] { width: 100%; }
+  .card-mobile-tools details[open] summary svg:last-child { transform: rotate(180deg); }
+  .card-mobile-tools-content {
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: 13px;
+    background: #fff;
+    color: var(--muted);
+    box-shadow: 0 14px 34px rgba(20,16,12,.18);
+  }
+  .card-mobile-tools-content > strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 11px; }
+  .card-mobile-tools-content > p { margin: 0; font-size: 9px; line-height: 1.45; }
+  .card-mobile-tools-content > div { display: flex; align-items: flex-start; gap: 7px; margin-top: 10px; padding-top: 9px; border-top: 1px solid #ece8df; }
+  .card-mobile-tools-content > div > svg { flex: 0 0 auto; color: var(--merchant); }
+  .card-mobile-tools-content > div p { margin: 0; font-size: 8px; line-height: 1.4; }
+  .card-mobile-tools-content > div strong { display: block; margin-bottom: 2px; color: var(--ink); font-size: 9px; }
+  .card-mobile-tools > small { min-width: 0; display: flex; align-items: flex-start; gap: 5px; color: rgba(255,255,255,.7); font-size: 7px; line-height: 1.25; }
+  .card-mobile-tools > small svg { flex: 0 0 auto; }
+  .customer-wrap .loyalty-card:has(.card-mobile-tools details[open]) { overflow-y: auto; align-content: start; }
+
+  .customer-wrap > .qr-panel,
+  .customer-wrap > .save-card-panel,
+  .customer-wrap > .card-terms,
+  .customer-wrap > .card-footnote { display: none; }
+}
+
+@media (max-width: 760px) and (max-height: 700px) {
+  .customer-nav { height: calc(54px + env(safe-area-inset-top)); flex-basis: calc(54px + env(safe-area-inset-top)); }
+  .customer-wrap .loyalty-card { padding: 12px; gap: 6px; border-radius: 21px; }
+  .customer-wrap .loyalty-head .merchant-avatar { width: 36px; height: 36px; flex-basis: 36px; }
+  .customer-wrap .loyalty-title h1 { font-size: clamp(21px, 6.6vw, 25px); }
+  .customer-wrap .customer-stamps span { width: min(7.7vw, 27px); }
+  .card-qr-mobile { padding: 7px 9px; }
+  .card-qr-mobile-copy > small { display: none; }
+  .card-qr-mobile-box { width: min(30vw, 112px); }
+  .card-qr-mobile-box canvas { width: min(25vw, 96px)!important; }
+  .card-mobile-tools summary { min-height: 28px; padding-block: 5px; }
+}
+
+@media (max-width: 760px) and (max-height: 600px) {
+  .customer-wrap .customer-stamps { display: none; }
+  .customer-wrap .loyalty-card { grid-template-rows: auto auto auto auto minmax(102px, 1fr) auto; }
+  .customer-wrap .loyalty-title > span { display: none; }
+}
+
+/* Account-first onboarding and employee credential lifecycle */
+.program-onboarding,
+.employee-pin-setup {
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--orange) 13%, transparent), transparent 30%),
+    #f5f3ee;
+  color: var(--ink);
+}
+.onboarding-nav,
+.employee-pin-setup > header {
+  width: min(1280px, calc(100% - 48px));
+  min-height: 86px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(28,26,22,.09);
+}
+.onboarding-nav > div,
+.employee-pin-setup > header > div { display: flex; align-items: center; gap: 18px; }
+.onboarding-nav > div > span { color: var(--muted); font-size: 13px; font-weight: 720; }
+.onboarding-nav button,
+.employee-pin-setup header button {
+  border: 0;
+  background: transparent;
+  color: #6d6961;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 740;
+  cursor: pointer;
+}
+.program-onboarding-shell {
+  width: min(1180px, calc(100% - 48px));
+  min-height: calc(100svh - 86px);
+  margin: 0 auto;
+  padding: 56px 0 64px;
+  display: grid;
+  grid-template-columns: minmax(0, .88fr) minmax(460px, 1.12fr);
+  align-items: center;
+  gap: 52px;
+}
+.account-ready-card { max-width: 475px; }
+.account-ready-icon,
+.security-orb,
+.access-created-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 22px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: #fff;
+  box-shadow: 0 13px 28px rgba(25,23,19,.16);
+}
+.account-ready-card h1 { margin: 12px 0 14px; font-size: clamp(42px, 5vw, 68px); line-height: .96; letter-spacing: -.055em; }
+.account-ready-card > p { max-width: 430px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.65; }
+.account-ready-card dl {
+  margin: 30px 0;
+  padding: 9px 0;
+  border-block: 1px solid #ddd9d0;
+}
+.account-ready-card dl > div { padding: 11px 0; display: grid; grid-template-columns: 92px 1fr; gap: 14px; }
+.account-ready-card dt { color: #8a857c; font-size: 11px; font-weight: 820; letter-spacing: .08em; text-transform: uppercase; }
+.account-ready-card dd { margin: 0; font-size: 14px; font-weight: 760; overflow-wrap: anywhere; }
+.program-setup-stage {
+  min-height: 610px;
+  display: grid;
+  place-items: center;
+  padding: 38px;
+  border: 1px solid rgba(31,28,23,.08);
+  border-radius: 32px;
+  background: rgba(255,255,255,.76);
+  box-shadow: 0 28px 70px rgba(32,29,24,.08);
+  backdrop-filter: blur(16px);
+}
+.program-setup-preview { width: min(100%, 420px); }
+.setup-preview-card {
+  min-height: 360px;
+  padding: 30px;
+  border-radius: 28px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--merchant) 84%, #1c1815), var(--merchant));
+  color: #fff;
+  box-shadow: 0 26px 45px color-mix(in srgb, var(--merchant) 22%, transparent);
+}
+.setup-preview-card > span { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 15px; background: rgba(255,255,255,.17); font-size: 18px; font-weight: 850; }
+.setup-preview-card > small { display: block; margin-top: 42px; color: rgba(255,255,255,.68); font-size: 9px; font-weight: 850; letter-spacing: .12em; }
+.setup-preview-card h2 { margin: 8px 0 34px; font-size: 30px; letter-spacing: -.04em; }
+.setup-preview-card > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.setup-preview-card i { aspect-ratio: 1; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.28); border-radius: 50%; color: rgba(255,255,255,.72); font-size: 10px; font-style: normal; }
+.setup-preview-card p { margin: 32px 0 0; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.2); display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 750; }
+.program-setup-preview > p { margin: 22px 12px 0; display: flex; gap: 9px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.program-setup-preview > p svg { flex: 0 0 auto; color: var(--orange); }
+.program-setup-form { width: min(100%, 530px); display: grid; gap: 16px; }
+.program-setup-form > div:first-child { margin-bottom: 4px; }
+.program-setup-form h2 { margin: 7px 0 5px; font-size: 32px; letter-spacing: -.04em; }
+.program-setup-form > div:first-child p { margin: 0; color: var(--muted); font-size: 13px; }
+.program-setup-form label { display: grid; gap: 7px; font-size: 12px; font-weight: 780; }
+.program-setup-form input,
+.program-setup-form textarea { width: 100%; }
+.program-setup-form input:disabled { color: #77736b; background: #eeece6; cursor: not-allowed; }
+.employee-pin-note { margin: 0; padding: 13px 14px; display: flex; gap: 9px; border-radius: 13px; background: #f4f2ed; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.employee-pin-note svg { flex: 0 0 auto; color: var(--orange); }
+
+.employee-pin-setup > header { width: min(1040px, calc(100% - 48px)); }
+.employee-pin-setup > section {
+  width: min(520px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: 68px 0;
+}
+.employee-pin-setup h1 { margin: 12px 0 13px; font-size: clamp(38px, 7vw, 56px); line-height: 1; letter-spacing: -.055em; }
+.employee-pin-setup section > p { margin: 0 0 27px; color: var(--muted); font-size: 15px; line-height: 1.65; }
+.employee-pin-setup form { padding: 27px; border: 1px solid #dedbd3; border-radius: 24px; background: rgba(255,255,255,.82); box-shadow: 0 20px 55px rgba(28,25,20,.08); }
+.employee-top-actions { align-items: center; }
+.pin-change-modal,
+.employee-access-modal {
+  position: relative;
+  width: min(480px, calc(100% - 28px));
+  max-height: calc(100svh - 28px);
+  overflow: auto;
+  padding: 32px;
+  border-radius: 25px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(18,16,12,.25);
+}
+.pin-change-modal h2,
+.employee-access-modal h2 { margin: 8px 0 9px; font-size: 28px; letter-spacing: -.04em; }
+.pin-change-modal > p,
+.employee-access-modal > p { margin: 0 0 22px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.pin-change-modal .security-orb,
+.employee-access-modal .access-created-icon { width: 46px; height: 46px; margin-bottom: 18px; border-radius: 15px; }
+.temporary-access { display: grid; gap: 10px; margin: 23px 0 18px; }
+.temporary-access > span { padding: 14px 16px; border: 1px solid #e2ded5; border-radius: 14px; background: #f8f6f1; }
+.temporary-access small { display: block; margin-bottom: 5px; color: #8a857c; font-size: 9px; font-weight: 850; letter-spacing: .1em; }
+.temporary-access code { color: var(--ink); font-size: 18px; font-weight: 800; letter-spacing: .04em; overflow-wrap: anywhere; }
+.employee-access-modal > .text-link { width: 100%; margin-top: 15px; justify-content: center; }
+
+@media (max-width: 900px) {
+  .program-onboarding-shell { grid-template-columns: 1fr; gap: 34px; padding-top: 38px; }
+  .account-ready-card { max-width: 620px; }
+  .program-setup-stage { min-height: 520px; }
+}
+
+@media (max-width: 600px) {
+  .onboarding-nav,
+  .employee-pin-setup > header { width: calc(100% - 28px); min-height: 70px; }
+  .onboarding-nav > div > span { display: none; }
+  .onboarding-nav button span,
+  .employee-pin-setup header button span { display: none; }
+  .program-onboarding-shell { width: calc(100% - 28px); min-height: auto; padding: 30px 0 42px; gap: 26px; }
+  .account-ready-icon { width: 46px; height: 46px; margin-bottom: 17px; border-radius: 15px; }
+  .account-ready-card h1 { font-size: 40px; }
+  .account-ready-card > p { font-size: 14px; }
+  .account-ready-card dl { margin: 22px 0; }
+  .program-setup-stage { min-height: 0; padding: 18px; border-radius: 24px; }
+  .setup-preview-card { min-height: 320px; padding: 23px; border-radius: 23px; }
+  .setup-preview-card > small { margin-top: 34px; }
+  .program-setup-form h2 { font-size: 27px; }
+  .program-setup-form .field-row { grid-template-columns: 1fr; }
+  .employee-pin-setup > section { padding: 42px 0; }
+  .employee-pin-setup h1 { font-size: 40px; }
+  .employee-pin-setup form { padding: 20px; border-radius: 20px; }
+  .pin-change-modal,
+  .employee-access-modal { padding: 25px 20px; border-radius: 22px; }
+  .employee-top-actions .button:first-child span { display: none; }
+}
