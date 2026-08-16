@@ -27,6 +27,8 @@ import { PROGRAM_COLORS, visibleProgramTerms } from "../lib/program-style";
 type DashboardData = {
   merchant: {
     id: string;
+    firstName: string;
+    lastName: string;
     businessName: string;
     slug: string;
     email: string;
@@ -34,13 +36,16 @@ type DashboardData = {
     role: "owner" | "employee";
     employeeId: string | null;
     employeeName: string | null;
+    employeeMustChangePin: number;
   };
-  program: { id: string; name: string; goal: number; rewardText: string; terms: string; active: number };
+  program: { id: string; name: string; goal: number; rewardText: string; terms: string; active: number } | null;
   customers: Array<{ code: string; firstName: string; points: number; totalPoints: number; availableRewards: number; undoableStampId: string | null; updatedAt: string }>;
   activity: Array<{ id: string; firstName: string; delta: number; reason: string; actorName: string; createdAt: string }>;
-  employees: Array<{ id: string; displayName: string; email: string | null; loginCode: string; active: number; createdAt: string }>;
+  employees: Array<{ id: string; displayName: string; email: string | null; loginCode: string; active: number; mustChangePin: number; createdAt: string }>;
   stats: { customers: number; visits: number; rewards: number };
 };
+
+type ReadyDashboardData = DashboardData & { program: NonNullable<DashboardData["program"]> };
 
 type StampResult = {
   customer: { firstName: string; code: string; points: number; goal: number };
@@ -70,6 +75,8 @@ export function DashboardApp() {
   const [toast, setToast] = useState("");
   const [stampResult, setStampResult] = useState<StampResult | null>(null);
   const [search, setSearch] = useState("");
+  const [employeeAccess, setEmployeeAccess] = useState<{ displayName: string; loginCode: string; temporaryPin: string } | null>(null);
+  const [showEmployeePin, setShowEmployeePin] = useState(false);
   const sessionInitialized = useRef(false);
 
   const load = useCallback(async () => {
@@ -183,7 +190,7 @@ export function DashboardApp() {
 
   async function updateSecurity(
     event: FormEvent<HTMLFormElement>,
-    action: "change_owner_pin",
+    action: "change_owner_password",
   ) {
     event.preventDefault();
     setBusy(true);
@@ -197,12 +204,12 @@ export function DashboardApp() {
     const result = (await response.json()) as { error?: string; reauthenticate?: boolean };
     if (!response.ok) setError(result.error ?? "Accès non modifié.");
     else if (result.reauthenticate) {
-      window.alert("Ton code propriétaire a été modifié. Reconnecte-toi avec le nouveau code.");
+      window.alert("Ton mot de passe a été modifié. Reconnecte-toi avec le nouveau mot de passe.");
       window.location.href = "/merchant";
       return;
     } else {
       form.reset();
-      setToast("Code propriétaire mis à jour.");
+      setToast("Mot de passe mis à jour.");
       await load();
     }
     setBusy(false);
@@ -218,11 +225,11 @@ export function DashboardApp() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.fromEntries(new FormData(form))),
     });
-    const result = (await response.json()) as { employee?: { displayName: string; loginCode: string }; error?: string };
+    const result = (await response.json()) as { employee?: { displayName: string; loginCode: string; temporaryPin: string }; error?: string };
     if (!response.ok) setError(result.error ?? "Employé non créé.");
     else {
       form.reset();
-      setToast(`${result.employee?.displayName} peut se connecter avec ${result.employee?.loginCode}.`);
+      if (result.employee) setEmployeeAccess(result.employee);
       await load();
     }
     setBusy(false);
@@ -248,22 +255,38 @@ export function DashboardApp() {
   }
 
   async function resetEmployeePin(employee: DashboardData["employees"][number]) {
-    const pin = window.prompt(`Nouveau code à 6 chiffres pour ${employee.displayName} :`);
-    if (pin === null) return;
-    if (!/^\d{6}$/.test(pin)) {
-      setError("Le nouveau code doit contenir exactement 6 chiffres.");
-      return;
-    }
+    if (!window.confirm(`Réinitialiser le code PIN de ${employee.displayName} ? Ses sessions seront fermées.`)) return;
     setBusy(true);
     setError("");
     const response = await fetch("/api/merchant/employees", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reset_pin", employeeId: employee.id, pin }),
+      body: JSON.stringify({ action: "reset_pin", employeeId: employee.id }),
+    });
+    const result = (await response.json()) as { temporaryPin?: string; error?: string };
+    if (!response.ok) setError(result.error ?? "Code non modifié.");
+    else if (result.temporaryPin) setEmployeeAccess({ displayName: employee.displayName, loginCode: employee.email || employee.loginCode, temporaryPin: result.temporaryPin });
+    setBusy(false);
+  }
+
+  async function changeEmployeePin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const form = event.currentTarget;
+    const response = await fetch("/api/merchant/security", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...Object.fromEntries(new FormData(form)), action: "change_employee_pin" }),
     });
     const result = (await response.json()) as { error?: string };
-    if (!response.ok) setError(result.error ?? "Code non modifié.");
-    else setToast(`Nouveau code enregistré pour ${employee.displayName}. Ses anciennes sessions sont fermées.`);
+    if (!response.ok) setError(result.error ?? "Code PIN non modifié.");
+    else {
+      form.reset();
+      setShowEmployeePin(false);
+      setToast("Ton nouveau code PIN est enregistré.");
+      await load();
+    }
     setBusy(false);
   }
 
@@ -294,6 +317,12 @@ export function DashboardApp() {
 
   if (loading) return <main className="dashboard-loading"><Brand /><div className="loading-bar"><span /></div><p>Ouverture de ton espace…</p></main>;
   if (!data) return <main className="dashboard-loading"><Brand /><p>{error || "Tableau de bord indisponible."}</p><a href="/merchant" className="button">Se reconnecter</a></main>;
+  if (data.merchant.role === "employee" && data.merchant.employeeMustChangePin) {
+    return <EmployeePinSetup data={data} busy={busy} error={error} onSubmit={changeEmployeePin} onLogout={logout} />;
+  }
+  if (!data.program) {
+    return <ProgramOnboarding data={data} onCreated={load} onLogout={logout} />;
+  }
 
   return (
     <main className={`dashboard ${data.merchant.role === "employee" ? "employee-dashboard" : ""}`} style={{ "--merchant": data.merchant.accentColor } as React.CSSProperties}>
@@ -302,15 +331,15 @@ export function DashboardApp() {
         <Brand />
         <div className="merchant-pill"><span>{data.merchant.businessName.slice(0, 1)}</span><div><strong>{data.merchant.businessName}</strong><small>{data.merchant.role === "employee" ? `${data.merchant.employeeName} · Employé` : "Accès propriétaire"}</small></div></div>
         <nav>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><Icon className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" />{item.label}</button>; })}</nav>
-        <div className="sidebar-foot"><button onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Kivli · version pilote</small></div>
+        <div className="sidebar-foot">{data.merchant.role === "employee" && <button onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" />Modifier mon PIN</button>}<button onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Kivli · version pilote</small></div>
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-top"><div><small className="dashboard-date">{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><small className="dashboard-context">{data.merchant.role === "employee" ? `${data.merchant.businessName} · ${data.merchant.employeeName}` : data.merchant.businessName}</small><h1>{data.merchant.role === "employee" ? "Scanner" : visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <button className="button button-ghost logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /><span>Déconnexion</span></button> : <div className="dashboard-actions"><button className="button button-ghost qr-quick" onClick={showEnrollmentQr}><QrCodeIcon size={18} aria-hidden="true" /><span>QR codes clients</span></button><button className="button scan-quick" onClick={() => setTab("scan")}><ScanLine size={18} aria-hidden="true" />Scanner</button><button className="button button-ghost owner-logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /></button></div>}</header>
+        <header className="dashboard-top"><div><small className="dashboard-date">{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><small className="dashboard-context">{data.merchant.role === "employee" ? `${data.merchant.businessName} · ${data.merchant.employeeName}` : data.merchant.businessName}</small><h1>{data.merchant.role === "employee" ? "Scanner" : visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <div className="dashboard-actions employee-top-actions"><button className="button button-ghost" onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" /><span>Mon PIN</span></button><button className="button button-ghost logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /><span>Déconnexion</span></button></div> : <div className="dashboard-actions"><button className="button button-ghost qr-quick" onClick={showEnrollmentQr}><QrCodeIcon size={18} aria-hidden="true" /><span>QR codes clients</span></button><button className="button scan-quick" onClick={() => setTab("scan")}><ScanLine size={18} aria-hidden="true" />Scanner</button><button className="button button-ghost owner-logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /></button></div>}</header>
         {data.merchant.role === "owner" && <nav className="mobile-tabs" aria-label="Navigation principale" style={{ "--tab-count": visibleTabs.length } as React.CSSProperties}>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} aria-label={item.label} aria-current={tab === item.id ? "page" : undefined} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><span className="mobile-tab-icon"><Icon className="nav-icon" size={21} strokeWidth={2} aria-hidden="true" /></span><small>{item.shortLabel}</small></button>; })}</nav>}
         {error && <div className="dashboard-error" role="alert"><span>!</span>{error}<button onClick={() => setError("")}>×</button></div>}
 
-        {tab === "overview" && <Overview data={data} joinUrl={joinUrl} onScan={() => setTab("scan")} onCustomers={() => setTab("customers")} onShowQr={showEnrollmentQr} />}
+        {tab === "overview" && <Overview data={{ ...data, program: data.program }} joinUrl={joinUrl} onScan={() => setTab("scan")} onCustomers={() => setTab("customers")} onShowQr={showEnrollmentQr} />}
         {tab === "scan" && (
           <div className="scan-layout">
             <div>{data.merchant.role === "owner" && <span className="eyebrow scan-eyebrow"><ScanLine size={15} aria-hidden="true" />Ajout instantané</span>}<h2>{data.merchant.role === "employee" ? "Présente le QR code du client." : "Scanne la carte du client."}</h2><p>{data.merchant.role === "employee" ? "Choisis le nombre de points, puis ouvre la caméra." : "Choisis le nombre d’achats, puis scanne le QR code. Une seconde validation rapprochée reste possible après confirmation."}</p><MerchantScanner onDetected={stamp} busy={busy} /></div>
@@ -333,10 +362,10 @@ export function DashboardApp() {
               <form className="panel settings-form" onSubmit={saveProgram}><div className="panel-head"><div><h2>Personnaliser le programme</h2><p>Les modifications s’appliquent immédiatement aux cartes existantes.</p></div></div><div className="form-grid"><label>Nom de la carte<input name="name" defaultValue={data.program.name} required /></label><div className="field-row"><label>Passages nécessaires<input name="goal" type="number" min="3" max="20" defaultValue={data.program.goal} /></label><label>Récompense<input name="rewardText" defaultValue={data.program.rewardText} required /></label></div><fieldset className="color-fieldset program-colors"><legend>Couleur de la carte</legend><small>Cette couleur personnalise la carte et la page d’inscription.</small><div className="color-options">{PROGRAM_COLORS.map((color) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={data.merchant.accentColor.toLowerCase() === color.value} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset><label>Conditions affichées au client<textarea name="terms" defaultValue={visibleProgramTerms(data.program.terms)} rows={4} maxLength={200} /><small>Ce texte apparaît désormais sous le QR code personnel de chaque carte.</small></label><button className="button button-large" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button></div></form>
               <section className="panel security-panel">
                 <div className="panel-head"><div><h2>Sécurité du propriétaire</h2><p>Les accès individuels des employés se gèrent dans l’onglet Mon équipe.</p></div></div>
-                <form className="form-grid owner-pin-form" onSubmit={(event) => updateSecurity(event, "change_owner_pin")}>
-                  <label>Code actuel<input name="currentPin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required /></label>
-                  <label>Nouveau code<input name="newPin" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6}" maxLength={6} required /></label>
-                  <button className="button" disabled={busy}>Modifier mon code</button>
+                <form className="form-grid owner-pin-form" onSubmit={(event) => updateSecurity(event, "change_owner_password")}>
+                  <label>Mot de passe actuel<input name="currentPassword" type="password" autoComplete="current-password" maxLength={128} required /></label>
+                  <label>Nouveau mot de passe<input name="newPassword" type="password" autoComplete="new-password" minLength={8} maxLength={128} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}" required /><small>8 caractères minimum, une majuscule, une minuscule et un chiffre.</small></label>
+                  <button className="button" disabled={busy}>Modifier mon mot de passe</button>
                 </form>
               </section>
             </div>
@@ -350,8 +379,8 @@ export function DashboardApp() {
               <div className="form-grid">
                 <label>Prénom ou nom affiché<input name="displayName" autoComplete="off" required /></label>
                 <label>E-mail professionnel <small>Facultatif</small><input name="email" type="email" autoComplete="off" /></label>
-                <label>Code PIN à 6 chiffres<input name="pin" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6}" maxLength={6} required /></label>
-                <button className="button button-large" disabled={busy}>{busy ? "Création…" : "Créer l’accès employé"}</button>
+                <p className="employee-pin-note"><ShieldCheck size={16} aria-hidden="true" />Kivli génère un PIN temporaire sécurisé. L’employé devra le personnaliser à sa première connexion.</p>
+                <button className="button button-large" disabled={busy}>{busy ? "Création…" : "Générer l’accès employé"}</button>
               </div>
             </form>
             <section className="panel team-list">
@@ -360,8 +389,8 @@ export function DashboardApp() {
                 <article className={`employee-row ${employee.active ? "" : "inactive"}`} key={employee.id}>
                   <span className="employee-avatar">{employee.displayName.slice(0, 1).toUpperCase()}</span>
                   <div className="employee-details"><strong>{employee.displayName}</strong><small>{employee.email || "Sans e-mail"}</small><code>{employee.loginCode}</code></div>
-                  <span className={`access-status ${employee.active ? "active" : ""}`}>{employee.active ? "Actif" : "Désactivé"}</span>
-                  <div className="employee-actions"><button onClick={() => copyEmployeeIdentifier(employee)} disabled={busy}>Copier l’identifiant</button><button onClick={() => resetEmployeePin(employee)} disabled={busy}>Changer le PIN</button><button className={employee.active ? "danger" : ""} onClick={() => setEmployeeActive(employee)} disabled={busy}>{employee.active ? "Désactiver" : "Réactiver"}</button></div>
+                  <span className={`access-status ${employee.active ? "active" : ""}`}>{employee.active ? (employee.mustChangePin ? "PIN à personnaliser" : "Actif") : "Désactivé"}</span>
+                  <div className="employee-actions"><button onClick={() => copyEmployeeIdentifier(employee)} disabled={busy}>Copier l’identifiant</button><button onClick={() => resetEmployeePin(employee)} disabled={busy}>Réinitialiser le PIN</button><button className={employee.active ? "danger" : ""} onClick={() => setEmployeeActive(employee)} disabled={busy}>{employee.active ? "Désactiver" : "Réactiver"}</button></div>
                 </article>
               )) : <div className="empty-activity"><span><UsersRound size={21} aria-hidden="true" /></span><h3>Aucun employé pour le moment.</h3><p>Crée le premier accès individuel avec le formulaire.</p></div>}
             </section>
@@ -370,12 +399,92 @@ export function DashboardApp() {
       </section>
 
       {stampResult && <div className="modal-backdrop"><section className="result-modal" role="dialog" aria-modal="true"><div className={`result-icon ${stampResult.rewardEarned ? "reward" : ""}`}>{stampResult.rewardEarned ? "★" : `+${stampResult.quantity}`}</div><span className="eyebrow">{stampResult.rewardEarned ? `${stampResult.rewardsEarned} récompense${stampResult.rewardsEarned > 1 ? "s" : ""} débloquée${stampResult.rewardsEarned > 1 ? "s" : ""}` : `${stampResult.quantity} point${stampResult.quantity > 1 ? "s" : ""} ajouté${stampResult.quantity > 1 ? "s" : ""}`}</span><h2>{stampResult.rewardEarned ? `Bravo ${stampResult.customer.firstName} !` : `C’est fait pour ${stampResult.customer.firstName}.`}</h2><p>{stampResult.rewardEarned ? `La récompense est prête à être remise : ${data.program.rewardText}. La carte affiche ${stampResult.customer.points}/${stampResult.customer.goal}.` : `Sa carte affiche maintenant ${stampResult.customer.points}/${stampResult.customer.goal} points.`}</p>{stampResult.availableRewards > 0 && <button className="button reward-action button-full" onClick={() => redeem(stampResult.customer.code)} disabled={busy}>★ Utiliser une récompense</button>}<button className="button button-large button-full" onClick={() => { setStampResult(null); setTab("scan"); }}>Scanner le client suivant</button><button className="text-link result-undo" onClick={() => undoStamp(stampResult.stampId, stampResult.customer.firstName)} disabled={busy}>↶ Annuler cette opération</button><button className="text-link result-close" onClick={() => setStampResult(null)}>Fermer</button></section></div>}
+      {showEmployeePin && <PinChangeModal busy={busy} error={error} onSubmit={changeEmployeePin} onClose={() => { setShowEmployeePin(false); setError(""); }} />}
+      {employeeAccess && <EmployeeAccessModal access={employeeAccess} onClose={() => setEmployeeAccess(null)} />}
       {toast && <div className="toast" role="status">✓ {toast}</div>}
     </main>
   );
 }
 
-function Overview({ data, joinUrl, onScan, onCustomers, onShowQr }: { data: DashboardData; joinUrl: string; onScan: () => void; onCustomers: () => void; onShowQr: () => void }) {
+function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData; onCreated: () => Promise<void>; onLogout: () => Promise<void> }) {
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function createProgram(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const response = await fetch("/api/merchant/program", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))),
+    });
+    const result = (await response.json()) as { error?: string };
+    if (!response.ok) setError(result.error ?? "Impossible de créer la carte.");
+    else await onCreated();
+    setBusy(false);
+  }
+
+  return <main className="program-onboarding" style={{ "--merchant": data.merchant.accentColor } as React.CSSProperties}>
+    <header className="onboarding-nav"><Brand /><div><span>{data.merchant.businessName}</span><button onClick={onLogout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button></div></header>
+    <section className={`program-onboarding-shell ${showForm ? "form-open" : ""}`}>
+      <div className="account-ready-card">
+        <span className="account-ready-icon"><Check size={25} aria-hidden="true" /></span>
+        <span className="eyebrow">Compte créé</span>
+        <h1>Bienvenue {data.merchant.firstName || "chez Kivli"}.</h1>
+        <p>Ton espace est prêt. Il reste une étape pour permettre à tes clients de créer leur carte.</p>
+        <dl><div><dt>Commerce</dt><dd>{data.merchant.businessName}</dd></div><div><dt>Compte</dt><dd>{data.merchant.email}</dd></div></dl>
+        {!showForm && <button className="button button-large" onClick={() => setShowForm(true)}>Créer ma carte<ArrowRight size={18} aria-hidden="true" /></button>}
+      </div>
+      <div className="program-setup-stage">
+        {showForm ? <form className="program-setup-form" onSubmit={createProgram}>
+          <div><span className="eyebrow">Votre carte de fidélité</span><h2>Configurez l’essentiel.</h2><p>Vous pourrez tout modifier plus tard depuis l’onglet Mon programme.</p></div>
+          <label>Nom du commerce<input value={data.merchant.businessName} disabled /></label>
+          <label>Nom de la carte<input name="name" defaultValue="Ma carte fidélité" maxLength={80} required /></label>
+          <div className="field-row"><label>Nombre de points à atteindre<input name="goal" type="number" min="3" max="20" defaultValue="8" required /></label><label>Récompense<input name="rewardText" placeholder="Un avantage au choix" maxLength={120} required /></label></div>
+          <fieldset className="color-fieldset program-colors"><legend>Couleur de la carte</legend><small>Choisissez la couleur qui correspond le mieux à votre activité.</small><div className="color-options">{PROGRAM_COLORS.map((color, index) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={index === 0} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset>
+          <label>Conditions affichées au client <small>Facultatif</small><textarea name="terms" rows={3} maxLength={200} placeholder="Un point est accordé par achat éligible…" /></label>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <button className="button button-large button-full" disabled={busy}>{busy ? "Création…" : "Créer ma carte"}</button>
+        </form> : <div className="program-setup-preview"><div className="setup-preview-card"><span>{data.merchant.businessName.slice(0, 1)}</span><small>VOTRE FUTURE CARTE</small><h2>{data.merchant.businessName}</h2><div>{Array.from({ length: 8 }, (_, index) => <i key={index}>{index + 1}</i>)}</div><p><Gift size={17} aria-hidden="true" />Votre récompense apparaîtra ici</p></div><p><Sparkles size={17} aria-hidden="true" />Après la création, votre QR code d’inscription sera immédiatement prêt à partager.</p></div>}
+      </div>
+    </section>
+  </main>;
+}
+
+function EmployeePinSetup({ data, busy, error, onSubmit, onLogout }: { data: DashboardData; busy: boolean; error: string; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>; onLogout: () => Promise<void> }) {
+  return <main className="employee-pin-setup">
+    <header><Brand /><button onClick={onLogout}><LogOut size={17} aria-hidden="true" />Déconnexion</button></header>
+    <section>
+      <span className="security-orb"><ShieldCheck size={28} aria-hidden="true" /></span>
+      <span className="eyebrow">Première connexion</span>
+      <h1>Personnalise ton code PIN.</h1>
+      <p>Bonjour {data.merchant.employeeName}. Le code reçu est temporaire : choisis maintenant ton propre code à 6 chiffres avant d’accéder au scanner.</p>
+      <form className="form-grid" onSubmit={onSubmit}>
+        <label>Code PIN temporaire<input name="currentPin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required /></label>
+        <label>Nouveau code PIN<input name="newPin" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6}" maxLength={6} required /><small>Choisis 6 chiffres faciles à retenir pour toi, mais difficiles à deviner.</small></label>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer mon PIN"}</button>
+      </form>
+    </section>
+  </main>;
+}
+
+function PinChangeModal({ busy, error, onSubmit, onClose }: { busy: boolean; error: string; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="pin-change-modal" role="dialog" aria-modal="true" aria-labelledby="pin-change-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className="security-orb"><ShieldCheck size={23} aria-hidden="true" /></span><h2 id="pin-change-title">Modifier mon code PIN</h2><p>Ton nouveau code sera utilisé dès ta prochaine connexion.</p><form className="form-grid" onSubmit={onSubmit}><label>Code PIN actuel<input name="currentPin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required /></label><label>Nouveau code PIN<input name="newPin" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6}" maxLength={6} required /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Modifier mon PIN"}</button></form></section></div>;
+}
+
+function EmployeeAccessModal({ access, onClose }: { access: { displayName: string; loginCode: string; temporaryPin: string }; onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  async function copyAccess() {
+    await navigator.clipboard.writeText(`Identifiant : ${access.loginCode}\nPIN temporaire : ${access.temporaryPin}`);
+    setCopied(true);
+  }
+  return <div className="modal-backdrop"><section className="employee-access-modal" role="dialog" aria-modal="true" aria-labelledby="employee-access-title"><span className="access-created-icon"><Check size={25} aria-hidden="true" /></span><span className="eyebrow">Accès prêt</span><h2 id="employee-access-title">Transmets ces accès à {access.displayName}.</h2><p>Le PIN est temporaire et ne sera plus affiché après la fermeture. L’employé devra le modifier dès sa première connexion.</p><div className="temporary-access"><span><small>IDENTIFIANT</small><code>{access.loginCode}</code></span><span><small>PIN TEMPORAIRE</small><code>{access.temporaryPin}</code></span></div><button className="button button-large button-full" onClick={copyAccess}>{copied ? <><Check size={18} aria-hidden="true" />Accès copiés</> : <><Copy size={18} aria-hidden="true" />Copier les accès</>}</button><button className="text-link" onClick={onClose}>J’ai bien transmis les accès</button></section></div>;
+}
+
+function Overview({ data, joinUrl, onScan, onCustomers, onShowQr }: { data: ReadyDashboardData; joinUrl: string; onScan: () => void; onCustomers: () => void; onShowQr: () => void }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     await navigator.clipboard.writeText(joinUrl);
