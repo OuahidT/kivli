@@ -114,6 +114,7 @@ export function HomePage() {
                   <div className="kivli-app-reward"><span><Gift size={15} aria-hidden="true" /></span><div><small>PROCHAINE RÉCOMPENSE</small><strong>Un avantage au choix</strong></div></div>
                 </section>
                 <div className="kivli-app-latest"><span><Check size={14} aria-hidden="true" /></span><div><small>AUJOURD’HUI, 12:42</small><strong>Passage ajouté</strong></div><b>+1</b></div>
+                <div className="kivli-app-next"><span><QrCode size={14} aria-hidden="true" /></span><div><small>MA CARTE</small><strong>Afficher mon QR</strong></div><ArrowRight size={13} aria-hidden="true" /></div>
               </div>
               <div className="kivli-app-tabs" aria-hidden="true"><span className="active"><House size={14} />Accueil</span><span><QrCode size={14} />Carte</span><span><Gift size={14} />Cadeaux</span></div>
               <div className="home-indicator" aria-hidden="true" />
