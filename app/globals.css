@@ -1206,6 +1206,22 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .save-card-panel, .card-terms, .card-footnote { grid-column: 1; }
 }
 
+@media (min-width: 761px) and (max-width: 900px) {
+  .overview-grid { grid-template-columns: 1fr; }
+  .welcome-panel,
+  .join-qr-panel,
+  .stats-row,
+  .activity-panel { grid-column: 1; grid-row: auto; }
+  .welcome-panel { min-height: 310px; }
+  .welcome-panel > div:first-child { max-width: 520px; }
+  .join-qr-panel { min-height: 470px; }
+}
+
+@media (max-width: 900px) {
+  .dashboard-actions .qr-quick { width: 48px; min-width: 48px; padding-inline: 0; }
+  .dashboard-actions .qr-quick span { display: none; }
+}
+
 @media (max-width: 760px) {
   .owner-logout-quick {
     width: 44px;
