@@ -16,7 +16,6 @@ import {
   Users,
 } from "lucide-react";
 import { Brand } from "./Brand";
-import { PROGRAM_COLORS } from "../lib/program-style";
 
 export function HomePage() {
   const [step, setStep] = useState<"intro" | "form">("intro");
@@ -71,7 +70,7 @@ export function HomePage() {
           <Brand />
           <div className="nav-actions">
             <a href="/merchant" className="text-link">Se connecter</a>
-            <button className="button button-small nav-cta" onClick={() => setStep("form")}><span>Créer mon programme</span></button>
+            <button className="button button-small nav-cta" onClick={() => setStep("form")}><span>Créer mon compte</span></button>
           </div>
         </div>
       </nav>
@@ -82,12 +81,12 @@ export function HomePage() {
           <h1>Créez une habitude, pas juste une carte.</h1>
           <p className="hero-lead">Kivli réunit carte digitale, scan, récompenses et suivi client dans un outil simple pour les commerces et professionnels du quotidien.</p>
           <div className="hero-actions">
-            <button className="button button-large" onClick={() => setStep("form")}>Créer mon programme <ArrowRight size={18} aria-hidden="true" /></button>
+            <button className="button button-large" onClick={() => setStep("form")}>Créer mon compte <ArrowRight size={18} aria-hidden="true" /></button>
             <button type="button" className="button button-ghost button-large" onClick={() => document.getElementById("produit")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Voir le produit</button>
           </div>
           <div className="trust-row">
             <span><b>0 €</b> pour commencer</span>
-            <span><b>2 min</b> pour créer sa carte</span>
+            <span><b>1 min</b> pour ouvrir son espace</span>
             <span><b>Sans app</b> à télécharger</span>
           </div>
         </div>
@@ -188,19 +187,18 @@ export function HomePage() {
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStep("intro"); }}>
           <section className="signup-modal" role="dialog" aria-modal="true" aria-labelledby="signup-title">
             <button className="modal-close" aria-label="Fermer" onClick={() => setStep("intro")}>×</button>
-            <span className="eyebrow">Votre espace en 2 minutes</span>
-            <h2 id="signup-title">Créez votre premier programme.</h2>
-            <p>Vous pourrez tout modifier ensuite depuis votre tableau de bord.</p>
+            <span className="eyebrow">Votre espace en 1 minute</span>
+            <h2 id="signup-title">Créez simplement votre compte.</h2>
+            <p>Votre carte de fidélité se configure juste après, tranquillement depuis votre espace.</p>
             <form onSubmit={submit} className="form-grid">
+              <div className="field-row"><label>Prénom<input name="firstName" autoComplete="given-name" placeholder="Léa" required /></label><label>Nom<input name="lastName" autoComplete="family-name" placeholder="Martin" required /></label></div>
               <label>Nom du commerce<input name="businessName" placeholder="Atelier Nova" required /></label>
-              <label>E-mail professionnel<input name="email" type="email" placeholder="bonjour@ateliernova.fr" required /></label>
-              <div className="field-row"><label>Nom de la carte<input name="programName" defaultValue="Carte fidélité" required /></label><label>Objectif<input name="goal" type="number" min="3" max="20" defaultValue="8" required /></label></div>
-              <label>Récompense<input name="rewardText" placeholder="Un avantage au choix" required /></label>
-              <label>Code d’accès à 6 chiffres<input name="pin" type="password" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} placeholder="••••••" required /><small>À conserver pour vous reconnecter au tableau de bord.</small></label>
-              <fieldset className="color-fieldset"><legend>Style de la carte</legend><small>Choisissez la couleur qui correspond le mieux à votre activité.</small><div className="color-options">{PROGRAM_COLORS.map((color, index) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={index === 0} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset>
+              <label>E-mail professionnel<input name="email" type="email" autoComplete="email" placeholder="bonjour@ateliernova.fr" required /></label>
+              <label>Téléphone <small>Facultatif</small><input name="phone" type="tel" autoComplete="tel" placeholder="06 12 34 56 78" /></label>
+              <label>Mot de passe<input name="password" type="password" autoComplete="new-password" minLength={8} maxLength={128} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}" placeholder="Votre mot de passe" required /><small>8 caractères minimum, avec une majuscule, une minuscule et un chiffre. Aucun caractère spécial obligatoire.</small></label>
               {error && <p className="form-error" role="alert">{error}</p>}
-              <button className="button button-large button-full" disabled={busy}>{busy ? "Création en cours…" : "Créer mon espace"}</button>
-              <small className="form-note">En continuant, vous acceptez que les données nécessaires soient enregistrées pour faire fonctionner votre programme.</small>
+              <button className="button button-large button-full" disabled={busy}>{busy ? "Création en cours…" : "Créer mon compte"}</button>
+              <small className="form-note">En continuant, vous acceptez que les données nécessaires soient enregistrées pour faire fonctionner votre compte Kivli.</small>
             </form>
           </section>
         </div>
