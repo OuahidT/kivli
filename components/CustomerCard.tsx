@@ -90,8 +90,9 @@ export function CustomerCard({ code }: { code: string }) {
           {card.availableRewards > 0 && <div className="reward-ready"><Sparkles size={17} aria-hidden="true" />{card.availableRewards} récompense{card.availableRewards > 1 ? "s" : ""} disponible{card.availableRewards > 1 ? "s" : ""}</div>}
 
           <div className="card-qr-mobile">
-            <div className="card-qr-mobile-copy"><span><QrCodeIcon size={14} aria-hidden="true" />À présenter</span><strong>Ton QR code</strong><small>Montre simplement cet écran à l’équipe.</small></div>
-            <div className="card-qr-mobile-box"><QrCode value={`${appOrigin}/c/${card.code}`} size={140} label={`QR code personnel de ${card.firstName}`} /><code>{card.code}</code></div>
+            <span className="card-qr-mobile-label"><QrCodeIcon size={13} aria-hidden="true" />À présenter à l’équipe</span>
+            <div className="card-qr-mobile-box"><QrCode value={`${appOrigin}/c/${card.code}`} size={190} label={`QR code personnel de ${card.firstName}`} /></div>
+            <p className="card-qr-mobile-code"><span>Code de secours</span><code>{card.code}</code></p>
           </div>
 
           <div className="card-mobile-tools">
