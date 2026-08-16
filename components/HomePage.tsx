@@ -6,7 +6,6 @@ import {
   BarChart3,
   Check,
   Gift,
-  House,
   History,
   QrCode,
   ScanLine,
@@ -16,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { Brand } from "./Brand";
+import { QrCode as KivliQrCode } from "./QrCode";
 
 export function HomePage() {
   const [step, setStep] = useState<"intro" | "form">("intro");
@@ -111,11 +111,10 @@ export function HomePage() {
                     {Array.from({ length: 8 }, (_, index) => <span key={index} className={index < 6 ? "filled" : ""}>{index < 6 ? "✓" : index + 1}</span>)}
                   </div>
                   <div className="kivli-app-reward"><span><Gift size={15} aria-hidden="true" /></span><div><small>PROCHAINE RÉCOMPENSE</small><strong>Un avantage au choix</strong></div></div>
+                  <div className="kivli-app-qr"><div><small>À PRÉSENTER</small><strong>Ton QR code</strong><span>Montre cet écran à l’équipe.</span></div><div><KivliQrCode value="https://kivli.fr/c/DEMO-KIVLI" size={86} label="Aperçu du QR code personnel Kivli" /><code>DEMO-KIVLI</code></div></div>
+                  <p className="kivli-app-wallet">Bientôt disponible dans Apple Wallet et Google Wallet.</p>
                 </section>
-                <div className="kivli-app-latest"><span><Check size={14} aria-hidden="true" /></span><div><small>AUJOURD’HUI, 12:42</small><strong>Passage ajouté</strong></div><b>+1</b></div>
-                <div className="kivli-app-next"><span><QrCode size={14} aria-hidden="true" /></span><div><small>MA CARTE</small><strong>Afficher mon QR code</strong></div><ArrowRight size={13} aria-hidden="true" /></div>
               </div>
-              <div className="kivli-app-tabs" aria-hidden="true"><span className="active"><House size={14} />Accueil</span><span><QrCode size={14} />Carte</span><span><Gift size={14} />Cadeaux</span></div>
               <div className="home-indicator" aria-hidden="true" />
             </div>
           </div>
