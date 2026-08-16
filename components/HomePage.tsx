@@ -111,7 +111,7 @@ export function HomePage() {
                     {Array.from({ length: 8 }, (_, index) => <span key={index} className={index < 6 ? "filled" : ""}>{index < 6 ? "✓" : index + 1}</span>)}
                   </div>
                   <div className="kivli-app-reward"><span><Gift size={15} aria-hidden="true" /></span><div><small>PROCHAINE RÉCOMPENSE</small><strong>Un avantage au choix</strong></div></div>
-                  <div className="kivli-app-qr"><div><small>À PRÉSENTER</small><strong>Ton QR code</strong><span>Montre cet écran à l’équipe.</span></div><div><KivliQrCode value="https://kivli.fr/c/DEMO-KIVLI" size={86} label="Aperçu du QR code personnel Kivli" /><code>DEMO-KIVLI</code></div></div>
+                  <div className="kivli-app-qr"><small>À PRÉSENTER À L’ÉQUIPE</small><div><KivliQrCode value="https://kivli.fr/c/DEMO-KIVLI" size={96} label="Aperçu du QR code personnel Kivli" /></div><code>DEMO-KIVLI</code></div>
                   <p className="kivli-app-wallet">Bientôt disponible dans Apple Wallet et Google Wallet.</p>
                 </section>
               </div>
