@@ -873,9 +873,9 @@ function loginPage(): Response {
       <p>Saisissez le code reçu par e-mail, puis choisissez votre nouveau mot de passe.</p>
       <form id="confirm-form">
         <label class="field"><span>Code à 6 chiffres</span><input class="input code" id="reset-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></label>
-        <label class="field"><span>Nouveau mot de passe</span><input class="input" id="new-password" type="password" autocomplete="new-password" minlength="12" required></label>
+        <label class="field"><span>Nouveau mot de passe</span><input class="input" id="new-password" type="password" autocomplete="new-password" minlength="10" required></label>
         <div class="hint">10 caractères minimum, avec majuscule, minuscule, chiffre et symbole.</div>
-        <label class="field"><span>Confirmer le mot de passe</span><input class="input" id="confirm-password" type="password" autocomplete="new-password" minlength="12" required></label>
+        <label class="field"><span>Confirmer le mot de passe</span><input class="input" id="confirm-password" type="password" autocomplete="new-password" minlength="10" required></label>
         <button class="submit" id="confirm-submit" type="submit">Enregistrer le nouveau mot de passe</button>
         <button class="link" id="resend-code" type="button">Renvoyer un code</button>
         <button class="link back-login" type="button">Retour à la connexion</button>
