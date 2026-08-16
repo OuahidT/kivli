@@ -1,3 +1,5 @@
+import { connect, type Socket } from "cloudflare:sockets";
+
 interface D1Result<T = Record<string, unknown>> {
   results?: T[];
   success?: boolean;
@@ -20,6 +22,10 @@ interface Env {
   ADMIN_EMAIL_V2?: string;
   ADMIN_PASSWORD_HASH_V2?: string;
   SESSION_PEPPER_V2?: string;
+  SMTP_HOST?: string;
+  SMTP_PORT?: string;
+  SMTP_USERNAME?: string;
+  SMTP_PASSWORD?: string;
 }
 
 type AdminIdentity = {
@@ -34,6 +40,8 @@ const JSON_HEADERS = {
 const ADMIN_COOKIE = "__Host-kivli_admin";
 const SESSION_HOURS = 12;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const RESET_CODE_MINUTES = 10;
+const PASSWORD_ITERATIONS = 210_000;
 let schemaReady = false;
 
 function json(data: unknown, status = 200): Response {
@@ -88,6 +96,30 @@ async function sha256(value: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+function bytesToHex(value: Uint8Array): string {
+  return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const derived = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt, iterations: PASSWORD_ITERATIONS },
+    key,
+    256,
+  );
+  return `pbkdf2$${PASSWORD_ITERATIONS}$${bytesToHex(salt)}$${bytesToHex(new Uint8Array(derived))}`;
+}
+
+function validateNewPassword(password: string): string | null {
+  if (password.length < 12) return "Le mot de passe doit contenir au moins 12 caractères.";
+  if (password.length > 200) return "Le mot de passe est trop long.";
+  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+    return "Ajoutez une majuscule, une minuscule, un chiffre et un symbole.";
+  }
+  return null;
+}
+
 async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
   const [scheme, iterationValue, saltValue, expectedValue] = storedHash.split("$");
   const iterations = Number(iterationValue);
@@ -114,6 +146,13 @@ function requireAdminConfig(env: Env): { email: string; passwordHash: string; pe
     passwordHash: env.ADMIN_PASSWORD_HASH_V2,
     pepper: env.SESSION_PEPPER_V2,
   };
+}
+
+async function getEffectivePasswordHash(env: Env): Promise<string> {
+  const stored = await env.DB.prepare(
+    "SELECT password_hash AS passwordHash FROM admin_credentials WHERE id = 'primary'",
+  ).first<{ passwordHash: string }>();
+  return stored?.passwordHash ?? requireAdminConfig(env).passwordHash;
 }
 
 async function getAdmin(request: Request, env: Env): Promise<AdminIdentity | null> {
@@ -167,11 +206,33 @@ async function ensureAdminSchema(db: D1Database): Promise<void> {
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
       )
     `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_credentials (
+        id TEXT PRIMARY KEY NOT NULL CHECK (id = 'primary'),
+        password_hash TEXT NOT NULL,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        updated_by TEXT NOT NULL
+      )
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_password_resets (
+        id TEXT PRIMARY KEY NOT NULL,
+        admin_email TEXT NOT NULL,
+        network_hash TEXT NOT NULL,
+        code_hash TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        attempts INTEGER DEFAULT 0 NOT NULL,
+        used_at TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
+      )
+    `),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_state_status ON merchant_admin_state(status)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_audit_merchant ON admin_audit_log(merchant_id, created_at)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_login_updated ON admin_login_attempts(updated_at)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_reset_email ON admin_password_resets(admin_email, created_at)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_reset_network ON admin_password_resets(network_hash, created_at)"),
   ]);
   await db.prepare("PRAGMA optimize").run();
   schemaReady = true;
@@ -268,7 +329,7 @@ async function loginAdmin(request: Request, env: Env): Promise<Response> {
     });
   }
 
-  const passwordMatches = await verifyPassword(password, config.passwordHash);
+  const passwordMatches = await verifyPassword(password, await getEffectivePasswordHash(env));
   if (email !== config.email || !passwordMatches) {
     await Promise.all([
       recordAdminLoginFailure(env.DB, networkKey, 5),
@@ -292,6 +353,224 @@ async function loginAdmin(request: Request, env: Env): Promise<Response> {
     headers: {
       ...JSON_HEADERS,
       "Set-Cookie": `${ADMIN_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${SESSION_HOURS * 3600}`,
+    },
+  });
+}
+
+class SmtpConnection {
+  private reader: ReadableStreamDefaultReader<Uint8Array>;
+  private writer: WritableStreamDefaultWriter<Uint8Array>;
+  private buffer = "";
+  private readonly decoder = new TextDecoder();
+  private readonly encoder = new TextEncoder();
+
+  constructor(readonly socket: Socket) {
+    this.reader = socket.readable.getReader();
+    this.writer = socket.writable.getWriter();
+  }
+
+  async readResponse(expected: number[]): Promise<string> {
+    while (true) {
+      const terminal = /(^|\r\n)(\d{3}) ([^\r\n]*)\r\n/.exec(this.buffer);
+      if (terminal) {
+        const end = terminal.index + terminal[0].length;
+        const response = this.buffer.slice(0, end);
+        this.buffer = this.buffer.slice(end);
+        const code = Number(terminal[2]);
+        if (!expected.includes(code)) throw new Error(`SMTP ${code}: ${terminal[3]}`);
+        return response;
+      }
+      const chunk = await this.reader.read();
+      if (chunk.done) throw new Error("Connexion SMTP interrompue.");
+      this.buffer += this.decoder.decode(chunk.value, { stream: true });
+      if (this.buffer.length > 32_000) throw new Error("Réponse SMTP invalide.");
+    }
+  }
+
+  async command(command: string, expected: number[]): Promise<string> {
+    await this.writer.write(this.encoder.encode(`${command}\r\n`));
+    return this.readResponse(expected);
+  }
+
+  release(): void {
+    this.reader.releaseLock();
+    this.writer.releaseLock();
+  }
+}
+
+function base64Utf8(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 8_192) {
+    binary += String.fromCharCode(...bytes.slice(index, index + 8_192));
+  }
+  return btoa(binary);
+}
+
+function wrapBase64(value: string): string {
+  return value.match(/.{1,76}/g)?.join("\r\n") ?? "";
+}
+
+async function sendResetEmail(env: Env, code: string): Promise<void> {
+  const config = requireAdminConfig(env);
+  const host = env.SMTP_HOST?.trim() || "smtp.mail.ovh.net";
+  const port = Number(env.SMTP_PORT || "587");
+  const username = env.SMTP_USERNAME?.trim() || config.email;
+  const password = env.SMTP_PASSWORD;
+  if (!password || !Number.isInteger(port)) {
+    throw new Response("L’envoi du code n’est pas encore configuré.", { status: 503 });
+  }
+
+  let socket = connect({ hostname: host, port }, { secureTransport: "starttls", allowHalfOpen: true });
+  await socket.opened;
+  let smtp = new SmtpConnection(socket);
+  try {
+    await smtp.readResponse([220]);
+    await smtp.command("EHLO admin.kivli.fr", [250]);
+    await smtp.command("STARTTLS", [220]);
+    smtp.release();
+    socket = socket.startTls();
+    await socket.opened;
+    smtp = new SmtpConnection(socket);
+    await smtp.command("EHLO admin.kivli.fr", [250]);
+    await smtp.command("AUTH LOGIN", [334]);
+    await smtp.command(base64Utf8(username), [334]);
+    await smtp.command(base64Utf8(password), [235]);
+    await smtp.command(`MAIL FROM:<${username}>`, [250]);
+    await smtp.command(`RCPT TO:<${config.email}>`, [250, 251]);
+    await smtp.command("DATA", [354]);
+
+    const body = [
+      "Bonjour,",
+      "",
+      `Votre code de récupération Kivli est : ${code}`,
+      "",
+      `Ce code expire dans ${RESET_CODE_MINUTES} minutes et ne peut être utilisé qu’une fois.`,
+      "Si vous n’êtes pas à l’origine de cette demande, ignorez ce message.",
+      "",
+      "Kivli — La fidélité, simplement.",
+    ].join("\r\n");
+    const message = [
+      `From: Kivli Securite <${username}>`,
+      `To: ${config.email}`,
+      "Subject: Code de recuperation Kivli",
+      `Date: ${new Date().toUTCString()}`,
+      `Message-ID: <${crypto.randomUUID()}@kivli.fr>`,
+      "MIME-Version: 1.0",
+      "Content-Type: text/plain; charset=UTF-8",
+      "Content-Transfer-Encoding: base64",
+      "",
+      wrapBase64(base64Utf8(body)),
+      "",
+      ".",
+    ].join("\r\n");
+    await smtp.command(message, [250]);
+    await smtp.command("QUIT", [221]);
+  } finally {
+    await socket.close().catch(() => undefined);
+  }
+}
+
+function generateResetCode(): string {
+  const random = crypto.getRandomValues(new Uint32Array(1))[0];
+  return String(random % 1_000_000).padStart(6, "0");
+}
+
+async function requestPasswordReset(request: Request, env: Env): Promise<Response> {
+  requireSameOrigin(request);
+  const config = requireAdminConfig(env);
+  const body = await readBody(request);
+  const email = cleanText(body.email, 160).toLowerCase();
+  const network = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const networkHash = await sha256(`${config.pepper}:reset-network:${network}`);
+  const recent = await env.DB.prepare(
+    "SELECT created_at AS createdAt FROM admin_password_resets WHERE network_hash = ? ORDER BY created_at DESC LIMIT 1",
+  ).bind(networkHash).first<{ createdAt: string }>();
+  const lastRequest = parseDatabaseDate(recent?.createdAt ?? null);
+  if (lastRequest && Date.now() - lastRequest.getTime() < 60_000) {
+    return json({ error: "Un code vient déjà d’être envoyé. Patientez une minute." }, 429);
+  }
+  const volume = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM admin_password_resets WHERE network_hash = ? AND created_at > datetime('now', '-1 hour')",
+  ).bind(networkHash).first<{ count: number }>();
+  if (Number(volume?.count ?? 0) >= 5) {
+    return json({ error: "Trop de demandes. Réessayez dans une heure." }, 429);
+  }
+  if (email !== config.email) {
+    return json({ ok: true, message: "Si cette adresse correspond au compte, un code vient d’être envoyé." });
+  }
+
+  const id = `apr_${crypto.randomUUID().replace(/-/g, "")}`;
+  const code = generateResetCode();
+  const codeHash = await sha256(`${config.pepper}:reset-code:${id}:${code}`);
+  const expiresAt = new Date(Date.now() + RESET_CODE_MINUTES * 60_000).toISOString();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM admin_password_resets WHERE datetime(expires_at) < datetime('now', '-1 day')"),
+    env.DB.prepare("UPDATE admin_password_resets SET used_at = CURRENT_TIMESTAMP WHERE admin_email = ? AND used_at IS NULL")
+      .bind(config.email),
+    env.DB.prepare(
+      "INSERT INTO admin_password_resets (id, admin_email, network_hash, code_hash, expires_at) VALUES (?, ?, ?, ?, ?)",
+    ).bind(id, config.email, networkHash, codeHash, expiresAt),
+  ]);
+  try {
+    await sendResetEmail(env, code);
+  } catch (error) {
+    await env.DB.prepare("DELETE FROM admin_password_resets WHERE id = ?").bind(id).run();
+    if (error instanceof Response) throw error;
+    console.error("Kivli reset email error", error);
+    throw new Response("Impossible d’envoyer le code pour le moment.", { status: 503 });
+  }
+  return json({ ok: true, message: `Un code à 6 chiffres a été envoyé à ${config.email}.` });
+}
+
+async function confirmPasswordReset(request: Request, env: Env): Promise<Response> {
+  requireSameOrigin(request);
+  const config = requireAdminConfig(env);
+  const body = await readBody(request);
+  const email = cleanText(body.email, 160).toLowerCase();
+  const code = cleanText(body.code, 12).replace(/\s/g, "");
+  const password = typeof body.password === "string" ? body.password : "";
+  if (email !== config.email || !/^\d{6}$/.test(code)) {
+    return json({ error: "Le code est invalide ou a expiré." }, 400);
+  }
+  const passwordError = validateNewPassword(password);
+  if (passwordError) return json({ error: passwordError }, 400);
+
+  const reset = await env.DB.prepare(`
+    SELECT id, code_hash AS codeHash, attempts
+    FROM admin_password_resets
+    WHERE admin_email = ? AND used_at IS NULL AND datetime(expires_at) > CURRENT_TIMESTAMP
+    ORDER BY created_at DESC LIMIT 1
+  `).bind(config.email).first<{ id: string; codeHash: string; attempts: number }>();
+  if (!reset || reset.attempts >= 5) return json({ error: "Le code est invalide ou a expiré." }, 400);
+  const candidate = await sha256(`${config.pepper}:reset-code:${reset.id}:${code}`);
+  const expectedBytes = hexToBytes(reset.codeHash);
+  const candidateBytes = hexToBytes(candidate);
+  if (!expectedBytes || !candidateBytes || !safeEqual(expectedBytes, candidateBytes)) {
+    await env.DB.prepare("UPDATE admin_password_resets SET attempts = attempts + 1 WHERE id = ?").bind(reset.id).run();
+    return json({ error: "Le code est invalide ou a expiré." }, 400);
+  }
+
+  const passwordHash = await hashPassword(password);
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO admin_credentials (id, password_hash, updated_by)
+      VALUES ('primary', ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        password_hash = excluded.password_hash,
+        updated_at = CURRENT_TIMESTAMP,
+        updated_by = excluded.updated_by
+    `).bind(passwordHash, config.email),
+    env.DB.prepare("UPDATE admin_password_resets SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL")
+      .bind(reset.id),
+    env.DB.prepare("DELETE FROM admin_sessions"),
+    env.DB.prepare("DELETE FROM admin_login_attempts"),
+    auditStatement(env.DB, { email: config.email }, "admin.password_reset", null, { method: "email_code" }),
+  ]);
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: {
+      ...JSON_HEADERS,
+      "Set-Cookie": `${ADMIN_COOKIE}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`,
     },
   });
 }
@@ -558,28 +837,63 @@ function loginPage(): Response {
   <meta name="robots" content="noindex,nofollow,noarchive">
   <title>Connexion administrateur · Kivli</title>
   <style nonce="${nonce}">
-    :root{color-scheme:light;--ink:#17201d;--muted:#66706c;--paper:#f6f5f0;--card:#fff;--line:#e2e2da;--brand:#f05b3c;--brand-dark:#ce3f24;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    :root{color-scheme:light;--ink:#17201d;--muted:#66706c;--paper:#f6f5f0;--card:#fff;--line:#e2e2da;--brand:#f05b3c;--brand-dark:#ce3f24;--success:#19734a;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     *{box-sizing:border-box}html,body{margin:0;min-width:0;overflow-x:hidden}body{min-height:100vh;background:var(--paper);color:var(--ink);display:grid;place-items:center;padding:max(22px,env(safe-area-inset-top)) 18px max(22px,env(safe-area-inset-bottom))}
     .card{width:min(440px,100%);background:var(--card);border:1px solid var(--line);border-radius:24px;padding:clamp(24px,6vw,38px);box-shadow:0 24px 70px rgba(30,39,35,.1)}.brand{display:flex;align-items:center;gap:11px;font-weight:850;font-size:22px;letter-spacing:-.04em}.brand-mark{display:grid;grid-template-columns:repeat(3,6px);align-items:end;gap:3px;width:24px;height:24px;padding:4px;background:var(--brand);border-radius:8px}.brand-mark i{display:block;background:#fff;border-radius:2px}.brand-mark i:nth-child(1){height:7px}.brand-mark i:nth-child(2){height:13px}.brand-mark i:nth-child(3){height:10px}.chip{margin-left:auto;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em}
-    h1{font-size:34px;line-height:1.05;letter-spacing:-.045em;margin:38px 0 10px}p{margin:0 0 26px;color:var(--muted);line-height:1.55}.field{display:grid;gap:7px;margin:15px 0}.field span{font-size:12px;font-weight:780}.input{width:100%;min-width:0;height:50px;border:1px solid var(--line);border-radius:12px;background:#fafaf7;padding:0 14px;color:var(--ink);font-size:16px}.input:focus{outline:3px solid rgba(240,91,60,.15);border-color:var(--brand)}.submit{width:100%;height:50px;border:0;border-radius:12px;background:var(--ink);color:#fff;font-weight:820;font-size:15px;margin-top:12px;cursor:pointer}.submit:hover{background:#29332f}.submit:disabled{opacity:.65;cursor:wait}.error{min-height:22px;margin-top:14px;color:#b52828;font-size:13px;text-align:center}.secure{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:20px;color:var(--muted);font-size:11px}.secure:before{content:"";width:7px;height:7px;border-radius:50%;background:#19734a}
+    .view[hidden]{display:none}h1{font-size:34px;line-height:1.05;letter-spacing:-.045em;margin:38px 0 10px}p{margin:0 0 26px;color:var(--muted);line-height:1.55}.field{display:grid;gap:7px;margin:15px 0}.field span{font-size:12px;font-weight:780}.input{width:100%;min-width:0;height:50px;border:1px solid var(--line);border-radius:12px;background:#fafaf7;padding:0 14px;color:var(--ink);font-size:16px}.input:focus{outline:3px solid rgba(240,91,60,.15);border-color:var(--brand)}.code{font-size:22px;letter-spacing:.28em;text-align:center;font-variant-numeric:tabular-nums}.submit{width:100%;height:50px;border:0;border-radius:12px;background:var(--ink);color:#fff;font-weight:820;font-size:15px;margin-top:12px;cursor:pointer}.submit:hover{background:#29332f}.submit:disabled{opacity:.65;cursor:wait}.link{display:block;width:100%;border:0;background:transparent;color:var(--brand-dark);font-weight:760;font-size:13px;padding:13px 8px 4px;cursor:pointer}.link:hover{text-decoration:underline}.feedback{min-height:22px;margin-top:14px;font-size:13px;text-align:center;color:#b52828;line-height:1.45}.feedback.success{color:var(--success)}.hint{color:var(--muted);font-size:11px;line-height:1.5;margin-top:-5px}.secure{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:20px;color:var(--muted);font-size:11px}.secure:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--success)}
   </style>
 </head>
 <body>
   <main class="card">
     <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Kivli</span><span class="chip">Administration</span></div>
-    <h1>Bienvenue.</h1>
-    <p>Connectez-vous à l’espace privé de pilotage de la plateforme.</p>
-    <form id="login-form">
-      <label class="field"><span>Adresse e-mail</span><input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="username" required></label>
-      <label class="field"><span>Mot de passe</span><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></label>
-      <button class="submit" id="submit" type="submit">Se connecter</button>
-      <div class="error" id="error" role="alert" aria-live="polite"></div>
-    </form>
+    <section class="view" id="login-view">
+      <h1>Bienvenue.</h1>
+      <p>Connectez-vous à l’espace privé de pilotage de la plateforme.</p>
+      <form id="login-form">
+        <label class="field"><span>Adresse e-mail</span><input class="input" id="email" name="email" type="email" inputmode="email" autocomplete="username" required></label>
+        <label class="field"><span>Mot de passe</span><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></label>
+        <button class="submit" id="login-submit" type="submit">Se connecter</button>
+        <button class="link" id="forgot-password" type="button">Mot de passe oublié ?</button>
+        <div class="feedback" id="login-feedback" role="alert" aria-live="polite"></div>
+      </form>
+    </section>
+    <section class="view" id="request-view" hidden>
+      <h1>Récupérer l’accès.</h1>
+      <p>Nous enverrons un code temporaire à l’adresse administrateur.</p>
+      <form id="request-form">
+        <label class="field"><span>Adresse e-mail administrateur</span><input class="input" id="reset-email" type="email" inputmode="email" autocomplete="email" required></label>
+        <button class="submit" id="request-submit" type="submit">Envoyer le code</button>
+        <button class="link back-login" type="button">Retour à la connexion</button>
+        <div class="feedback" id="request-feedback" role="alert" aria-live="polite"></div>
+      </form>
+    </section>
+    <section class="view" id="confirm-view" hidden>
+      <h1>Nouveau mot de passe.</h1>
+      <p>Saisissez le code reçu par e-mail, puis choisissez votre nouveau mot de passe.</p>
+      <form id="confirm-form">
+        <label class="field"><span>Code à 6 chiffres</span><input class="input code" id="reset-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></label>
+        <label class="field"><span>Nouveau mot de passe</span><input class="input" id="new-password" type="password" autocomplete="new-password" minlength="12" required></label>
+        <div class="hint">12 caractères minimum, avec majuscule, minuscule, chiffre et symbole.</div>
+        <label class="field"><span>Confirmer le mot de passe</span><input class="input" id="confirm-password" type="password" autocomplete="new-password" minlength="12" required></label>
+        <button class="submit" id="confirm-submit" type="submit">Enregistrer le nouveau mot de passe</button>
+        <button class="link" id="resend-code" type="button">Renvoyer un code</button>
+        <button class="link back-login" type="button">Retour à la connexion</button>
+        <div class="feedback" id="confirm-feedback" role="alert" aria-live="polite"></div>
+      </form>
+    </section>
     <div class="secure">Connexion chiffrée et session privée de 12 heures</div>
   </main>
   <script nonce="${nonce}">
-    const form=document.getElementById("login-form"),button=document.getElementById("submit"),error=document.getElementById("error");
-    form.addEventListener("submit",async(event)=>{event.preventDefault();error.textContent="";button.disabled=true;button.textContent="Connexion…";try{const response=await fetch("/api/login",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:document.getElementById("email").value,password:document.getElementById("password").value})});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||"Connexion impossible.");location.replace("/")}catch(reason){error.textContent=reason.message||"Connexion impossible.";button.disabled=false;button.textContent="Se connecter"}});
+    const $=(id)=>document.getElementById(id);let resetEmail="";
+    const show=(id)=>{document.querySelectorAll(".view").forEach((view)=>view.hidden=view.id!==id)};
+    const feedback=(id,message,success=false)=>{const el=$(id);el.textContent=message;el.className="feedback"+(success?" success":"")};
+    const post=async(path,data)=>{const response=await fetch(path,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||"Action impossible pour le moment.");return body};
+    $("login-form").addEventListener("submit",async(event)=>{event.preventDefault();const button=$("login-submit");feedback("login-feedback","");button.disabled=true;button.textContent="Connexion…";try{await post("/api/login",{email:$("email").value,password:$("password").value});location.replace("/")}catch(reason){feedback("login-feedback",reason.message||"Connexion impossible.");button.disabled=false;button.textContent="Se connecter"}});
+    $("forgot-password").addEventListener("click",()=>{$("reset-email").value=$("email").value.trim();feedback("request-feedback","");show("request-view");$("reset-email").focus()});
+    document.querySelectorAll(".back-login").forEach((button)=>button.addEventListener("click",()=>{feedback("login-feedback","");show("login-view");$("email").focus()}));
+    $("request-form").addEventListener("submit",async(event)=>{event.preventDefault();const button=$("request-submit");resetEmail=$("reset-email").value.trim();feedback("request-feedback","");button.disabled=true;button.textContent="Envoi…";try{const body=await post("/api/password-reset/request",{email:resetEmail});show("confirm-view");feedback("confirm-feedback",body.message||"Code envoyé.",true);$("reset-code").focus()}catch(reason){feedback("request-feedback",reason.message||"Envoi impossible.")}finally{button.disabled=false;button.textContent="Envoyer le code"}});
+    $("confirm-form").addEventListener("submit",async(event)=>{event.preventDefault();const button=$("confirm-submit"),password=$("new-password").value;if(password!==$("confirm-password").value){feedback("confirm-feedback","Les deux mots de passe ne correspondent pas.");return}feedback("confirm-feedback","");button.disabled=true;button.textContent="Enregistrement…";try{await post("/api/password-reset/confirm",{email:resetEmail,code:$("reset-code").value,password});$("email").value=resetEmail;$("password").value="";show("login-view");feedback("login-feedback","Mot de passe modifié. Vous pouvez maintenant vous connecter.",true);$("password").focus()}catch(reason){feedback("confirm-feedback",reason.message||"Modification impossible.")}finally{button.disabled=false;button.textContent="Enregistrer le nouveau mot de passe"}});
+    $("resend-code").addEventListener("click",()=>{show("request-view");$("reset-email").value=resetEmail;feedback("request-feedback","");$("reset-email").focus()});
   </script>
 </body>
 </html>`;
@@ -636,7 +950,7 @@ function adminPage(identity: AdminIdentity): Response {
     const escapeHtml=(value)=>String(value??"").replace(/[&<>"']/g,(char)=>({38:"&amp;",60:"&lt;",62:"&gt;",34:"&quot;",39:"&#39;"}[char.charCodeAt(0)]));
     const formatNumber=(value)=>new Intl.NumberFormat("fr-FR").format(Number(value||0));
     const formatDate=(value)=>value?new Intl.DateTimeFormat("fr-FR",{dateStyle:"medium",timeStyle:"short"}).format(new Date(String(value).includes("T")?value:String(value).replace(" ","T")+"Z")):"—";
-    const actionLabel=(action)=>({"merchant.suspended":"Commerce suspendu","merchant.reactivated":"Commerce reactive","merchant.note_updated":"Note interne modifiee","merchant.deleted":"Compte commercant supprime","admin.login":"Connexion administrateur","admin.logout":"Deconnexion administrateur"}[action]||action);
+    const actionLabel=(action)=>({"merchant.suspended":"Commerce suspendu","merchant.reactivated":"Commerce reactive","merchant.note_updated":"Note interne modifiee","merchant.deleted":"Compte commercant supprime","admin.login":"Connexion administrateur","admin.logout":"Deconnexion administrateur","admin.password_reset":"Mot de passe administrateur modifie"}[action]||action);
     function toast(message,error=false){const el=$("toast");el.textContent=message;el.className="toast show"+(error?" error":"");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.className="toast",3200)}
     async function api(path,options={}){const response=await fetch(path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const body=await response.json().catch(()=>({}));if(response.status===401){location.replace("/login");throw new Error("Session expiree.")}if(!response.ok)throw new Error(body.error||"Une erreur est survenue.");return body}
     async function loadOverview(){const {overview}=await api("/api/overview");$("metric-merchants").textContent=formatNumber(overview.merchants);$("metric-active").textContent=formatNumber(overview.active_merchants)+" actifs · "+formatNumber(overview.suspended_merchants)+" suspendus";$("metric-customers").textContent=formatNumber(overview.customers);$("metric-passages").textContent=formatNumber(overview.passages);$("metric-rewards").textContent=formatNumber(overview.rewards);$("metric-points").textContent=formatNumber(overview.current_points)+" points en cours"}
@@ -662,6 +976,8 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const path = url.pathname.replace(/\/+$/, "") || "/";
 
   if (request.method === "POST" && path === "/api/login") return loginAdmin(request, env);
+  if (request.method === "POST" && path === "/api/password-reset/request") return requestPasswordReset(request, env);
+  if (request.method === "POST" && path === "/api/password-reset/confirm") return confirmPasswordReset(request, env);
   if (request.method === "GET" && path === "/login") {
     const existingIdentity = await getAdmin(request, env);
     return existingIdentity

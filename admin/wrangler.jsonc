@@ -7,7 +7,10 @@
   "preview_urls": false,
   "keep_vars": true,
   "vars": {
-    "ADMIN_EMAIL_V2": "contact@kivli.fr"
+    "ADMIN_EMAIL_V2": "contact@kivli.fr",
+    "SMTP_HOST": "smtp.mail.ovh.net",
+    "SMTP_PORT": "587",
+    "SMTP_USERNAME": "contact@kivli.fr"
   },
   "observability": {
     "enabled": true
