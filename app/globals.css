@@ -711,3 +711,205 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .employee-dashboard .quantity-picker small { display: none; }
   .employee-dashboard .camera-frame { aspect-ratio: 16 / 8.7; }
 }
+
+/* Premium UI audit — shared visual language */
+:root {
+  --paper: #f7f5ef;
+  --card: #fffefa;
+  --line: #dedbd2;
+  --muted: #6b6962;
+  --shadow-soft: 0 12px 36px rgba(30, 27, 20, .065);
+  --shadow-premium: 0 28px 80px rgba(30, 27, 20, .13);
+}
+
+body {
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: rgba(240, 91, 60, .2); color: var(--ink); }
+.brand { letter-spacing: -.045em; }
+.brand-mark { box-shadow: 0 7px 18px rgba(23, 23, 20, .16); }
+.button { border-radius: 13px; min-height: 44px; box-shadow: 0 1px 0 rgba(255,255,255,.08) inset; }
+.button:active { transform: translateY(1px) scale(.992); box-shadow: none; }
+.button-ghost { background: rgba(255,255,255,.48); }
+.text-link { text-decoration-thickness: 1px; }
+.form-grid input, .form-grid textarea, .manual-code input, .search-input {
+  border-radius: 13px;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 1px 0 rgba(25,24,20,.02) inset;
+}
+.form-grid input::placeholder, .form-grid textarea::placeholder, .manual-code input::placeholder { color: #9b9890; }
+select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, transparent); outline-offset: 2px; }
+
+/* Marketing and navigation */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+}
+.nav-actions .button { box-shadow: 0 8px 22px rgba(23,23,20,.12); }
+.hero-copy, .hero-visual { animation: hero-enter .65s cubic-bezier(.22,.8,.25,1) both; }
+.hero-visual { animation-delay: .08s; }
+.hero-lead { text-wrap: pretty; }
+.hero-actions .button { min-height: 54px; }
+.trust-row span { white-space: nowrap; }
+.steps-grid, .product-shot, .feature-list span { border-color: color-mix(in srgb, var(--line) 86%, transparent); }
+.product-shot { transition: transform .24s ease, box-shadow .24s ease, border-color .24s ease; }
+.feature-list span { box-shadow: 0 7px 22px rgba(30,27,20,.035); }
+.sector-list span { transition: background .18s ease, color .18s ease, transform .18s ease; }
+
+/* A physically credible, licence-free iPhone-style product mockup */
+.iphone-mockup {
+  position: relative;
+  isolation: isolate;
+  padding: 13px 10px 22px;
+  border: 1px solid #060605;
+  background: linear-gradient(145deg, #282724 0%, #10100f 48%, #262522 100%);
+  box-shadow: 0 42px 90px rgba(24,20,16,.34), 0 0 0 1px rgba(255,255,255,.14) inset;
+}
+.iphone-mockup::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  z-index: -1;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 31px;
+  pointer-events: none;
+}
+.dynamic-island {
+  position: absolute;
+  z-index: 7;
+  top: 11px;
+  left: 50%;
+  width: 78px;
+  height: 22px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #030303;
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
+}
+.dynamic-island i { position: absolute; right: 8px; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #1b3150, #050608 65%); }
+.phone-top { position: relative; z-index: 6; min-height: 28px; align-items: center; padding: 2px 13px 8px; font-size: 9px; font-weight: 720; }
+.phone-status { display: flex; align-items: center; gap: 5px; }
+.phone-status i { display: block; position: relative; }
+.phone-signal { width: 12px; height: 8px; background: linear-gradient(to right, #fff 0 18%, transparent 18% 28%, #fff 28% 48%, transparent 48% 58%, #fff 58% 78%, transparent 78% 88%, #fff 88%); clip-path: polygon(0 100%,0 70%,18% 70%,18% 100%,28% 100%,28% 48%,48% 48%,48% 100%,58% 100%,58% 24%,78% 24%,78% 100%,88% 100%,88% 0,100% 0,100% 100%); }
+.phone-wifi { width: 12px; height: 8px; border-top: 2px solid #fff; border-radius: 50%; }
+.phone-wifi::after { content: ""; position: absolute; left: 4px; bottom: 0; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+.phone-battery { width: 15px; height: 8px; border: 1px solid rgba(255,255,255,.82); border-radius: 2px; }
+.phone-battery::before { content: ""; position: absolute; inset: 1px; border-radius: 1px; background: #fff; }
+.phone-battery::after { content: ""; position: absolute; right: -3px; top: 2px; width: 2px; height: 4px; border-radius: 0 2px 2px 0; background: rgba(255,255,255,.7); }
+.phone-button { position: absolute; z-index: 0; width: 4px; border-radius: 3px 0 0 3px; background: #151412; box-shadow: -1px 0 0 #3b3935; }
+.phone-mute { left: -10px; top: 76px; height: 25px; }
+.phone-volume-up { left: -10px; top: 116px; height: 48px; }
+.phone-volume-down { left: -10px; top: 174px; height: 48px; }
+.phone-power { right: -10px; top: 132px; height: 72px; border-radius: 0 3px 3px 0; box-shadow: 1px 0 0 #3b3935; }
+.iphone-mockup .demo-card { box-shadow: 0 0 0 1px rgba(255,255,255,.05); }
+.home-indicator { width: 82px; height: 4px; margin: 13px auto -12px; border-radius: 999px; background: rgba(255,255,255,.82); }
+.iphone-mockup { animation: phone-float 5.5s ease-in-out infinite; }
+
+/* Merchant authentication: richer desktop context, calm mobile form */
+.auth-page { padding: 92px 24px 46px; overflow: hidden; }
+.auth-page::before, .auth-page::after { content: ""; position: fixed; pointer-events: none; border-radius: 50%; filter: blur(2px); }
+.auth-page::before { width: 420px; height: 420px; left: -180px; bottom: -220px; background: rgba(240,91,60,.09); }
+.auth-page::after { width: 300px; height: 300px; right: -120px; top: -120px; border: 1px solid rgba(240,91,60,.16); }
+.auth-shell { width: min(1020px, 100%); min-height: 610px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(410px, .95fr); overflow: hidden; border: 1px solid rgba(218,214,204,.92); border-radius: 30px; background: var(--card); box-shadow: var(--shadow-premium); }
+.auth-showcase { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 58px; background: linear-gradient(145deg, #191916, #28241f 58%, #d94b30 160%); color: #fff; }
+.auth-showcase::before, .auth-showcase::after { content: ""; position: absolute; border: 1px solid rgba(255,255,255,.1); border-radius: 50%; }
+.auth-showcase::before { width: 430px; height: 430px; right: -240px; top: -170px; }
+.auth-showcase::after { width: 250px; height: 250px; right: -115px; top: -75px; }
+.auth-showcase-kicker { display: inline-flex; align-items: center; gap: 8px; color: #f8866f; font-size: 11px; font-weight: 820; letter-spacing: .12em; text-transform: uppercase; }
+.auth-showcase h1 { max-width: 460px; margin: 19px 0 16px; font-size: clamp(44px, 5vw, 66px); line-height: .96; letter-spacing: -.06em; }
+.auth-showcase > p { max-width: 430px; margin: 0 0 38px; color: #b9b6ae; font-size: 16px; line-height: 1.6; }
+.auth-scan-preview { position: relative; z-index: 1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 17px; border: 1px solid rgba(255,255,255,.14); border-radius: 18px; background: rgba(255,255,255,.08); backdrop-filter: blur(14px); box-shadow: 0 18px 40px rgba(0,0,0,.18); }
+.auth-scan-preview > span { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 15px; background: var(--orange); }
+.auth-scan-preview div { display: grid; gap: 3px; }
+.auth-scan-preview small { color: #9f9c94; font-size: 8px; font-weight: 800; letter-spacing: .13em; }
+.auth-scan-preview strong { font-size: 14px; }
+.auth-scan-preview em { color: #aaa79f; font-size: 10px; font-style: normal; }
+.auth-scan-preview > i { color: #7ee0b6; font-size: 19px; font-style: normal; font-weight: 900; }
+.auth-proof { display: flex; align-items: center; gap: 8px; margin-top: 22px; color: #a9a69f; font-size: 11px; }
+.auth-card-merchant { width: auto; align-self: center; border: 0; border-radius: 0; padding: clamp(38px, 6vw, 62px); box-shadow: none; background: transparent; }
+.auth-card-merchant h1 { font-size: clamp(38px, 4vw, 48px); line-height: 1; }
+.auth-card-merchant .field-title { display: inline-flex; align-items: center; gap: 7px; }
+.auth-card-merchant .field-title svg { color: var(--orange); }
+.auth-card-merchant .button svg { transition: transform .18s ease; }
+.auth-card-merchant .button:hover svg { transform: translateX(3px); }
+
+/* Product surfaces and feedback */
+.panel, .scanner-card, .qr-panel, .join-card, .loyalty-card { box-shadow: var(--shadow-soft); }
+.dashboard-progress { position: fixed; inset: 0 0 auto; z-index: 100; height: 3px; overflow: hidden; background: rgba(240,91,60,.12); }
+.dashboard-progress span { display: block; width: 34%; height: 100%; border-radius: 99px; background: var(--orange); animation: progress-slide 1s ease-in-out infinite; }
+.mobile-tabs button, .sidebar nav button, .icon-button, .row-actions button, .employee-actions button { transition: transform .16s ease, color .16s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.mobile-tabs button:active, .icon-button:active, .row-actions button:active, .employee-actions button:active { transform: scale(.97); }
+.loading-card, .empty-card, .table-empty, .empty-activity { text-wrap: pretty; }
+.card-terms, .join-terms { backdrop-filter: blur(10px); }
+.loyalty-card-modern { border: 1px solid rgba(255,255,255,.2); }
+
+@media (hover:hover) and (pointer:fine) {
+  .product-shot:hover { transform: translateY(-6px); border-color: rgba(240,91,60,.3); box-shadow: 0 24px 55px rgba(31,27,20,.1); }
+  .sector-list span:hover { transform: translateY(-2px); background: var(--ink); color: #fff; }
+  .panel:hover { border-color: color-mix(in srgb, var(--line) 72%, var(--orange)); }
+}
+
+@media (max-width: 899px) {
+  .auth-shell { display: block; width: min(500px, 100%); min-height: 0; border-radius: 24px; }
+  .auth-showcase { display: none; }
+  .auth-card-merchant { padding: clamp(30px, 7vw, 44px); }
+}
+
+@media (max-width: 760px) {
+  .nav { margin-inline: 0; padding-top: env(safe-area-inset-top); }
+  .hero { padding-top: 40px; }
+  .hero-copy h1 { font-size: clamp(42px, 12.4vw, 56px); line-height: .98; text-wrap: balance; }
+  .hero-lead { font-size: 16px; line-height: 1.58; }
+  .hero-actions { display: grid; justify-content: stretch; width: min(100%, 330px); margin-inline: auto; }
+  .hero-actions .button { width: 100%; }
+  .trust-row { display: grid; grid-template-columns: repeat(2, auto); justify-content: center; gap: 12px 0; }
+  .trust-row span { padding-inline: 16px; }
+  .trust-row span:nth-child(3) { grid-column: 1 / -1; }
+  .hero-visual { min-height: 455px; overflow: visible; }
+  .hero-visual::before { inset: 24px 0 16px; border-radius: 30px; transform: rotate(-2deg); }
+  .phone-card { width: min(270px, calc(100vw - 58px)); }
+  .phone-button { display: none; }
+  .hero-stat { right: -3px; bottom: 52px; transform: rotate(-2deg) scale(.92); }
+  .steps-grid article { border-radius: 18px; }
+  .signup-modal { border-radius: 24px; box-shadow: 0 30px 80px rgba(0,0,0,.36); }
+  .auth-page { display: block; min-height: 100dvh; padding: calc(92px + env(safe-area-inset-top)) 18px 34px; }
+  .auth-brand { left: 22px; top: calc(24px + env(safe-area-inset-top)); }
+  .auth-shell { margin: 0 auto; }
+  .auth-card-merchant { padding: 32px 24px; }
+  .auth-card-merchant h1 { font-size: 38px; }
+  .public-card-page { align-items: start; padding-top: max(15px, env(safe-area-inset-top)); }
+  .join-card { border-radius: 22px; }
+}
+
+@media (max-width: 350px) {
+  .shell { width: calc(100% - 24px); }
+  .brand { gap: 8px; font-size: 21px; }
+  .brand-mark { width: 29px; height: 29px; }
+  .nav-actions { gap: 8px; }
+  .nav-cta span { display: none; }
+  .nav-cta::after { content: "Créer"; }
+  .nav-cta { min-width: 78px; padding-inline: 13px; }
+  .hero-copy h1 { font-size: 41px; }
+  .hero-lead { font-size: 15px; }
+  .trust-row { grid-template-columns: 1fr; text-align: center; }
+  .trust-row span, .trust-row span:nth-child(3) { grid-column: auto; padding: 0; border: 0; }
+  .phone-card { width: 250px; }
+  .hero-stat { right: -7px; }
+  .signup-modal { padding-inline: 20px; }
+  .auth-card-merchant { padding-inline: 20px; }
+}
+
+@keyframes hero-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes phone-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+@keyframes progress-slide { from { transform: translateX(-115%); } to { transform: translateX(335%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy, .hero-visual, .iphone-mockup { animation: none!important; }
+}

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { ArrowRight, LockKeyhole, ScanLine, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import { Brand } from "./Brand";
 
 export function MerchantLogin() {
@@ -30,18 +31,31 @@ export function MerchantLogin() {
   return (
     <main className="auth-page">
       <div className="auth-brand"><Brand /></div>
-      <section className="auth-card">
-        <span className="eyebrow">Espace commerçant</span>
-        <h1>Content de te revoir.</h1>
-        <p>Propriétaire ou employé : connecte-toi avec l’accès qui t’a été attribué.</p>
-        <form onSubmit={submit} className="form-grid">
-          <label>E-mail ou identifiant employé<input name="identifier" type="text" autoComplete="username" autoCapitalize="none" required /></label>
-          <label>Code d’accès<input name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required /></label>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="button button-large button-full" disabled={busy}>{busy ? "Connexion…" : "Ouvrir mon espace"}</button>
-        </form>
-        <div className="auth-foot">Pas encore de programme ? <Link href="/" prefetch={false}>Créer gratuitement</Link></div>
-      </section>
+      <div className="auth-shell">
+        <aside className="auth-showcase" aria-label="Aperçu de l’espace Kivli">
+          <span className="auth-showcase-kicker"><Sparkles size={15} aria-hidden="true" />Votre fidélité, en mouvement</span>
+          <h1>Scannez. Récompensez. Fidélisez.</h1>
+          <p>Un espace clair pour votre équipe, vos passages et vos récompenses.</p>
+          <div className="auth-scan-preview">
+            <span><ScanLine size={23} aria-hidden="true" /></span>
+            <div><small>SCAN CLIENT</small><strong>Carte reconnue</strong><em>Prête à recevoir un point</em></div>
+            <i>+1</i>
+          </div>
+          <div className="auth-proof"><ShieldCheck size={17} aria-hidden="true" />Accès séparés pour le responsable et l’équipe</div>
+        </aside>
+        <section className="auth-card auth-card-merchant">
+          <span className="eyebrow">Espace commerçant</span>
+          <h1>Content de te revoir.</h1>
+          <p>Propriétaire ou employé : connecte-toi avec l’accès qui t’a été attribué.</p>
+          <form onSubmit={submit} className="form-grid">
+            <label><span className="field-title"><UserRound size={15} aria-hidden="true" />E-mail ou identifiant employé</span><input name="identifier" type="text" autoComplete="username" autoCapitalize="none" required /></label>
+            <label><span className="field-title"><LockKeyhole size={15} aria-hidden="true" />Code d’accès</span><input name="pin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required /></label>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="button button-large button-full" disabled={busy}>{busy ? "Connexion…" : <>Ouvrir mon espace<ArrowRight size={18} aria-hidden="true" /></>}</button>
+          </form>
+          <div className="auth-foot">Pas encore de programme ? <Link href="/" prefetch={false}>Créer gratuitement</Link></div>
+        </section>
+      </div>
     </main>
   );
 }

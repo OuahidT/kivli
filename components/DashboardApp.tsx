@@ -297,6 +297,7 @@ export function DashboardApp() {
 
   return (
     <main className={`dashboard ${data.merchant.role === "employee" ? "employee-dashboard" : ""}`} style={{ "--merchant": data.merchant.accentColor } as React.CSSProperties}>
+      {busy && <div className="dashboard-progress" role="status" aria-live="polite" aria-label="Action en cours"><span /></div>}
       <aside className="sidebar">
         <Brand />
         <div className="merchant-pill"><span>{data.merchant.businessName.slice(0, 1)}</span><div><strong>{data.merchant.businessName}</strong><small>{data.merchant.role === "employee" ? `${data.merchant.employeeName} · Employé` : "Accès propriétaire"}</small></div></div>

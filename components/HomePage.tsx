@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   ArrowRight,
   BarChart3,
@@ -21,6 +21,20 @@ export function HomePage() {
   const [step, setStep] = useState<"intro" | "form">("intro");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (step !== "form") return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setStep("intro");
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [step]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,7 +61,7 @@ export function HomePage() {
         <Brand />
         <div className="nav-actions">
           <a href="/merchant" className="text-link">Se connecter</a>
-          <button className="button button-small" onClick={() => setStep("form")}>Créer mon programme</button>
+          <button className="button button-small nav-cta" onClick={() => setStep("form")}><span>Créer mon programme</span></button>
         </div>
       </nav>
 
@@ -69,8 +83,10 @@ export function HomePage() {
 
         <div className="hero-visual" aria-label="Aperçu de la carte digitale et du suivi Kivli">
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />
-          <div className="phone-card">
-            <div className="phone-top"><span>9:41</span><span>● ● ●</span></div>
+          <div className="phone-card iphone-mockup">
+            <i className="phone-button phone-mute" aria-hidden="true" /><i className="phone-button phone-volume-up" aria-hidden="true" /><i className="phone-button phone-volume-down" aria-hidden="true" /><i className="phone-button phone-power" aria-hidden="true" />
+            <div className="dynamic-island" aria-hidden="true"><i /></div>
+            <div className="phone-top"><span>9:41</span><span className="phone-status" aria-hidden="true"><i className="phone-signal" /><i className="phone-wifi" /><i className="phone-battery" /></span></div>
             <div className="demo-card">
               <div className="demo-card-head"><span className="mini-logo">A</span><span>Atelier Nova</span><i><Sparkles size={11} aria-hidden="true" /> Active</i></div>
               <div><small>CARTE PRIVILÈGE</small><h3>Encore 2 passages, Léa.</h3></div>
@@ -80,6 +96,7 @@ export function HomePage() {
               <div className="reward-line"><span>Prochaine récompense</span><strong>Un avantage au choix</strong></div>
             </div>
             <div className="demo-note"><span>✓</span><div><b>Passage ajouté</b><small>Progression mise à jour</small></div><strong>+1</strong></div>
+            <div className="home-indicator" aria-hidden="true" />
           </div>
           <div className="hero-stat"><BarChart3 size={18} aria-hidden="true" /><span><b>128</b><small>passages suivis</small></span></div>
         </div>
@@ -147,7 +164,7 @@ export function HomePage() {
       <footer className="footer"><div className="shell"><Brand light /><p>La fidélité, simplement.</p><a href="/merchant">Espace commerçant →</a></div></footer>
 
       {step === "form" && (
-        <div className="modal-backdrop" role="presentation">
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStep("intro"); }}>
           <section className="signup-modal" role="dialog" aria-modal="true" aria-labelledby="signup-title">
             <button className="modal-close" aria-label="Fermer" onClick={() => setStep("intro")}>×</button>
             <span className="eyebrow">Votre espace en 2 minutes</span>
