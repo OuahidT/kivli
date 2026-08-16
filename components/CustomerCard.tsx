@@ -92,7 +92,7 @@ export function CustomerCard({ code }: { code: string }) {
           <div className="card-qr-mobile">
             <span className="card-qr-mobile-label"><QrCodeIcon size={13} aria-hidden="true" />À présenter à l’équipe</span>
             <div className="card-qr-mobile-box"><QrCode value={`${appOrigin}/c/${card.code}`} size={190} label={`QR code personnel de ${card.firstName}`} /></div>
-            <p className="card-qr-mobile-code"><span>Code de secours</span><code>{card.code}</code></p>
+            <code className="card-qr-mobile-code">{card.code}</code>
           </div>
 
           <div className="card-mobile-tools">
