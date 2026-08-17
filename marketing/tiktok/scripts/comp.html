@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --ink: #171714; --muted: #6e6b63; --paper: #f4f1e9; --card: #fffdf9;
+    --line: #ddd8cc; --orange: #f05b3c; --orange-dark: #d8462b; --green: #2b6e5c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 540px; height: 960px; overflow: hidden; background: #000; }
+  #stage { position: absolute; inset: 0; width: 540px; height: 960px; overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+  .scene { position: absolute; inset: 0; display: none; }
+  .abs { position: absolute; }
+
+  /* ---------- typography ---------- */
+  .eyebrow { font-size: 13px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--orange-dark); text-align: center; width: 100%; }
+  .headline { font-weight: 800; letter-spacing: -.045em; color: var(--ink); text-align: center;
+    width: 100%; line-height: 1.02; }
+
+  /* ---------- backgrounds ---------- */
+  .bg-ink { background: radial-gradient(circle at 50% 30%, #23231e, #171714 70%); }
+  .bg-paper { background: var(--paper); }
+  .blob { position: absolute; width: 720px; height: 720px; left: -90px; top: 240px;
+    background: var(--orange); border-radius: 49% 51% 44% 56% / 54% 46% 54% 46%; opacity: .16;
+    filter: blur(2px); }
+  .blob2 { position: absolute; width: 420px; height: 420px; right: -160px; top: -120px;
+    background: var(--orange); border-radius: 53% 47% 56% 44% / 46% 54% 46% 54%; opacity: .10; }
+  #vignette { position: absolute; inset: 0; z-index: 90; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 46%, transparent 62%, rgba(20,16,10,.16) 100%); }
+
+  /* ---------- scene 1 : hook ---------- */
+  #s1 .headline { color: #fff; font-size: 52px; top: 130px; }
+  #s1 .hl-line { display: block; overflow: hidden; }
+  #s1 .hl-line > span { display: inline-block; }
+  #papercard { position: absolute; left: 50%; top: 46%; width: 340px; height: 214px; margin-left: -170px;
+    background: linear-gradient(160deg, #efe7d2, #e6dcc2); border-radius: 6px;
+    box-shadow: 0 30px 60px rgba(0,0,0,.5), inset 0 0 40px rgba(120,100,60,.18);
+    padding: 18px 20px; color: #5d5644; }
+  #papercard .pc-title { font-family: "Courier New", monospace; font-weight: 700; font-size: 15px;
+    letter-spacing: .22em; color: #6b6350; }
+  #papercard .pc-sub { font-family: "Courier New", monospace; font-size: 10px; letter-spacing: .08em;
+    margin-top: 3px; color: #8d8064; }
+  #papercard .pc-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 18px; }
+  #papercard .pc-grid i { display: grid; place-items: center; width: 44px; height: 44px; border: 2px dashed #a89a78;
+    border-radius: 50%; font-style: normal; font-family: "Courier New", monospace; font-size: 18px; color: #37436e; }
+  #papercard .pc-stain { position: absolute; right: 14px; top: 8px; width: 74px; height: 74px; border-radius: 50%;
+    border: 11px solid rgba(122, 84, 40, .22); filter: blur(1.5px); }
+  #papercard .pc-fold { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: 6px;
+    background: linear-gradient(115deg, transparent 46%, rgba(90,75,45,.20) 50%, transparent 54%),
+                linear-gradient(60deg, transparent 63%, rgba(90,75,45,.15) 66%, transparent 70%); }
+  .stampword { position: absolute; font-weight: 900; font-size: 34px; letter-spacing: -.02em;
+    color: #ff7a5c; border: 4px solid #ff7a5c; border-radius: 10px; padding: 6px 16px;
+    text-transform: uppercase; }
+
+  /* ---------- phone ---------- */
+  #phoneWrap { position: absolute; left: 0; top: 0; width: 540px; height: 960px; z-index: 20; }
+  #phone { position: absolute; left: 0; top: 0; width: 540px; height: 960px; }
+  #phoneShadow { position: absolute; background: radial-gradient(ellipse, rgba(25,18,10,.38), transparent 65%); }
+  #screen { position: absolute; overflow: hidden; background: #f4f1e9; }
+  #frameImg { position: absolute; }
+  .slide { position: absolute; inset: 0; }
+  .slide img { position: absolute; left: 0; top: 0; }
+
+  /* ---------- captions (steps) ---------- */
+  .cap { position: absolute; left: 0; width: 100%; text-align: center; }
+  .cap .eyebrow { position: static; }
+  .cap .headline { position: static; font-size: 34px; margin-top: 10px; }
+
+  /* ---------- scene 5 : benefits ---------- */
+  #s5 .brow { position: absolute; top: 150px; }
+  .benefit { position: absolute; left: 0; width: 100%; text-align: center; color: #fff; }
+  .benefit b { display: block; font-size: 74px; font-weight: 900; letter-spacing: -.05em; color: var(--orange); line-height: 1; }
+  .benefit span { display: block; font-size: 22px; font-weight: 700; color: rgba(255,255,255,.85); margin-top: 8px; }
+  .benefit .rule { display: block; height: 4px; width: 64px; margin: 22px auto 0; background: rgba(255,255,255,.14); border-radius: 2px; overflow: hidden; }
+  .benefit .rule i { display: block; height: 100%; background: var(--orange); width: 100%; transform-origin: left; }
+
+  /* ---------- scene 6 : cta ---------- */
+  #s6 .brandrow { position: absolute; top: 240px; left: 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 16px; }
+  #s6 .brandrow svg { width: 96px; height: 96px; border-radius: 26px; box-shadow: 0 18px 44px rgba(36,29,18,.22); }
+  #s6 .brandname { font-size: 64px; font-weight: 900; letter-spacing: -.05em; color: var(--ink); }
+  #s6 .domain { position: absolute; top: 400px; width: 100%; text-align: center; font-size: 64px; font-weight: 900;
+    letter-spacing: -.045em; color: var(--ink); }
+  #s6 .domain em { font-style: normal; color: var(--orange); }
+  #s6 .tag { position: absolute; top: 490px; width: 100%; text-align: center; font-size: 17px; font-weight: 700; color: var(--muted); }
+  #s6 .btn { position: absolute; top: 560px; left: 50%; width: 348px; margin-left: -174px; }
+  #s6 .btn img { width: 100%; display: block; filter: drop-shadow(0 20px 36px rgba(20,20,16,.28)); }
+
+  .confetto { position: absolute; z-index: 40; }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- SCENE 1 — hook -->
+  <div class="scene bg-ink" id="s1">
+    <div class="headline abs" id="s1h">
+      <span class="hl-line"><span id="s1h1">Encore une carte</span></span>
+      <span class="hl-line"><span id="s1h2">papier&nbsp;?</span></span>
+    </div>
+    <div id="papercard">
+      <div class="pc-stain"></div>
+      <div class="pc-title">CARTE DE FIDÉLITÉ</div>
+      <div class="pc-sub">10 achats = 1 offert&nbsp;&nbsp;·&nbsp;&nbsp;tampon à chaque passage</div>
+      <div class="pc-grid">
+        <i>✗</i><i>✗</i><i>✗</i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <div class="pc-fold"></div>
+    </div>
+    <div class="stampword" id="w1" style="left:44px;  top:640px; transform: rotate(-8deg);">Perdue</div>
+    <div class="stampword" id="w2" style="left:196px; top:704px; transform: rotate(4deg);">Froissée</div>
+    <div class="stampword" id="w3" style="left:118px; top:780px; transform: rotate(-4deg);">Oubliée</div>
+  </div>
+
+  <!-- SCENES 2-4 — phone journey (shared root) -->
+  <div class="scene bg-paper" id="s2">
+    <div class="blob" id="blob1"></div>
+    <div class="blob2" id="blob2"></div>
+
+    <!-- caption: reveal -->
+    <div class="cap" id="capReveal" style="top: 96px;">
+      <div class="eyebrow">La fidélité digitale</div>
+      <div class="headline" style="font-size: 46px;">Voici Kivli.</div>
+    </div>
+    <!-- caption: step 1 -->
+    <div class="cap" id="capS1" style="top: 96px;">
+      <div class="eyebrow">Étape 1</div>
+      <div class="headline">Affichez votre QR code</div>
+    </div>
+    <!-- caption: step 2 -->
+    <div class="cap" id="capS2" style="top: 96px;">
+      <div class="eyebrow">Étape 2</div>
+      <div class="headline">Le client crée sa carte</div>
+    </div>
+    <!-- caption: step 3 -->
+    <div class="cap" id="capS3" style="top: 96px;">
+      <div class="eyebrow">Étape 3</div>
+      <div class="headline">Scannez. C&rsquo;est compté.</div>
+    </div>
+    <!-- caption: reward -->
+    <div class="cap" id="capS4" style="top: 96px;">
+      <div class="eyebrow">8 passages = 1 récompense</div>
+      <div class="headline">Récompense débloquée.</div>
+    </div>
+
+    <div id="phoneWrap">
+      <div id="phone">
+        <div id="phoneShadow"></div>
+        <div id="screen"></div>
+        <img id="frameImg" src="file:///home/user/kivli/public/kivli-iphone-frame.png" />
+      </div>
+    </div>
+    <div id="confetti"></div>
+  </div>
+
+  <!-- SCENE 5 — benefits -->
+  <div class="scene bg-ink" id="s5">
+    <div class="eyebrow brow" id="s5brow" style="color: #ff8d72;">Pensé pour les commerçants</div>
+    <div class="benefit" id="b1" style="top: 236px;"><b>0&nbsp;€</b><span>pour commencer</span><span class="rule"><i></i></span></div>
+    <div class="benefit" id="b2" style="top: 430px;"><b>1&nbsp;min</b><span>pour ouvrir son espace</span><span class="rule"><i></i></span></div>
+    <div class="benefit" id="b3" style="top: 624px;"><b>Sans app</b><span>à télécharger</span><span class="rule"><i></i></span></div>
+  </div>
+
+  <!-- SCENE 6 — CTA -->
+  <div class="scene bg-paper" id="s6">
+    <div class="blob" style="opacity:.07; top: 470px; filter: blur(14px);"></div>
+    <div class="brandrow" id="s6brand">
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+        <rect width="512" height="512" rx="112" fill="#f4f1e9"/>
+        <g transform="rotate(-3 256 256)">
+          <rect x="96" y="96" width="320" height="320" rx="100" fill="#171714"/>
+          <rect x="194" y="234" width="38" height="96" rx="19" fill="#f05b3c"/>
+          <rect x="237" y="174" width="38" height="156" rx="19" fill="#f05b3c"/>
+          <rect x="280" y="207" width="38" height="123" rx="19" fill="#f05b3c"/>
+        </g>
+      </svg>
+      <span class="brandname">Kivli</span>
+    </div>
+    <div class="domain" id="s6dom">kivli<em>.fr</em></div>
+    <div class="tag" id="s6tag">La fidélité digitale pour tous les commerces</div>
+    <div class="btn" id="s6btn"><img src="file:///tmp/claude-0/-home-user-kivli/0475e9d9-8d7a-5dd4-8aeb-cce336e65ab8/scratchpad/shots/cta-button.png" /></div>
+  </div>
+
+  <div id="vignette"></div>
+</div>
+
+<script>
+/* ============ geometry ============ */
+const W = 540, H = 960;
+const FW = 860, K = FW / 1080;
+const PX = (W - FW) / 2;            // frame img left
+const PY = 150;                      // frame img top
+const SX = PX + 344 * K,  SY = PY + 108 * K;
+const SW = 391 * K,       SH = 850 * K;      // 311.4 x 676.9
+const ISCALE = SW / 1290;                     // screenshot scale
+const RADIUS = 54 * K;
+
+const frameImg = document.getElementById('frameImg');
+frameImg.style.width = FW + 'px';
+frameImg.style.left = PX + 'px';
+frameImg.style.top = PY + 'px';
+const screenEl = document.getElementById('screen');
+Object.assign(screenEl.style, { left: SX+'px', top: SY+'px', width: SW+'px', height: SH+'px', borderRadius: RADIUS+'px' });
+const shadow = document.getElementById('phoneShadow');
+Object.assign(shadow.style, { left: (PX+270)+'px', top: (PY+740)+'px', width: '320px', height: '110px' });
+
+/* ============ slides ============ */
+const SHOTS = 'file:///tmp/claude-0/-home-user-kivli/0475e9d9-8d7a-5dd4-8aeb-cce336e65ab8/scratchpad/shots/';
+const slidesDef = [
+  { id: 'card0',  src: 'card-0.png',                  y: 35 },
+  { id: 'card6',  src: 'card-6.png',                  y: 35 },
+  { id: 'dash',   src: 'dashboard-overview-full.png', y: 0 },
+  { id: 'join',   src: 'join-full.png',               y: 0 },
+  { id: 'scan',   src: 'scan-tab.png',                y: 0 },
+  { id: 'plus1',  src: 'modal-plus1.png',             y: 0 },
+  { id: 'reward', src: 'modal-reward.png',            y: 0 },
+  { id: 'cardR',  src: 'card-reward.png',             y: 30 },
+];
+const slides = {};
+for (const def of slidesDef) {
+  const div = document.createElement('div');
+  div.className = 'slide';
+  const img = document.createElement('img');
+  img.src = SHOTS + def.src;
+  img.style.width = '100%';
+  div.appendChild(img);
+  screenEl.appendChild(div);
+  slides[def.id] = { el: div, img, baseY: def.y };
+}
+
+/* ============ confetti ============ */
+function mulberry32(a){return function(){let t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+const rnd = mulberry32(20260817);
+const CCOLORS = ['#f05b3c','#d8462b','#2b6e5c','#171714','#fffdf9'];
+const confetti = [];
+const confettiRoot = document.getElementById('confetti');
+for (let i = 0; i < 42; i++) {
+  const el = document.createElement('div');
+  el.className = 'confetto';
+  const w = 5 + rnd()*7, h = 8 + rnd()*8;
+  el.style.width = w+'px'; el.style.height = h+'px';
+  el.style.background = CCOLORS[Math.floor(rnd()*CCOLORS.length)];
+  el.style.borderRadius = rnd() < .3 ? '50%' : '2px';
+  confettiRoot.appendChild(el);
+  confetti.push({ el, x: rnd()*W, delay: rnd()*30, speed: 7+rnd()*5, drift: (rnd()-0.5)*3,
+    phase: rnd()*Math.PI*2, rot: rnd()*360, rotSpeed: (rnd()-0.5)*22 });
+}
+
+/* ============ easing ============ */
+const clamp = (v,a,b)=>Math.min(b,Math.max(a,v));
+const lerp = (a,b,t)=>a+(b-a)*t;
+const seg = (f,a,b)=>clamp((f-a)/(b-a),0,1);
+const outCubic = t=>1-Math.pow(1-t,3);
+const outQuint = t=>1-Math.pow(1-t,5);
+const inCubic = t=>t*t*t;
+const inOutCubic = t=> t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+function springE(t){ if(t>=1) return 1; const v = 1 - Math.exp(-6*t)*Math.cos(9*t); return v / (1 - Math.exp(-6)*Math.cos(9)); }
+const punch = t => { // impact scale: starts big, slams to 1 with tiny bounce
+  if (t>=1) return 1;
+  return 1 + (1-outCubic(t))*0.85 - Math.sin(clamp(t*3-1.6,0,Math.PI))*0.035;
+};
+
+const $ = id => document.getElementById(id);
+const scenes = { s1: $('s1'), s2: $('s2'), s5: $('s5'), s6: $('s6') };
+function show(el, on){ el.style.display = on ? 'block' : 'none'; }
+function op(el, v){ el.style.opacity = clamp(v,0,1); }
+
+/* ============ slide state helper ============ */
+function setSlide(id, { x = 0, y = null, opacity = 1, scale = 1, visible = true } = {}) {
+  const s = slides[id];
+  if (!visible || opacity <= 0) { s.el.style.display = 'none'; return; }
+  s.el.style.display = 'block';
+  s.el.style.opacity = clamp(opacity,0,1);
+  s.el.style.transform = `translateX(${x}px) scale(${scale})`;
+  s.el.style.transformOrigin = '50% 40%';
+  const iy = (y === null ? s.baseY : y);
+  s.img.style.transform = `translateY(${iy}px)`;
+}
+function hideAllSlides(){ for (const k in slides) slides[k].el.style.display = 'none'; }
+
+/* ============ caption helper ============ */
+const caps = { reveal: $('capReveal'), s1: $('capS1'), s2: $('capS2'), s3: $('capS3'), s4: $('capS4') };
+function setCap(id, { opacity = 0, ty = 0 } = {}) {
+  const c = caps[id];
+  c.style.opacity = clamp(opacity,0,1);
+  c.style.transform = `translateY(${ty}px)`;
+  c.style.display = opacity <= 0 ? 'none' : 'block';
+}
+
+/* ============ timeline ============ */
+const FPS = 30, TOTAL = 840;
+
+function seek(f) {
+  /* -------- scene visibilities -------- */
+  show(scenes.s1, f < 96);
+  show(scenes.s2, f >= 84 && f < 672);
+  show(scenes.s5, f >= 650 && f < 774);
+  show(scenes.s6, f >= 762);
+
+  /* ================= SCENE 1 : hook (0-96) ================= */
+  if (f < 96) {
+    // headline lines pop
+    const h1 = $('s1h1'), h2 = $('s1h2'), h = $('s1h');
+    h.style.top = '130px';
+    const t1 = outQuint(seg(f, 2, 22)), t2 = outQuint(seg(f, 8, 28));
+    h1.style.transform = `translateY(${lerp(70,0,t1)}px)`;
+    h2.style.transform = `translateY(${lerp(70,0,t2)}px)`;
+    op(h, seg(f, 0, 8));
+    // paper card rises
+    const pc = $('papercard');
+    const tin = springE(seg(f, 12, 48));
+    let pcY = lerp(520, 0, tin), pcR = lerp(-16, -7, tin), pcOp = seg(f, 12, 22);
+    // exit: crumple away
+    const tout = inCubic(seg(f, 74, 96));
+    pcY += tout * 620; pcR += tout * -32;
+    pc.style.transform = `translateY(${pcY}px) rotate(${pcR}deg)`;
+    op(pc, pcOp);
+    // stamp words punch in
+    const words = [[$('w1'), 34, -8], [$('w2'), 46, 4], [$('w3'), 58, -4]];
+    for (const [el, f0, baseR] of words) {
+      const t = seg(f, f0, f0 + 12);
+      if (t <= 0) { el.style.opacity = 0; continue; }
+      el.style.opacity = Math.min(1, t*3) * (1 - seg(f, 80, 92));
+      el.style.transform = `rotate(${baseR}deg) scale(${punch(t)})`;
+    }
+    // headline exit
+    if (f > 78) { h.style.top = (130 - inCubic(seg(f,78,96))*180) + 'px'; op(h, 1 - seg(f, 82, 94)); }
+  }
+
+  /* ================= SCENES 2-4 : phone journey (84-672) ================= */
+  if (f >= 84 && f < 672) {
+    // scene entrance: circular wipe from center
+    const wipe = outCubic(seg(f, 84, 100));
+    scenes.s2.style.clipPath = wipe >= 1 ? 'none' : `circle(${wipe * 78}% at 50% 46%)`;
+
+    // background blobs parallax
+    const drift = Math.sin(f * 0.012) * 10;
+    $('blob1').style.transform = `translate(${drift}px, ${Math.cos(f*0.01)*8}px) rotate(${f*0.02}deg)`;
+    $('blob2').style.transform = `translate(${-drift*0.7}px, ${Math.sin(f*0.014)*7}px)`;
+
+    // ---- phone entrance + float ----
+    const tRise = springE(seg(f, 92, 134));
+    let phY = lerp(860, 0, tRise);
+    let phR = lerp(7, 0, tRise);
+    // continuous gentle float once landed
+    const floatY = Math.sin(f * 0.045) * 3.5 * tRise;
+    const floatR = Math.sin(f * 0.03 + 1.2) * 0.5 * tRise;
+    // exit for benefits scene
+    const tExit = inCubic(seg(f, 650, 670));
+    phY += tExit * 340;
+    const phScale = 1 - tExit * 0.12;
+    $('phone').style.transform = `translateY(${phY + floatY}px) rotate(${phR + floatR}deg) scale(${phScale})`;
+    $('phone').style.transformOrigin = '50% 60%';
+    op($('phoneWrap'), 1 - seg(f, 652, 668));
+
+    /* ---- slides inside the screen ---- */
+    hideAllSlides();
+    const SLIDE_T = 16;
+    function slideIn(f0){ return inOutCubic(seg(f, f0, f0 + SLIDE_T)); }
+
+    if (f < 224) {
+      // reveal: card0 -> card6 crossfade (progress comes alive)
+      const xr = seg(f, 152, 174);
+      const pulse = 1 + Math.sin(clamp(xr,0,1) * Math.PI) * 0.018;
+      setSlide('card0', { scale: pulse });
+      if (xr > 0) setSlide('card6', { opacity: xr, scale: pulse });
+      // step1 slides in at 208
+      const t = slideIn(208);
+      if (t > 0) {
+        setSlide('card6', { x: -SW * 0.35 * t, opacity: 1, scale: 1 });
+        setSlide('dash', { x: SW * (1 - t) });
+      }
+    } else if (f < 328) {
+      // step 1: dashboard pan to QR
+      const pan = -30 - outCubic(seg(f, 226, 300)) * 210;
+      setSlide('dash', { y: pan });
+      const t = slideIn(312);
+      if (t > 0) {
+        setSlide('dash', { x: -SW * 0.35 * t, y: pan });
+        setSlide('join', { x: SW * (1 - t) });
+      }
+    } else if (f < 432) {
+      // step 2: join pan hero -> form
+      const pan = -30 - outCubic(seg(f, 330, 404)) * 186;
+      setSlide('join', { y: pan });
+      const t = slideIn(416);
+      if (t > 0) {
+        setSlide('join', { x: -SW * 0.35 * t, y: pan });
+        setSlide('scan', { x: SW * (1 - t) });
+      }
+    } else if (f < 540) {
+      // step 3: scanner, then +1 modal pops over it
+      const zoom = 1 + seg(f, 432, 536) * 0.03;
+      setSlide('scan', { scale: zoom });
+      const tm = seg(f, 474, 488);
+      if (tm > 0) setSlide('plus1', { opacity: outCubic(tm), scale: lerp(0.94, 1, outQuint(tm)) });
+      const t = slideIn(528);
+      if (t > 0) {
+        setSlide('plus1', { x: -SW * 0.35 * t, opacity: 1, scale: 1 });
+        setSlide('reward', { x: SW * (1 - t) });
+      }
+    } else {
+      // reward: modal-reward then customer card with reward banner
+      const xr = seg(f, 592, 612);
+      setSlide('reward', { opacity: 1 - xr });
+      if (xr > 0) setSlide('cardR', { opacity: xr, scale: 1 + (1 - outCubic(xr)) * 0.02 });
+      else setSlide('cardR', { visible: false });
+      const zoomEnd = 1 + seg(f, 612, 660) * 0.02;
+      if (xr >= 1) setSlide('cardR', { scale: zoomEnd });
+    }
+
+    /* ---- captions ---- */
+    // reveal caption 100-206
+    setCap('reveal', { opacity: Math.min(seg(f, 102, 116), 1 - seg(f, 198, 210)),
+      ty: lerp(26, 0, outQuint(seg(f, 102, 122))) - inCubic(seg(f, 198, 212)) * 20 });
+    setCap('s1', { opacity: Math.min(seg(f, 212, 224), 1 - seg(f, 302, 314)),
+      ty: lerp(26, 0, outQuint(seg(f, 212, 230))) - inCubic(seg(f, 302, 316)) * 20 });
+    setCap('s2', { opacity: Math.min(seg(f, 316, 328), 1 - seg(f, 406, 418)),
+      ty: lerp(26, 0, outQuint(seg(f, 316, 334))) - inCubic(seg(f, 406, 420)) * 20 });
+    setCap('s3', { opacity: Math.min(seg(f, 420, 432), 1 - seg(f, 522, 534)),
+      ty: lerp(26, 0, outQuint(seg(f, 420, 438))) - inCubic(seg(f, 522, 536)) * 20 });
+    setCap('s4', { opacity: Math.min(seg(f, 540, 552), 1 - seg(f, 640, 654)),
+      ty: lerp(26, 0, outQuint(seg(f, 540, 558))) - inCubic(seg(f, 640, 656)) * 20 });
+
+    /* ---- confetti during reward ---- */
+    const cf = f - 540;
+    for (const c of confetti) {
+      const life = cf - c.delay;
+      if (cf < 0 || life < 0 || life > 96) { c.el.style.display = 'none'; continue; }
+      c.el.style.display = 'block';
+      const y = -30 + life * c.speed;
+      if (y > H + 20) { c.el.style.display = 'none'; continue; }
+      const x = c.x + Math.sin(c.phase + life * 0.12) * 26 + c.drift * life * 0.35;
+      c.el.style.transform = `translate(${x}px, ${y}px) rotate(${c.rot + life * c.rotSpeed}deg)`;
+      c.el.style.opacity = clamp(Math.min(life/4, (96-life)/14), 0, 1);
+    }
+  }
+
+  /* ================= SCENE 5 : benefits (650-774) ================= */
+  if (f >= 650 && f < 774) {
+    op(scenes.s5, Math.min(seg(f, 650, 664), 1 - seg(f, 760, 772)));
+    op($('s5brow'), seg(f, 664, 676));
+    const rows = [[$('b1'), 668], [$('b2'), 682], [$('b3'), 696]];
+    for (const [el, f0] of rows) {
+      const t = outQuint(seg(f, f0, f0 + 22));
+      el.style.opacity = t;
+      el.style.transform = `translateY(${lerp(56, 0, t)}px)`;
+      const bar = el.querySelector('.rule i');
+      bar.style.transform = `scaleX(${outCubic(seg(f, f0 + 10, f0 + 34))})`;
+    }
+    // slow drift up
+    scenes.s5.style.transform = `translateY(${-seg(f, 664, 774) * 12}px)`;
+  }
+
+  /* ================= SCENE 6 : CTA (762-840) ================= */
+  if (f >= 762) {
+    op(scenes.s6, seg(f, 762, 774));
+    const zoom = 1 + seg(f, 762, 840) * 0.014;
+    scenes.s6.style.transform = `scale(${zoom})`;
+    scenes.s6.style.transformOrigin = '50% 45%';
+    const tb = springE(seg(f, 766, 800));
+    $('s6brand').style.transform = `translateY(${lerp(46,0,tb)}px) scale(${lerp(.8,1,tb)})`;
+    op($('s6brand'), seg(f, 766, 778));
+    const td = outQuint(seg(f, 778, 800));
+    $('s6dom').style.transform = `translateY(${lerp(34,0,td)}px)`;
+    op($('s6dom'), seg(f, 778, 792));
+    op($('s6tag'), seg(f, 790, 804));
+    const tbtn = springE(seg(f, 792, 824));
+    const pulse = 1 + Math.sin(Math.max(0, f - 824) * 0.16) * 0.012;
+    $('s6btn').style.transform = `translateY(${lerp(60,0,tbtn)}px) scale(${tbtn > 0 ? pulse : 1})`;
+    op($('s6btn'), seg(f, 792, 806));
+  }
+}
+
+/* preload */
+window.READY = false;
+Promise.all(
+  [...document.images].map(im => im.complete ? Promise.resolve() : new Promise(r => { im.onload = r; im.onerror = r; }))
+).then(() => { seek(0); window.READY = true; });
+window.seek = seek;
+</script>
+</body>
+</html>
