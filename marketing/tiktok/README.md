@@ -1,15 +1,16 @@
 # Vidéo TikTok Kivli
 
 - `kivli-tiktok.mp4` — 1080×1920 (9:16), 30 fps, 28 s, H.264, sans son.
-- `kivli-tiktok-voix.mp4` — même vidéo avec voix off française (TTS neural Kokoro,
-  voix `ff_siwis`, AAC 48 kHz), 8 répliques calées sur les scènes. Prête à poster.
+- `kivli-tiktok-voix.mp4` — même vidéo avec voix off masculine française
+  (Piper `fr_FR-upmc-medium`, locuteur « pierre », français natif, AAC 48 kHz),
+  8 répliques calées sur les scènes. Prête à poster.
 
 Script voix off : « La carte papier ? Perdue, froissée, oubliée. / Voici Kivli. La carte
 de fidélité digitale. / Affichez votre QR code. / Le client crée sa carte en un instant. /
 Un scan, et le passage est compté. / Huit passages, récompense débloquée ! / Zéro euro,
 une minute, sans application. / Kivli point FR. C'est gratuit. »
 
-Génération : `scripts/voiceover.py` (sherpa-onnx + modèle `kokoro-multi-lang-v1_0`
+Génération : `scripts/voiceover.py` (sherpa-onnx + modèle `vits-piper-fr_FR-upmc-medium`
 téléchargé depuis les releases GitHub k2-fsa/sherpa-onnx, non versionné ici ; le script
 mesure chaque segment, ajuste finement la vitesse ≤ ×1,12, cale sur la timeline,
 normalise en loudness et mixe dans le mp4 sans réencoder la vidéo).

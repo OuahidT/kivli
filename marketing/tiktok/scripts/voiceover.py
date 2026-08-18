@@ -6,33 +6,32 @@ M = os.path.join(HERE, "kokoro-multi-lang-v1_0")
 OUT = os.path.join(HERE, "vo")
 os.makedirs(OUT, exist_ok=True)
 
+# Native-French male voice: Piper fr_FR-upmc-medium, speaker "pierre" (sid 1).
+V = os.path.join(HERE, "vits-piper-fr_FR-upmc-medium")
 config = sherpa_onnx.OfflineTtsConfig(
     model=sherpa_onnx.OfflineTtsModelConfig(
-        kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
-            model=os.path.join(M, "model.onnx"),
-            voices=os.path.join(M, "voices.bin"),
-            tokens=os.path.join(M, "tokens.txt"),
-            data_dir=os.path.join(M, "espeak-ng-data"),
-            dict_dir=os.path.join(M, "dict"),
-            lexicon=",".join([os.path.join(M, "lexicon-us-en.txt"), os.path.join(M, "lexicon-zh.txt")]),
+        vits=sherpa_onnx.OfflineTtsVitsModelConfig(
+            model=os.path.join(V, "fr_FR-upmc-medium.onnx"),
+            tokens=os.path.join(V, "tokens.txt"),
+            data_dir=os.path.join(V, "espeak-ng-data"),
         ),
         num_threads=4,
     ),
-    max_num_sentences=1,
+    max_num_sentences=2,
 )
 tts = sherpa_onnx.OfflineTts(config)
-SID = 31  # ff_siwis (French)
+SID = 1  # pierre
 
 # (start_time, max_end, speed, text)
 LINES = [
-    (0.20, 3.45, 1.04, "La carte papier ? Perdue, froissée, oubliée."),
-    (3.65, 7.25, 1.04, "Voici Kivli. La carte de fidélité digitale."),
-    (7.45, 10.3, 1.02, "Affichez votre QR code."),
-    (10.70, 13.9, 1.03, "Le client crée sa carte en un instant."),
-    (14.15, 17.8, 1.03, "Un scan, et le passage est compté."),
-    (18.15, 21.6, 1.02, "Huit passages, récompense débloquée !"),
-    (21.95, 25.3, 1.03, "Zéro euro, une minute, sans application."),
-    (25.35, 28.0, 1.03, "Kivli point F R. C'est gratuit."),
+    (0.20, 3.45, 0.95, "La carte papier ? Perdue, froissée, oubliée."),
+    (3.65, 7.25, 0.96, "Voici Kivli. La carte de fidélité digitale."),
+    (7.45, 10.3, 0.94, "Affichez votre QR code."),
+    (10.70, 13.9, 0.94, "Le client crée sa carte en un instant."),
+    (14.15, 17.8, 0.94, "Un scan, et le passage est compté."),
+    (18.15, 21.6, 0.94, "Huit passages, récompense débloquée !"),
+    (21.95, 25.3, 0.95, "Zéro euro, une minute, sans application."),
+    (25.35, 28.0, 0.94, "Kivli point F R. C'est gratuit."),
 ]
 
 def trim_silence(samples, sr, thresh_db=-42.0):
