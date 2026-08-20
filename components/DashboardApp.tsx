@@ -70,6 +70,11 @@ type ScanCandidate = {
   input: { quantity: number; amountCents?: number };
 };
 
+type CustomerDialog = {
+  kind: "bonus" | "spend";
+  customer: DashboardData["customers"][number];
+};
+
 const tabs = [
   { id: "overview", label: "Vue d’ensemble", shortLabel: "Accueil", icon: LayoutDashboard },
   { id: "scan", label: "Scanner un client", shortLabel: "Scanner", icon: ScanLine },
@@ -93,6 +98,7 @@ export function DashboardApp() {
   const [segment, setSegment] = useState<"all" | "new" | "active" | "loyal" | "reactivate" | "reward">("all");
   const [employeeAccess, setEmployeeAccess] = useState<{ displayName: string; loginCode: string; temporaryPin: string } | null>(null);
   const [showEmployeePin, setShowEmployeePin] = useState(false);
+  const [customerDialog, setCustomerDialog] = useState<CustomerDialog | null>(null);
   const sessionInitialized = useRef(false);
 
   const load = useCallback(async () => {
@@ -220,26 +226,43 @@ export function DashboardApp() {
     setBusy(false);
   }
 
-  async function addBonus(customer: DashboardData["customers"][number]) {
-    const raw = window.prompt(`Combien de points bonus ajouter à ${customer.firstName} ?`, "1");
-    if (raw === null) return;
-    const quantity = Number(raw);
-    const note = window.prompt("Motif du bonus (facultatif)", "Geste commercial") ?? "";
+  function addBonus(customer: DashboardData["customers"][number]) {
+    setCustomerDialog({ kind: "bonus", customer });
+  }
+
+  async function submitBonus(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!customerDialog || customerDialog.kind !== "bonus") return;
+    const formData = new FormData(event.currentTarget);
+    const quantity = Number(formData.get("quantity"));
+    const note = String(formData.get("note") ?? "");
     setBusy(true); setError("");
-    const response = await fetch("/api/merchant/bonus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: customer.code, quantity, note }) });
+    const response = await fetch("/api/merchant/bonus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: customerDialog.customer.code, quantity, note }) });
     const result = await response.json() as { error?: string };
-    if (!response.ok) setError(result.error ?? "Bonus non ajouté."); else { setToast(`Bonus ajouté à ${customer.firstName}.`); await load(); }
+    if (!response.ok) setError(result.error ?? "Bonus non ajouté."); else { setToast(`Bonus ajouté à ${customerDialog.customer.firstName}.`); setCustomerDialog(null); await load(); }
     setBusy(false);
   }
 
-  async function customerAction(customer: DashboardData["customers"][number]) {
+  function customerAction(customer: DashboardData["customers"][number]) {
     if (data?.program?.earningMode === "spend") {
-      const amount = window.prompt(`Montant de l’achat de ${customer.firstName} en euros`, "");
-      if (amount === null) return;
-      await recognize(customer.code, { quantity: 1, amountCents: Math.round(Number(amount.replace(",", ".")) * 100) });
+      setCustomerDialog({ kind: "spend", customer });
       return;
     }
-    await recognize(customer.code, { quantity: 1 });
+    void recognize(customer.code, { quantity: 1 });
+  }
+
+  async function submitSpend(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!customerDialog || customerDialog.kind !== "spend") return;
+    const amount = String(new FormData(event.currentTarget).get("amount") ?? "").replace(",", ".");
+    const amountCents = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      setError("Indique un montant d’achat valide.");
+      return;
+    }
+    const customer = customerDialog.customer;
+    setCustomerDialog(null);
+    await recognize(customer.code, { quantity: 1, amountCents });
   }
 
   async function updateSecurity(
@@ -456,10 +479,16 @@ export function DashboardApp() {
       {scanCandidate && <div className="modal-backdrop"><section className="scan-decision-modal" role="dialog" aria-modal="true"><button className="modal-close" onClick={() => setScanCandidate(null)} aria-label="Fermer">×</button><span className="eyebrow">Carte reconnue</span><h2>Que fait {scanCandidate.customer.firstName} aujourd’hui ?</h2><p>Choisis l’action exacte. Remettre une récompense seule n’ajoutera aucun point.</p>{scanCandidate.rewards.length > 0 && <div className="available-reward-list"><strong>Récompenses disponibles</strong>{scanCandidate.rewards.map((reward) => <article key={reward.id}><span><Gift size={17} aria-hidden="true" /><b>{reward.rewardText}</b></span><div><button className="button button-ghost" onClick={() => redeem(scanCandidate.customer.code, reward.id)} disabled={busy}>Utiliser seulement</button><button className="text-link" onClick={() => redeemThenEarn(scanCandidate, reward.id)} disabled={busy}>Utiliser puis enregistrer l’achat</button></div></article>)}</div>}<button className="button button-large button-full" onClick={() => stamp(scanCandidate.customer.code, scanCandidate.input.quantity, scanCandidate.input.amountCents)} disabled={busy}>{scanCandidate.earningMode === "spend" ? `Enregistrer ${(Number(scanCandidate.input.amountCents ?? 0) / 100).toFixed(2).replace(".", ",")} €` : `Ajouter ${scanCandidate.input.quantity} point${scanCandidate.input.quantity > 1 ? "s" : ""}`}<ArrowRight size={17} aria-hidden="true" /></button><button className="text-link result-close" onClick={() => setScanCandidate(null)}>Ne rien enregistrer</button></section></div>}
       {stampResult && <div className="modal-backdrop"><section className="result-modal" role="dialog" aria-modal="true"><div className={`result-icon ${stampResult.rewardEarned ? "reward" : ""}`}>{stampResult.rewardEarned ? "★" : `+${stampResult.quantity}`}</div><span className="eyebrow">{stampResult.rewardEarned ? `${stampResult.rewardsEarned} récompense${stampResult.rewardsEarned > 1 ? "s" : ""} débloquée${stampResult.rewardsEarned > 1 ? "s" : ""}` : `${stampResult.quantity} point${stampResult.quantity > 1 ? "s" : ""} ajouté${stampResult.quantity > 1 ? "s" : ""}`}</span><h2>{stampResult.rewardEarned ? `Bravo ${stampResult.customer.firstName} !` : `C’est fait pour ${stampResult.customer.firstName}.`}</h2><p>{stampResult.rewardEarned ? `La carte compte maintenant ${stampResult.availableRewards} récompense${stampResult.availableRewards > 1 ? "s" : ""} disponible${stampResult.availableRewards > 1 ? "s" : ""}.` : `Sa carte affiche maintenant ${stampResult.customer.points}/${stampResult.customer.goal} points.`}</p>{stampResult.availableRewards > 0 && <button className="button reward-action button-full" onClick={() => redeem(stampResult.customer.code)} disabled={busy}>★ Utiliser une récompense</button>}<button className="button button-large button-full" onClick={() => { setStampResult(null); setTab("scan"); }}>Scanner le client suivant</button><button className="text-link result-undo" onClick={() => undoStamp(stampResult.stampId, stampResult.customer.firstName)} disabled={busy}>↶ Annuler cette opération</button><button className="text-link result-close" onClick={() => setStampResult(null)}>Fermer</button></section></div>}
       {showEmployeePin && <PinChangeModal busy={busy} error={error} onSubmit={changeEmployeePin} onClose={() => { setShowEmployeePin(false); setError(""); }} />}
+      {customerDialog && <CustomerActionModal dialog={customerDialog} busy={busy} error={error} spendAmountCents={data.program.spendAmountCents} onBonus={submitBonus} onSpend={submitSpend} onClose={() => { setCustomerDialog(null); setError(""); }} />}
       {employeeAccess && <EmployeeAccessModal access={employeeAccess} onClose={() => setEmployeeAccess(null)} />}
       {toast && <div className="toast" role="status">✓ {toast}</div>}
     </main>
   );
+}
+
+function CustomerActionModal({ dialog, busy, error, spendAmountCents, onBonus, onSpend, onClose }: { dialog: CustomerDialog; busy: boolean; error: string; spendAmountCents: number; onBonus: (event: FormEvent<HTMLFormElement>) => Promise<void>; onSpend: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
+  const bonus = dialog.kind === "bonus";
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="customer-action-modal" role="dialog" aria-modal="true" aria-labelledby="customer-action-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className={`customer-action-icon ${bonus ? "bonus" : "spend"}`}>{bonus ? <Coins size={23} aria-hidden="true" /> : <Footprints size={23} aria-hidden="true" />}</span><span className="eyebrow">{bonus ? "Geste commercial" : "Nouvel achat"}</span><h2 id="customer-action-title">{bonus ? `Ajouter un bonus à ${dialog.customer.firstName}` : `Enregistrer l’achat de ${dialog.customer.firstName}`}</h2><p>{bonus ? "Les points bonus sont clairement identifiés dans l’historique et restent réservés au propriétaire." : `Kivli calcule automatiquement les points : 1 point tous les ${(spendAmountCents / 100).toFixed(2).replace(".", ",")} €.`}</p><form className="form-grid" onSubmit={bonus ? onBonus : onSpend}>{bonus ? <><label>Nombre de points bonus<input name="quantity" type="number" min="1" max="100" defaultValue="1" required autoFocus /></label><label>Motif <small>Facultatif</small><input name="note" maxLength={120} placeholder="Geste commercial, anniversaire…" /></label></> : <label>Montant de l’achat<input name="amount" type="number" min="0.01" max="100000" step="0.01" inputMode="decimal" placeholder="0,00" required autoFocus /><small>Montant en euros, taxes comprises.</small></label>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : bonus ? "Ajouter le bonus" : "Continuer"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
 }
 
 function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData; onCreated: () => Promise<void>; onLogout: () => Promise<void> }) {

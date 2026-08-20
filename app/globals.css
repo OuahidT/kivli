@@ -35,6 +35,13 @@
 .scan-decision-modal { position: relative; width: min(600px, calc(100% - 28px)); max-height: calc(100svh - 28px); overflow: auto; padding: 32px; border-radius: 26px; background: #fff; box-shadow: 0 28px 80px rgba(18,16,12,.25); }
 .scan-decision-modal h2 { margin: 8px 0; font-size: 30px; letter-spacing: -.04em; }
 .scan-decision-modal > p { margin: 0 0 22px; color: var(--muted); line-height: 1.55; }
+.customer-action-modal { position: relative; width: min(500px, calc(100% - 28px)); max-height: calc(100svh - 28px); overflow: auto; padding: 34px; border: 1px solid #e1ddd4; border-radius: 26px; background: #fff; box-shadow: 0 28px 80px rgba(18,16,12,.25); }
+.customer-action-modal h2 { margin: 10px 0 8px; font-size: 30px; line-height: 1.08; letter-spacing: -.04em; }
+.customer-action-modal > p { margin: 0 0 22px; color: var(--muted); line-height: 1.55; }
+.customer-action-modal .form-grid { gap: 15px; }
+.customer-action-modal .text-link { justify-self: center; }
+.customer-action-icon { width: 50px; height: 50px; margin-bottom: 15px; display: grid; place-items: center; border-radius: 16px; color: var(--orange); background: #fff0eb; }
+.customer-action-icon.spend { color: var(--green); background: #eaf5f1; }
 .available-reward-list { display: grid; gap: 10px; margin-bottom: 18px; }
 .available-reward-list > strong { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .available-reward-list article { display: grid; gap: 12px; padding: 16px; border: 1px solid #eadbd4; border-radius: 17px; background: #fff8f5; }
@@ -64,6 +71,8 @@
   .amount-picker output { grid-column: 1 / -1; }
   .scan-decision-modal { padding: 26px 20px; border-radius: 22px; }
   .scan-decision-modal h2 { font-size: 26px; }
+  .customer-action-modal { padding: 28px 21px; border-radius: 22px; }
+  .customer-action-modal h2 { font-size: 26px; }
   .available-reward-list article > div { display: grid; }
   .reward-tiers-editor .field-row { grid-template-columns: 100px 1fr; }
 }
