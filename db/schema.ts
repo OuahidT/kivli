@@ -11,6 +11,7 @@ export const merchants = sqliteTable(
     slug: text("slug").notNull(),
     email: text("email").notNull(),
     phone: text("phone"),
+    emailVerifiedAt: text("email_verified_at"),
     pinHash: text("pin_hash").notNull(),
     employeePinHash: text("employee_pin_hash"),
     accentColor: text("accent_color").notNull().default("#f05b3c"),
@@ -52,11 +53,28 @@ export const programs = sqliteTable(
     goal: integer("goal").notNull().default(10),
     rewardText: text("reward_text").notNull(),
     terms: text("terms").notNull().default("Un point est accordé par achat éligible. Le commerçant peut annuler tout point attribué par erreur ou de manière frauduleuse."),
+    earningMode: text("earning_mode").notNull().default("visits"),
+    spendAmountCents: integer("spend_amount_cents").notNull().default(100),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [uniqueIndex("idx_programs_merchant").on(table.merchantId)],
+);
+
+export const programRewardTiers = sqliteTable(
+  "program_reward_tiers",
+  {
+    id: text("id").primaryKey(),
+    programId: text("program_id").notNull(),
+    threshold: integer("threshold").notNull(),
+    rewardText: text("reward_text").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [uniqueIndex("idx_program_reward_tiers_unique").on(table.programId, table.threshold), index("idx_program_reward_tiers_program").on(table.programId)],
 );
 
 export const customers = sqliteTable(
@@ -66,6 +84,9 @@ export const customers = sqliteTable(
     merchantId: text("merchant_id").notNull(),
     firstName: text("first_name").notNull(),
     email: text("email"),
+    phone: text("phone"),
+    marketingConsent: integer("marketing_consent", { mode: "boolean" }).notNull().default(false),
+    marketingConsentedAt: text("marketing_consented_at"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [index("idx_customers_merchant_email").on(table.merchantId, table.email)],
@@ -106,6 +127,8 @@ export const stamps = sqliteTable(
     reversesStampId: text("reverses_stamp_id"),
     reversedAt: text("reversed_at"),
     reversedByRole: text("reversed_by_role"),
+    amountCents: integer("amount_cents"),
+    note: text("note"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [index("idx_stamps_merchant_created").on(table.merchantId, table.createdAt)],
@@ -121,6 +144,9 @@ export const rewards = sqliteTable(
     status: text("status").notNull().default("available"),
     earnedAt: text("earned_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     redeemedAt: text("redeemed_at"),
+    tierId: text("tier_id"),
+    rewardText: text("reward_text"),
+    threshold: integer("threshold"),
   },
   (table) => [index("idx_rewards_membership_status").on(table.membershipId, table.status)],
 );

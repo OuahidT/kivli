@@ -412,7 +412,7 @@ function wrapBase64(value: string): string {
   return value.match(/.{1,76}/g)?.join("\r\n") ?? "";
 }
 
-async function sendResetEmail(env: Env, code: string): Promise<void> {
+async function sendSmtpEmail(env: Env, recipient: string, subject: string, body: string): Promise<void> {
   const config = requireAdminConfig(env);
   const host = env.SMTP_HOST?.trim() || "smtp.mail.ovh.net";
   const port = Number(env.SMTP_PORT || "587");
@@ -438,23 +438,12 @@ async function sendResetEmail(env: Env, code: string): Promise<void> {
     await smtp.command(base64Utf8(username), [334]);
     await smtp.command(base64Utf8(password), [235]);
     await smtp.command(`MAIL FROM:<${username}>`, [250]);
-    await smtp.command(`RCPT TO:<${config.email}>`, [250, 251]);
+    await smtp.command(`RCPT TO:<${recipient}>`, [250, 251]);
     await smtp.command("DATA", [354]);
-
-    const body = [
-      "Bonjour,",
-      "",
-      `Votre code de récupération Kivli est : ${code}`,
-      "",
-      `Ce code expire dans ${RESET_CODE_MINUTES} minutes et ne peut être utilisé qu’une fois.`,
-      "Si vous n’êtes pas à l’origine de cette demande, ignorez ce message.",
-      "",
-      "Kivli — La fidélité, simplement.",
-    ].join("\r\n");
     const message = [
-      `From: Kivli Securite <${username}>`,
-      `To: ${config.email}`,
-      "Subject: Code de recuperation Kivli",
+      `From: Kivli <${username}>`,
+      `To: ${recipient}`,
+      `Subject: ${subject}`,
       `Date: ${new Date().toUTCString()}`,
       `Message-ID: <${crypto.randomUUID()}@kivli.fr>`,
       "MIME-Version: 1.0",
@@ -470,6 +459,38 @@ async function sendResetEmail(env: Env, code: string): Promise<void> {
   } finally {
     await socket.close().catch(() => undefined);
   }
+}
+
+async function sendResetEmail(env: Env, code: string): Promise<void> {
+  const config = requireAdminConfig(env);
+  const body = [
+    "Bonjour,", "", `Votre code de récupération Kivli est : ${code}`, "",
+    `Ce code expire dans ${RESET_CODE_MINUTES} minutes et ne peut être utilisé qu’une fois.`,
+    "Si vous n’êtes pas à l’origine de cette demande, ignorez ce message.", "",
+    "Kivli — La fidélité, simplement.",
+  ].join("\r\n");
+  return sendSmtpEmail(env, config.email, "Code de recuperation Kivli", body);
+}
+
+async function sendMerchantVerification(request: Request, env: Env): Promise<Response> {
+  if (new URL(request.url).hostname !== "kivli-admin.internal") return json({ error: "Route introuvable." }, 404);
+  const body = await readBody(request);
+  const email = cleanText(body.email, 160).toLowerCase();
+  const firstName = cleanText(body.firstName, 60);
+  const businessName = cleanText(body.businessName, 80);
+  const verificationUrl = cleanText(body.verificationUrl, 500);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !verificationUrl.startsWith("https://kivli.fr/verify-email?token=")) {
+    return json({ error: "Demande d’envoi invalide." }, 400);
+  }
+  const message = [
+    `Bonjour ${firstName || ""},`, "",
+    `Confirmez l’adresse e-mail de votre compte ${businessName || "Kivli"} en ouvrant ce lien :`,
+    verificationUrl, "",
+    "Ce lien expire dans 30 minutes. Si vous n’êtes pas à l’origine de cette demande, ignorez ce message.", "",
+    "Kivli — La fidélité, simplement.",
+  ].join("\r\n");
+  await sendSmtpEmail(env, email, "Confirmez votre compte Kivli", message);
+  return json({ ok: true });
 }
 
 function generateResetCode(): string {
@@ -800,6 +821,7 @@ async function deleteMerchantAccount(
     env.DB.prepare("DELETE FROM stamps WHERE merchant_id = ?").bind(merchantId),
     env.DB.prepare("DELETE FROM memberships WHERE merchant_id = ?").bind(merchantId),
     env.DB.prepare("DELETE FROM customers WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM program_reward_tiers WHERE program_id IN (SELECT id FROM programs WHERE merchant_id = ?)").bind(merchantId),
     env.DB.prepare("DELETE FROM programs WHERE merchant_id = ?").bind(merchantId),
     env.DB.prepare("DELETE FROM employees WHERE merchant_id = ?").bind(merchantId),
     env.DB.prepare("DELETE FROM merchant_admin_state WHERE merchant_id = ?").bind(merchantId),
@@ -978,6 +1000,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   await ensureAdminSchema(env.DB);
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
+
+  if (request.method === "POST" && path === "/internal/merchant-verification") {
+    return sendMerchantVerification(request, env);
+  }
 
   if (request.method === "POST" && path === "/api/login") return loginAdmin(request, env);
   if (request.method === "POST" && path === "/api/password-reset/request") return requestPasswordReset(request, env);

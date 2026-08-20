@@ -7,6 +7,7 @@ import {
   Check,
   Gift,
   History,
+  MailCheck,
   QrCode,
   ScanLine,
   ShieldCheck,
@@ -18,7 +19,8 @@ import { Brand } from "./Brand";
 import { QrCode as KivliQrCode } from "./QrCode";
 
 export function HomePage() {
-  const [step, setStep] = useState<"intro" | "form">("intro");
+  const [step, setStep] = useState<"intro" | "form" | "pending">("intro");
+  const [pendingEmail, setPendingEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [navScrolled, setNavScrolled] = useState(false);
@@ -31,7 +33,7 @@ export function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (step !== "form") return;
+    if (step === "intro") return;
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setStep("intro");
@@ -54,13 +56,23 @@ export function HomePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.fromEntries(data)),
     });
-    const result = (await response.json()) as { error?: string };
+    const result = (await response.json()) as { error?: string; email?: string };
     if (!response.ok) {
       setError(result.error ?? "Impossible de créer le compte.");
       setBusy(false);
       return;
     }
-    window.location.href = "/dashboard?welcome=1";
+    setPendingEmail(result.email ?? String(data.get("email") ?? ""));
+    setStep("pending");
+    setBusy(false);
+  }
+
+  async function resend() {
+    setBusy(true); setError("");
+    const response = await fetch("/api/merchant/signup/resend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: pendingEmail }) });
+    const result = await response.json() as { error?: string };
+    setError(response.ok ? "E-mail renvoyé. Pense à vérifier les courriers indésirables." : result.error ?? "Envoi impossible.");
+    setBusy(false);
   }
 
   return (
@@ -189,16 +201,16 @@ export function HomePage() {
             <span className="eyebrow">Votre espace en 1 minute</span>
             <h2 id="signup-title">Créez simplement votre compte.</h2>
             <p>Votre carte de fidélité se configure juste après, tranquillement depuis votre espace.</p>
-            <form onSubmit={submit} className="form-grid">
+            {step === "form" ? <form onSubmit={submit} className="form-grid">
               <div className="field-row"><label>Prénom<input name="firstName" autoComplete="given-name" placeholder="Léa" required /></label><label>Nom<input name="lastName" autoComplete="family-name" placeholder="Martin" required /></label></div>
               <label>Nom du commerce<input name="businessName" placeholder="Atelier Nova" required /></label>
               <label>E-mail professionnel<input name="email" type="email" autoComplete="email" placeholder="bonjour@ateliernova.fr" required /></label>
               <label>Téléphone <small>Facultatif</small><input name="phone" type="tel" autoComplete="tel" placeholder="06 12 34 56 78" /></label>
-              <label>Mot de passe<input name="password" type="password" autoComplete="new-password" minLength={8} maxLength={128} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}" placeholder="Votre mot de passe" required /><small>8 caractères minimum, avec une majuscule, une minuscule et un chiffre. Aucun caractère spécial obligatoire.</small></label>
+              <div className="field-row"><label>Code confidentiel<input name="password" type="password" inputMode="numeric" autoComplete="new-password" minLength={6} maxLength={6} pattern="[0-9]{6}" placeholder="6 chiffres" required /><small>Il servira à te connecter.</small></label><label>Confirmer le code<input name="confirmPassword" type="password" inputMode="numeric" autoComplete="new-password" minLength={6} maxLength={6} pattern="[0-9]{6}" placeholder="6 chiffres" required /></label></div>
               {error && <p className="form-error" role="alert">{error}</p>}
               <button className="button button-large button-full" disabled={busy}>{busy ? "Création en cours…" : "Créer mon compte"}</button>
               <small className="form-note">En continuant, vous acceptez que les données nécessaires soient enregistrées pour faire fonctionner votre compte Kivli.</small>
-            </form>
+            </form> : <div className="signup-confirmation"><span className="signup-confirmation-icon"><MailCheck size={26} aria-hidden="true" /></span><h3>Confirme ton adresse e-mail.</h3><p>Nous avons envoyé un lien valable 30 minutes à <strong>{pendingEmail}</strong>. Ouvre-le pour activer ton compte.</p>{error && <p className="form-error" role="status">{error}</p>}<button className="button button-ghost button-full" onClick={resend} disabled={busy}>{busy ? "Envoi…" : "Renvoyer l’e-mail"}</button><button className="text-link" onClick={() => { setStep("form"); setError(""); }}>Modifier mes informations</button></div>}
           </section>
         </div>
       )}

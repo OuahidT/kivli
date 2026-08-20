@@ -21,6 +21,12 @@
       "migrations_dir": "drizzle"
     }
   ],
+  "services": [
+    {
+      "binding": "ADMIN_MAILER",
+      "service": "kivli-admin"
+    }
+  ],
   "observability": {
     "enabled": true
   },

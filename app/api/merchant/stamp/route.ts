@@ -1,4 +1,4 @@
-import { ensureSchema, getD1, queryFirst } from "../../../../db";
+import { ensureSchema, getD1, queryAll, queryFirst } from "../../../../db";
 import { getMerchant } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
@@ -9,6 +9,7 @@ type StampPayload = {
   requestId?: string;
   confirmMultiple?: boolean;
   confirmRecent?: boolean;
+  amountCents?: number;
 };
 type MembershipRow = {
   id: string;
@@ -17,7 +18,10 @@ type MembershipRow = {
   goal: number;
   programId: string;
   availableRewards: number;
+  earningMode: "visits" | "spend";
+  spendAmountCents: number;
 };
+type TierRow = { id: string; threshold: number; rewardText: string };
 type RecentStamp = { actorName: string; createdAt: string };
 type StoredRequest = { responseJson: string };
 
@@ -28,13 +32,10 @@ export async function POST(request: Request) {
     const payload = await readJson<StampPayload>(request);
     const code = cleanText(payload?.code, 80).toUpperCase();
     const requestId = cleanText(payload?.requestId, 80);
-    const quantity = Math.round(Number(payload?.quantity) || 1);
+    const requestedQuantity = Math.round(Number(payload?.quantity) || 1);
     if (!code) return jsonError("Aucun code client détecté.");
     if (!/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) return jsonError("La validation a expiré. Recommence le scan.");
-    if (quantity < 1 || quantity > 10) return jsonError("Choisis entre 1 et 10 points.");
-    if (quantity > 1 && payload?.confirmMultiple !== true) {
-      return Response.json({ error: `Confirme l’ajout de ${quantity} points.`, code: "confirm_multiple" }, { status: 409 });
-    }
+    const amountCents = Math.round(Number(payload?.amountCents) || 0);
 
     const requestKey = `${merchant.id}:${requestId}`;
     const existing = await queryFirst<StoredRequest>(
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
 
     const membership = await queryFirst<MembershipRow>(
       `SELECT mb.id, c.first_name AS firstName, mb.points, p.goal, p.id AS programId,
+        p.earning_mode AS earningMode, p.spend_amount_cents AS spendAmountCents,
         (SELECT COUNT(*) FROM rewards r WHERE r.membership_id = mb.id AND r.status = 'available') AS availableRewards
        FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
        WHERE mb.code = ? AND mb.merchant_id = ?`,
@@ -53,6 +55,10 @@ export async function POST(request: Request) {
       merchant.id,
     );
     if (!membership) return jsonError("Cette carte n’appartient pas à ton programme.", 404);
+    const quantity = membership.earningMode === "spend" ? Math.floor(amountCents / membership.spendAmountCents) : requestedQuantity;
+    if (membership.earningMode === "spend" && (amountCents < 1 || quantity < 1)) return jsonError(`Le montant doit atteindre au moins ${(membership.spendAmountCents / 100).toFixed(2).replace(".", ",")} € pour obtenir un point.`);
+    if (quantity < 1 || quantity > 1000) return jsonError("Le nombre de points calculé n’est pas valide.");
+    if (quantity > 1 && payload?.confirmMultiple !== true) return Response.json({ error: `Confirme l’ajout de ${quantity} points.`, code: "confirm_multiple", quantity }, { status: 409 });
 
     if (payload?.confirmRecent !== true) {
       const recent = await queryFirst<RecentStamp>(
@@ -61,7 +67,7 @@ export async function POST(request: Request) {
          FROM stamps s
          LEFT JOIN employee_actions ea ON ea.stamp_id = s.id
          LEFT JOIN employees e ON e.id = ea.employee_id
-         WHERE s.membership_id = ? AND s.reason = 'visit' AND s.reversed_at IS NULL
+         WHERE s.membership_id = ? AND s.reason IN ('visit', 'purchase') AND s.reversed_at IS NULL
            AND s.created_at >= datetime('now', '-60 seconds')
          ORDER BY s.rowid DESC LIMIT 1`,
         membership.id,
@@ -74,11 +80,16 @@ export async function POST(request: Request) {
       }
     }
 
-    const combined = membership.points + quantity;
-    const rewardsEarned = Math.floor(combined / membership.goal);
-    const pointsAfter = combined % membership.goal;
+    const tiers = await queryAll<TierRow>(`SELECT id, threshold, reward_text AS rewardText FROM program_reward_tiers WHERE program_id = ? AND active = 1 ORDER BY threshold`, membership.programId);
+    const earnedTiers: TierRow[] = [];
+    for (let step = 1; step <= quantity; step += 1) {
+      const progress = ((membership.points + step - 1) % membership.goal) + 1;
+      for (const tier of tiers) if (tier.threshold === progress) earnedTiers.push(tier);
+    }
+    const pointsAfter = (membership.points + quantity) % membership.goal;
+    const rewardsEarned = earnedTiers.length;
     const stampId = makeId("stp");
-    const rewardIds = Array.from({ length: rewardsEarned }, () => makeId("rwd"));
+    const rewardIds = earnedTiers.map(() => makeId("rwd"));
     const result = {
       customer: { firstName: membership.firstName, code, points: pointsAfter, goal: membership.goal },
       quantity,
@@ -86,6 +97,9 @@ export async function POST(request: Request) {
       rewardEarned: rewardsEarned > 0,
       rewardsEarned,
       availableRewards: membership.availableRewards + rewardsEarned,
+      rewards: earnedTiers.map((tier, index) => ({ id: rewardIds[index], rewardText: tier.rewardText, threshold: tier.threshold })),
+      earningMode: membership.earningMode,
+      amountCents: membership.earningMode === "spend" ? amountCents : null,
     };
 
     await ensureSchema();
@@ -97,17 +111,19 @@ export async function POST(request: Request) {
       ).bind(pointsAfter, quantity, membership.id),
       db.prepare(
         `INSERT INTO stamps
-          (id, merchant_id, membership_id, delta, reason, actor_role, points_before, points_after, reward_id)
-         VALUES (?, ?, ?, ?, 'visit', ?, ?, ?, ?)`,
+          (id, merchant_id, membership_id, delta, reason, actor_role, points_before, points_after, reward_id, amount_cents)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         stampId,
         merchant.id,
         membership.id,
         quantity,
+        membership.earningMode === "spend" ? "purchase" : "visit",
         merchant.role,
         membership.points,
         pointsAfter,
         rewardIds[0] ?? null,
+        membership.earningMode === "spend" ? amountCents : null,
       ),
       db.prepare(
         "INSERT INTO stamp_requests (request_key, merchant_id, response_json) VALUES (?, ?, ?)",
@@ -119,11 +135,12 @@ export async function POST(request: Request) {
           .bind(stampId, merchant.employeeId),
       );
     }
-    for (const rewardId of rewardIds) {
+    for (const [index, rewardId] of rewardIds.entries()) {
+      const tier = earnedTiers[index];
       statements.push(
         db.prepare(
-          "INSERT INTO rewards (id, merchant_id, membership_id, program_id, status) VALUES (?, ?, ?, ?, 'available')",
-        ).bind(rewardId, merchant.id, membership.id, membership.programId),
+          "INSERT INTO rewards (id, merchant_id, membership_id, program_id, status, tier_id, reward_text, threshold) VALUES (?, ?, ?, ?, 'available', ?, ?, ?)",
+        ).bind(rewardId, merchant.id, membership.id, membership.programId, tier.id, tier.rewardText, tier.threshold),
         db.prepare("INSERT INTO stamp_reward_links (stamp_id, reward_id) VALUES (?, ?)")
           .bind(stampId, rewardId),
       );

@@ -60,22 +60,22 @@ export async function PATCH(request: Request) {
     if (!isOwner(merchant)) return jsonError("Seul le propriétaire peut modifier ce mot de passe.", 403);
     const currentPassword = typeof payload?.currentPassword === "string" ? payload.currentPassword.slice(0, 128) : "";
     const newPassword = typeof payload?.newPassword === "string" ? payload.newPassword.slice(0, 128) : "";
-    if (!currentPassword) return jsonError("Saisis ton mot de passe actuel.");
+    if (!currentPassword) return jsonError("Saisis ton code confidentiel actuel.");
 
     const security = await queryFirst<SecurityRow>(
       `SELECT pin_hash AS pinHash FROM merchants WHERE id = ?`,
       merchant.id,
     );
     if (!security || !(await verifyPassword(currentPassword, security.pinHash))) {
-      return jsonError("Le mot de passe actuel est incorrect.", 401);
+      return jsonError("Le code confidentiel actuel est incorrect.", 401);
     }
 
     if (action === "change_owner_password") {
       if (!validOwnerPassword(newPassword)) {
-        return jsonError("Le nouveau mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre.");
+        return jsonError("Le nouveau code confidentiel doit contenir exactement 6 chiffres.");
       }
       if (await verifyPassword(newPassword, security.pinHash)) {
-        return jsonError("Choisis un nouveau mot de passe différent de l’ancien.");
+        return jsonError("Choisis un nouveau code différent de l’ancien.");
       }
       await db.batch([
         db.prepare("UPDATE merchants SET pin_hash = ? WHERE id = ?").bind(await createPasswordHash(newPassword), merchant.id),

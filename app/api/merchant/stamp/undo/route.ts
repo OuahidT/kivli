@@ -33,12 +33,13 @@ export async function POST(request: Request) {
        FROM stamps s
        JOIN memberships mb ON mb.id = s.membership_id
        JOIN customers c ON c.id = mb.customer_id
-       WHERE s.id = ? AND s.merchant_id = ? AND s.reason = 'visit'
+       WHERE s.id = ? AND s.merchant_id = ? AND s.reason IN ('visit', 'purchase', 'bonus')
+         ${merchant.role === "employee" ? "AND s.reason IN ('visit', 'purchase')" : ""}
          AND s.reversed_at IS NULL AND s.points_before IS NOT NULL
          ${employeeGuard}
          AND NOT EXISTS (
            SELECT 1 FROM stamps newer
-           WHERE newer.membership_id = s.membership_id AND newer.reason = 'visit'
+           WHERE newer.membership_id = s.membership_id AND newer.reason IN ('visit', 'purchase', 'bonus')
              AND newer.reversed_at IS NULL AND newer.rowid > s.rowid
          )`,
       stampId,
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
       return jsonError(
         merchant.role === "employee"
           ? "Tu peux seulement annuler ta propre dernière opération pendant 5 minutes."
-          : "Seul le dernier passage de ce client peut être annulé.",
+          : "Seule la dernière opération de points de ce client peut être annulée.",
         409,
       );
     }

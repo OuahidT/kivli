@@ -18,6 +18,15 @@ export function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+export function normalizePhone(value: unknown) {
+  if (typeof value !== "string") return null;
+  let phone = value.trim().replace(/[\s().-]/g, "");
+  if (phone.startsWith("00")) phone = `+${phone.slice(2)}`;
+  if (/^0\d{9}$/.test(phone)) phone = `+33${phone.slice(1)}`;
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return null;
+  return phone;
+}
+
 export function isHexColor(value: string) {
   return /^#[0-9a-f]{6}$/i.test(value);
 }

@@ -55,9 +55,9 @@ export function JoinProgram({ slug }: { slug: string }) {
           <div className="join-preview-top"><span className="merchant-avatar">{program.businessName.slice(0, 1)}</span><span><small>CARTE FIDÉLITÉ DIGITALE</small><strong>{program.businessName}</strong></span><i><Sparkles size={13} aria-hidden="true" />Gratuite</i></div>
           <span className="card-kicker">{program.name}</span>
           <h1>Une récompense t’attend.</h1>
-          <p className="join-promise">À chaque passage, ton commerçant scanne ta carte et ta progression se met à jour instantanément.</p>
+          <p className="join-promise">{program.earningMode === "spend" ? `À chaque achat, tu gagnes 1 point tous les ${(program.spendAmountCents / 100).toFixed(2).replace(".", ",")} € dépensés.` : "À chaque passage, ton commerçant scanne ta carte et ta progression se met à jour instantanément."}</p>
           <div className="join-stamps">{Array.from({ length: Math.min(program.goal, 10) }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
-          <div className="reward-line"><span className="reward-symbol"><Gift size={20} aria-hidden="true" /></span><span>Au bout de {program.goal} passages</span><strong>{program.rewardText}</strong></div>
+          <div className="reward-line"><span className="reward-symbol"><Gift size={20} aria-hidden="true" /></span><span>Dès {program.rewardTiers[0]?.threshold ?? program.goal} points</span><strong>{program.rewardTiers[0]?.rewardText ?? program.rewardText}</strong></div>
         </div>
         <div className="join-form-wrap">
           <Brand />
@@ -66,7 +66,8 @@ export function JoinProgram({ slug }: { slug: string }) {
           <p>Présente ensuite ton QR code personnel à chaque passage.</p>
           <form onSubmit={submit} className="form-grid">
             <label>Ton prénom<input name="firstName" autoComplete="given-name" placeholder="Léa" required /></label>
-            <label>Ton e-mail <em>facultatif</em><input name="email" type="email" autoComplete="email" placeholder="lea@email.fr" /></label>
+            <label>Ton numéro de téléphone<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12 34 56 78" required /><small>Il permet de retrouver ta carte si tu changes de téléphone.</small></label>
+            <label className="consent-check"><input name="marketingConsent" type="checkbox" /><span>J’accepte de recevoir, plus tard, les offres de {program.businessName} par SMS. <em>Facultatif</em></span></label>
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="button button-large button-full merchant-button" disabled={busy}>{busy ? "Création…" : "Obtenir ma carte"}</button>
           </form>

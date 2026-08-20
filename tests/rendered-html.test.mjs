@@ -73,3 +73,20 @@ test("contains no retired brand in active source", async () => {
   await scan(root);
   assert.deepEqual(violations, []);
 });
+
+test("keeps reward redemption separate from earning operations", async () => {
+  const [stampRoute, redeemRoute, scanRoute, joinRoute, migration] = await Promise.all([
+    readFile(new URL("../app/api/merchant/stamp/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/merchant/redeem/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/merchant/scan/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/join/[slug]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0001_loyalty_engine_v2.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(stampRoute, /reason, actor_role/);
+  assert.match(stampRoute, /purchase/);
+  assert.match(redeemRoute, /0, 'redeem'/);
+  assert.match(scanRoute, /rewards/);
+  assert.match(joinRoute, /normalizePhone/);
+  assert.match(joinRoute, /marketing_consent/);
+  assert.match(migration, /program_reward_tiers/);
+});

@@ -22,6 +22,13 @@ const schemaStatements = [
     terms TEXT NOT NULL DEFAULT 'Un point est accordé par achat éligible. Le commerçant peut annuler tout point attribué par erreur ou de manière frauduleuse.', active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS program_reward_tiers (
+    id TEXT PRIMARY KEY, program_id TEXT NOT NULL, threshold INTEGER NOT NULL,
+    reward_text TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(program_id, threshold)
+  )`,
   `CREATE TABLE IF NOT EXISTS employees (
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, display_name TEXT NOT NULL,
     email TEXT UNIQUE, login_code TEXT NOT NULL UNIQUE, pin_hash TEXT NOT NULL,
@@ -32,6 +39,12 @@ const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, first_name TEXT NOT NULL,
     email TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS merchant_email_verifications (
+    id TEXT PRIMARY KEY, email TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
+    payload_json TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT,
+    last_sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS memberships (
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, program_id TEXT NOT NULL,
@@ -99,6 +112,8 @@ const schemaStatements = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_email ON employees(email)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_login_code ON employees(login_code)`,
   `CREATE INDEX IF NOT EXISTS idx_customers_merchant_email ON customers(merchant_id, email)`,
+  `CREATE INDEX IF NOT EXISTS idx_program_reward_tiers_program ON program_reward_tiers(program_id, sort_order, threshold)`,
+  `CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON merchant_email_verifications(email, created_at)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_memberships_code ON memberships(code)`,
   `CREATE INDEX IF NOT EXISTS idx_memberships_merchant_updated ON memberships(merchant_id, updated_at)`,
   `CREATE INDEX IF NOT EXISTS idx_stamps_merchant_created ON stamps(merchant_id, created_at)`,
@@ -131,6 +146,7 @@ export async function ensureSchema() {
         ["first_name", "ALTER TABLE merchants ADD COLUMN first_name TEXT NOT NULL DEFAULT ''"],
         ["last_name", "ALTER TABLE merchants ADD COLUMN last_name TEXT NOT NULL DEFAULT ''"],
         ["phone", "ALTER TABLE merchants ADD COLUMN phone TEXT"],
+        ["email_verified_at", "ALTER TABLE merchants ADD COLUMN email_verified_at TEXT"],
       ] as const;
       for (const [column, statement] of migrations) {
         if (existing.has(column)) continue;
@@ -140,6 +156,73 @@ export async function ensureSchema() {
           if (!String(error).toLowerCase().includes("duplicate column")) throw error;
         }
       }
+      await db.prepare("UPDATE merchants SET email_verified_at = COALESCE(email_verified_at, created_at, CURRENT_TIMESTAMP)").run();
+
+      const programColumns = await db.prepare("PRAGMA table_info(programs)").all<{ name: string }>();
+      const existingProgramColumns = new Set((programColumns.results ?? []).map((column) => column.name));
+      const programMigrations = [
+        ["earning_mode", "ALTER TABLE programs ADD COLUMN earning_mode TEXT NOT NULL DEFAULT 'visits'"],
+        ["spend_amount_cents", "ALTER TABLE programs ADD COLUMN spend_amount_cents INTEGER NOT NULL DEFAULT 100"],
+      ] as const;
+      for (const [column, statement] of programMigrations) {
+        if (!existingProgramColumns.has(column)) {
+          try { await db.prepare(statement).run(); } catch (error) {
+            if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+          }
+        }
+      }
+
+      const customerColumns = await db.prepare("PRAGMA table_info(customers)").all<{ name: string }>();
+      const existingCustomerColumns = new Set((customerColumns.results ?? []).map((column) => column.name));
+      const customerMigrations = [
+        ["phone", "ALTER TABLE customers ADD COLUMN phone TEXT"],
+        ["marketing_consent", "ALTER TABLE customers ADD COLUMN marketing_consent INTEGER NOT NULL DEFAULT 0"],
+        ["marketing_consented_at", "ALTER TABLE customers ADD COLUMN marketing_consented_at TEXT"],
+      ] as const;
+      for (const [column, statement] of customerMigrations) {
+        if (!existingCustomerColumns.has(column)) {
+          try { await db.prepare(statement).run(); } catch (error) {
+            if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+          }
+        }
+      }
+      await db.prepare("CREATE INDEX IF NOT EXISTS idx_customers_merchant_phone ON customers(merchant_id, phone)").run();
+      await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_merchant_phone_unique ON customers(merchant_id, phone) WHERE phone IS NOT NULL").run();
+
+      const stampColumns = await db.prepare("PRAGMA table_info(stamps)").all<{ name: string }>();
+      const existingStampColumns = new Set((stampColumns.results ?? []).map((column) => column.name));
+      const stampMigrations = [
+        ["amount_cents", "ALTER TABLE stamps ADD COLUMN amount_cents INTEGER"],
+        ["note", "ALTER TABLE stamps ADD COLUMN note TEXT"],
+      ] as const;
+      for (const [column, statement] of stampMigrations) {
+        if (!existingStampColumns.has(column)) {
+          try { await db.prepare(statement).run(); } catch (error) {
+            if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+          }
+        }
+      }
+
+      const rewardColumns = await db.prepare("PRAGMA table_info(rewards)").all<{ name: string }>();
+      const existingRewardColumns = new Set((rewardColumns.results ?? []).map((column) => column.name));
+      const rewardMigrations = [
+        ["tier_id", "ALTER TABLE rewards ADD COLUMN tier_id TEXT"],
+        ["reward_text", "ALTER TABLE rewards ADD COLUMN reward_text TEXT"],
+        ["threshold", "ALTER TABLE rewards ADD COLUMN threshold INTEGER"],
+      ] as const;
+      for (const [column, statement] of rewardMigrations) {
+        if (!existingRewardColumns.has(column)) {
+          try { await db.prepare(statement).run(); } catch (error) {
+            if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+          }
+        }
+      }
+      await db.prepare(`UPDATE rewards SET
+        reward_text = COALESCE(reward_text, (SELECT p.reward_text FROM programs p WHERE p.id = rewards.program_id)),
+        threshold = COALESCE(threshold, (SELECT p.goal FROM programs p WHERE p.id = rewards.program_id))
+        WHERE reward_text IS NULL OR threshold IS NULL`).run();
+      await db.prepare(`INSERT OR IGNORE INTO program_reward_tiers (id, program_id, threshold, reward_text, sort_order)
+        SELECT 'tier_' || id, id, goal, reward_text, 0 FROM programs`).run();
       const employeeColumns = await db.prepare("PRAGMA table_info(employees)").all<{ name: string }>();
       const existingEmployeeColumns = new Set((employeeColumns.results ?? []).map((column) => column.name));
       if (!existingEmployeeColumns.has("must_change_pin")) {

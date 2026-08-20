@@ -8,7 +8,12 @@ export type Program = {
   goal: number;
   rewardText: string;
   terms: string;
+  earningMode: "visits" | "spend";
+  spendAmountCents: number;
+  rewardTiers: RewardTier[];
 };
+
+export type RewardTier = { id: string; threshold: number; rewardText: string; sortOrder: number };
 
 export type CardData = Program & {
   code: string;
@@ -17,4 +22,5 @@ export type CardData = Program & {
   totalPoints: number;
   availableRewards: number;
   joinedAt: string;
+  availableRewardItems: Array<{ id: string; rewardText: string; threshold: number }>;
 };

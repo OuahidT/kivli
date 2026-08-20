@@ -64,11 +64,7 @@ async function verifySecret(secret: string, storedHash: string) {
 }
 
 export function validOwnerPassword(password: string) {
-  return password.length >= 8
-    && password.length <= 128
-    && /[A-Z]/.test(password)
-    && /[a-z]/.test(password)
-    && /[0-9]/.test(password);
+  return /^\d{6}$/.test(password);
 }
 
 export const createPinHash = createSecretHash;

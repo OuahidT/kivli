@@ -1,0 +1,24 @@
+import { queryAll, queryFirst } from "../../../../db";
+import { getMerchant } from "../../../../lib/auth";
+import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
+
+type CardRow = { membershipId: string; firstName: string; code: string; points: number; goal: number; earningMode: "visits" | "spend"; spendAmountCents: number };
+type RewardRow = { id: string; rewardText: string; threshold: number };
+
+export async function POST(request: Request) {
+  try {
+    const merchant = await getMerchant(request);
+    if (!merchant) return jsonError("Session expirée.", 401);
+    const body = await readJson<{ code?: string }>(request);
+    const code = cleanText(body?.code, 80).toUpperCase();
+    const card = await queryFirst<CardRow>(`SELECT mb.id AS membershipId, c.first_name AS firstName, mb.code, mb.points, p.goal,
+      p.earning_mode AS earningMode, p.spend_amount_cents AS spendAmountCents
+      FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
+      WHERE mb.code = ? AND mb.merchant_id = ?`, code, merchant.id);
+    if (!card) return jsonError("Cette carte n’appartient pas à ton programme.", 404);
+    const rewards = await queryAll<RewardRow>(`SELECT id, COALESCE(reward_text, (SELECT reward_text FROM programs WHERE id = r.program_id)) AS rewardText,
+      COALESCE(threshold, (SELECT goal FROM programs WHERE id = r.program_id)) AS threshold
+      FROM rewards r WHERE membership_id = ? AND status = 'available' ORDER BY earned_at`, card.membershipId);
+    return Response.json({ customer: { firstName: card.firstName, code: card.code, points: card.points, goal: card.goal }, earningMode: card.earningMode, spendAmountCents: card.spendAmountCents, rewards });
+  } catch (error) { return safeApiError(error); }
+}

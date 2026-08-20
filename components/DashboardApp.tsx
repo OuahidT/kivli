@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trophy,
+  Coins,
   UserRoundCog,
   UsersRound,
 } from "lucide-react";
@@ -38,11 +39,13 @@ type DashboardData = {
     employeeName: string | null;
     employeeMustChangePin: number;
   };
-  program: { id: string; name: string; goal: number; rewardText: string; terms: string; active: number } | null;
-  customers: Array<{ code: string; firstName: string; points: number; totalPoints: number; availableRewards: number; undoableStampId: string | null; updatedAt: string }>;
-  activity: Array<{ id: string; firstName: string; delta: number; reason: string; actorName: string; createdAt: string }>;
+  program: { id: string; name: string; goal: number; rewardText: string; terms: string; active: number; earningMode: "visits" | "spend"; spendAmountCents: number } | null;
+  rewardTiers: Array<{ id: string; threshold: number; rewardText: string; sortOrder: number }>;
+  customers: Array<{ code: string; firstName: string; phone: string | null; marketingConsent: number; points: number; totalPoints: number; availableRewards: number; undoableStampId: string | null; updatedAt: string; segment: "new" | "active" | "loyal" | "reactivate" }>;
+  activity: Array<{ id: string; firstName: string; delta: number; reason: string; actorName: string; createdAt: string; amountCents: number | null; note: string | null }>;
   employees: Array<{ id: string; displayName: string; email: string | null; loginCode: string; active: number; mustChangePin: number; createdAt: string }>;
-  stats: { customers: number; visits: number; rewards: number };
+  stats: { customers: number; visits: number; rewards: number; newMembers: number; returningCustomers: number; avgFrequencyDays: number | null; rewardsEarned: number; rewardsRedeemed: number };
+  segmentCounts: { new: number; active: number; loyal: number; reactivate: number; reward: number };
 };
 
 type ReadyDashboardData = DashboardData & { program: NonNullable<DashboardData["program"]> };
@@ -54,6 +57,17 @@ type StampResult = {
   rewardEarned: boolean;
   rewardsEarned: number;
   availableRewards: number;
+  rewards: Array<{ id: string; rewardText: string; threshold: number }>;
+  earningMode: "visits" | "spend";
+  amountCents: number | null;
+};
+
+type ScanCandidate = {
+  customer: { firstName: string; code: string; points: number; goal: number };
+  earningMode: "visits" | "spend";
+  spendAmountCents: number;
+  rewards: Array<{ id: string; rewardText: string; threshold: number }>;
+  input: { quantity: number; amountCents?: number };
 };
 
 const tabs = [
@@ -74,7 +88,9 @@ export function DashboardApp() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [stampResult, setStampResult] = useState<StampResult | null>(null);
+  const [scanCandidate, setScanCandidate] = useState<ScanCandidate | null>(null);
   const [search, setSearch] = useState("");
+  const [segment, setSegment] = useState<"all" | "new" | "active" | "loyal" | "reactivate" | "reward">("all");
   const [employeeAccess, setEmployeeAccess] = useState<{ displayName: string; loginCode: string; temporaryPin: string } | null>(null);
   const [showEmployeePin, setShowEmployeePin] = useState(false);
   const sessionInitialized = useRef(false);
@@ -115,7 +131,16 @@ export function DashboardApp() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  async function stamp(code: string, quantity = 1) {
+  async function recognize(code: string, input: { quantity: number; amountCents?: number }) {
+    setBusy(true); setError("");
+    const response = await fetch("/api/merchant/scan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const result = await response.json() as Omit<ScanCandidate, "input"> & { error?: string };
+    if (!response.ok) setError(result.error ?? "Carte non reconnue.");
+    else setScanCandidate({ ...result, input });
+    setBusy(false);
+  }
+
+  async function stamp(code: string, quantity = 1, amountCents?: number) {
     if (quantity > 1 && !window.confirm(`Confirmer l’ajout de ${quantity} points ?`)) return;
     setBusy(true);
     setError("");
@@ -123,7 +148,7 @@ export function DashboardApp() {
     const submit = (confirmRecent: boolean) => fetch("/api/merchant/stamp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, quantity, requestId, confirmMultiple: quantity > 1, confirmRecent }),
+      body: JSON.stringify({ code, quantity, amountCents, requestId, confirmMultiple: quantity > 1 || Boolean(amountCents), confirmRecent }),
     });
     let response = await submit(false);
     let result = (await response.json()) as StampResult & { error?: string; code?: string };
@@ -137,22 +162,28 @@ export function DashboardApp() {
       return;
     }
     setStampResult(result);
+    setScanCandidate(null);
     await load();
     setBusy(false);
   }
 
-  async function redeem(code: string) {
+  async function redeem(code: string, rewardId?: string, keepScan = false) {
     if (!window.confirm("Confirmer la remise de la récompense ?")) return;
     setBusy(true);
-    const response = await fetch("/api/merchant/redeem", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const response = await fetch("/api/merchant/redeem", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, rewardId }) });
     const result = (await response.json()) as { firstName?: string; error?: string };
     if (!response.ok) setError(result.error ?? "Récompense non remise.");
     else {
       setToast(`Récompense remise à ${result.firstName}.`);
-      setStampResult(null);
+      if (!keepScan) { setStampResult(null); setScanCandidate(null); }
       await load();
     }
     setBusy(false);
+    return response.ok;
+  }
+
+  async function redeemThenEarn(candidate: ScanCandidate, rewardId: string) {
+    if (await redeem(candidate.customer.code, rewardId, true)) await stamp(candidate.customer.code, candidate.input.quantity, candidate.input.amountCents);
   }
 
   async function undoStamp(stampId: string, firstName: string) {
@@ -177,7 +208,8 @@ export function DashboardApp() {
   async function saveProgram(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    const payload = Object.fromEntries(new FormData(event.currentTarget));
+    const formData = new FormData(event.currentTarget);
+    const payload = { ...Object.fromEntries(formData), rewardTiers: formData.getAll("tierThreshold").map((threshold, index) => ({ threshold: Number(threshold), rewardText: String(formData.getAll("tierRewardText")[index] ?? "") })) };
     const response = await fetch("/api/merchant/program", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const result = (await response.json()) as { error?: string };
     if (!response.ok) setError(result.error ?? "Modifications non enregistrées.");
@@ -186,6 +218,28 @@ export function DashboardApp() {
       await load();
     }
     setBusy(false);
+  }
+
+  async function addBonus(customer: DashboardData["customers"][number]) {
+    const raw = window.prompt(`Combien de points bonus ajouter à ${customer.firstName} ?`, "1");
+    if (raw === null) return;
+    const quantity = Number(raw);
+    const note = window.prompt("Motif du bonus (facultatif)", "Geste commercial") ?? "";
+    setBusy(true); setError("");
+    const response = await fetch("/api/merchant/bonus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: customer.code, quantity, note }) });
+    const result = await response.json() as { error?: string };
+    if (!response.ok) setError(result.error ?? "Bonus non ajouté."); else { setToast(`Bonus ajouté à ${customer.firstName}.`); await load(); }
+    setBusy(false);
+  }
+
+  async function customerAction(customer: DashboardData["customers"][number]) {
+    if (data?.program?.earningMode === "spend") {
+      const amount = window.prompt(`Montant de l’achat de ${customer.firstName} en euros`, "");
+      if (amount === null) return;
+      await recognize(customer.code, { quantity: 1, amountCents: Math.round(Number(amount.replace(",", ".")) * 100) });
+      return;
+    }
+    await recognize(customer.code, { quantity: 1 });
   }
 
   async function updateSecurity(
@@ -204,12 +258,12 @@ export function DashboardApp() {
     const result = (await response.json()) as { error?: string; reauthenticate?: boolean };
     if (!response.ok) setError(result.error ?? "Accès non modifié.");
     else if (result.reauthenticate) {
-      window.alert("Ton mot de passe a été modifié. Reconnecte-toi avec le nouveau mot de passe.");
+      window.alert("Ton code confidentiel a été modifié. Reconnecte-toi avec le nouveau code.");
       window.location.href = "/merchant";
       return;
     } else {
       form.reset();
-      setToast("Mot de passe mis à jour.");
+      setToast("Code confidentiel mis à jour.");
       await load();
     }
     setBusy(false);
@@ -300,7 +354,7 @@ export function DashboardApp() {
     window.location.href = "/";
   }
 
-  const filteredCustomers = useMemo(() => data?.customers.filter((customer) => `${customer.firstName} ${customer.code}`.toLowerCase().includes(search.toLowerCase())) ?? [], [data, search]);
+  const filteredCustomers = useMemo(() => data?.customers.filter((customer) => `${customer.firstName} ${customer.phone ?? ""} ${customer.code}`.toLowerCase().includes(search.toLowerCase()) && (segment === "all" || segment === "reward" ? segment === "all" || customer.availableRewards > 0 : customer.segment === segment)) ?? [], [data, search, segment]);
   const visibleTabs = useMemo(
     () => data?.merchant.role === "employee" ? tabs.filter((item) => item.id === "scan") : tabs,
     [data],
@@ -342,16 +396,17 @@ export function DashboardApp() {
         {tab === "overview" && <Overview data={{ ...data, program: data.program }} joinUrl={joinUrl} onScan={() => setTab("scan")} onCustomers={() => setTab("customers")} onShowQr={showEnrollmentQr} />}
         {tab === "scan" && (
           <div className="scan-layout">
-            <div>{data.merchant.role === "owner" && <span className="eyebrow scan-eyebrow"><ScanLine size={15} aria-hidden="true" />Ajout instantané</span>}<h2>{data.merchant.role === "employee" ? "Présente le QR code du client." : "Scanne la carte du client."}</h2><p>{data.merchant.role === "employee" ? "Choisis le nombre de points, puis ouvre la caméra." : "Choisis le nombre d’achats, puis scanne le QR code. Une seconde validation rapprochée reste possible après confirmation."}</p><MerchantScanner onDetected={stamp} busy={busy} /></div>
+            <div>{data.merchant.role === "owner" && <span className="eyebrow scan-eyebrow"><ScanLine size={15} aria-hidden="true" />Validation guidée</span>}<h2>{data.merchant.role === "employee" ? "Présente le QR code du client." : "Scanne la carte du client."}</h2><p>Après reconnaissance, choisis clairement entre remettre une récompense et enregistrer le nouvel achat.</p><MerchantScanner onDetected={recognize} busy={busy} earningMode={data.program.earningMode} spendAmountCents={data.program.spendAmountCents} /></div>
             <aside className="scan-side"><h3>{data.merchant.role === "employee" ? "Mes dernières opérations" : "Derniers passages"}</h3>{data.activity.length ? data.activity.slice(0, 6).map((item) => <Activity key={item.id} item={item} />) : <p className="muted">Les premières opérations apparaîtront ici.</p>}</aside>
           </div>
         )}
         {tab === "customers" && (
           <div className="panel customer-panel">
-            <div className="panel-head"><div><h2>{data.customers.length} client{data.customers.length !== 1 ? "s" : ""}</h2><p>Progression et récompenses en un coup d’œil.</p></div><input className="search-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher…" /></div>
+            <div className="panel-head"><div><h2>{data.customers.length} client{data.customers.length !== 1 ? "s" : ""}</h2><p>Coordonnées, progression et récompenses au même endroit.</p></div><input className="search-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nom, téléphone ou code…" /></div>
+            <div className="segment-filters">{([['all','Tous',data.customers.length],['new','Nouveaux',data.segmentCounts.new],['active','Actifs',data.segmentCounts.active],['loyal','Fidèles',data.segmentCounts.loyal],['reactivate','À réactiver',data.segmentCounts.reactivate],['reward','Récompense',data.segmentCounts.reward]] as const).map(([id,label,count]) => <button key={id} className={segment === id ? "active" : ""} onClick={() => setSegment(id)}>{label}<b>{count}</b></button>)}</div>
             <div className="customer-table">
               <div className="table-head"><span>Client</span><span>Progression</span><span>Total</span><span>Récompense</span><span /></div>
-              {filteredCustomers.map((customer) => <div className="table-row" key={customer.code}><span className="customer-name"><i>{customer.firstName.slice(0, 1)}</i><span><b>{customer.firstName}</b><small>{customer.code}</small></span></span><span data-label="Progression"><b>{customer.points}/{data.program.goal}</b><i className="mini-progress"><i style={{ width: `${customer.points / data.program.goal * 100}%` }} /></i></span><span data-label="Total">{customer.totalPoints} passages</span><span data-label="Récompense">{customer.availableRewards ? <b className="reward-badge">{customer.availableRewards} disponible</b> : <small className="muted">Aucune</small>}</span><span className="row-actions"><button onClick={() => stamp(customer.code)} disabled={busy}><Footprints size={16} aria-hidden="true" />Ajouter</button>{customer.undoableStampId && <button className="undo-button" onClick={() => undoStamp(customer.undoableStampId!, customer.firstName)} disabled={busy}><RotateCcw size={15} aria-hidden="true" />Annuler</button>}{customer.availableRewards > 0 && <button className="redeem-button" onClick={() => redeem(customer.code)} disabled={busy}><Gift size={15} aria-hidden="true" />Remettre</button>}</span></div>)}
+              {filteredCustomers.map((customer) => <div className="table-row" key={customer.code}><span className="customer-name"><i>{customer.firstName.slice(0, 1)}</i><span><b>{customer.firstName}</b><small>{customer.phone || "Ancienne fiche sans téléphone"}{customer.marketingConsent ? " · SMS accepté" : ""}</small></span></span><span data-label="Progression"><b>{customer.points}/{data.program.goal}</b><i className="mini-progress"><i style={{ width: `${customer.points / data.program.goal * 100}%` }} /></i></span><span data-label="Total">{customer.totalPoints} points</span><span data-label="Récompense">{customer.availableRewards ? <b className="reward-badge">{customer.availableRewards} disponible</b> : <small className="muted">Aucune</small>}</span><span className="row-actions"><button onClick={() => customerAction(customer)} disabled={busy}><Footprints size={16} aria-hidden="true" />Action</button><button onClick={() => addBonus(customer)} disabled={busy}><Coins size={15} aria-hidden="true" />Bonus</button>{customer.undoableStampId && <button className="undo-button" onClick={() => undoStamp(customer.undoableStampId!, customer.firstName)} disabled={busy}><RotateCcw size={15} aria-hidden="true" />Annuler</button>}{customer.availableRewards > 0 && <button className="redeem-button" onClick={() => redeem(customer.code)} disabled={busy}><Gift size={15} aria-hidden="true" />Remettre</button>}</span></div>)}
               {!filteredCustomers.length && (data.customers.length ? <div className="table-empty">Aucun client ne correspond à cette recherche.</div> : <div className="table-empty table-empty-onboarding"><span><QrCodeIcon size={22} aria-hidden="true" /></span><strong>Ta liste de clients est prête.</strong><p>Partage le QR code d’inscription pour créer la première carte.</p><button className="button button-small" onClick={showEnrollmentQr}>Afficher le QR code</button></div>)}
             </div>
           </div>
@@ -359,13 +414,13 @@ export function DashboardApp() {
         {tab === "program" && data.merchant.role === "owner" && (
           <div className="program-layout">
             <div className="settings-stack">
-              <form className="panel settings-form" onSubmit={saveProgram}><div className="panel-head"><div><h2>Personnaliser le programme</h2><p>Les modifications s’appliquent immédiatement aux cartes existantes.</p></div></div><div className="form-grid"><label>Nom de la carte<input name="name" defaultValue={data.program.name} required /></label><div className="field-row"><label>Passages nécessaires<input name="goal" type="number" min="3" max="20" defaultValue={data.program.goal} /></label><label>Récompense<input name="rewardText" defaultValue={data.program.rewardText} required /></label></div><fieldset className="color-fieldset program-colors"><legend>Couleur de la carte</legend><small>Cette couleur personnalise la carte et la page d’inscription.</small><div className="color-options">{PROGRAM_COLORS.map((color) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={data.merchant.accentColor.toLowerCase() === color.value} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset><label>Conditions affichées au client<textarea name="terms" defaultValue={visibleProgramTerms(data.program.terms)} rows={4} maxLength={200} /><small>Ce texte apparaît désormais sous le QR code personnel de chaque carte.</small></label><button className="button button-large" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button></div></form>
+              <form className="panel settings-form" onSubmit={saveProgram}><div className="panel-head"><div><h2>Personnaliser le programme</h2><p>Les modifications s’appliquent immédiatement aux cartes existantes.</p></div></div><div className="form-grid"><label>Nom de la carte<input name="name" defaultValue={data.program.name} required /></label><fieldset className="earning-mode"><legend>Comment gagner des points ?</legend><label><input type="radio" name="earningMode" value="visits" defaultChecked={data.program.earningMode === "visits"} />Par passage ou achat</label><label><input type="radio" name="earningMode" value="spend" defaultChecked={data.program.earningMode === "spend"} />Selon le montant dépensé</label></fieldset><label>En mode montant : 1 point tous les<input name="spendAmountEuros" type="number" min="0.5" max="1000" step="0.5" defaultValue={(data.program.spendAmountCents / 100).toString()} /><small>Montant en euros. Ignoré en mode passages.</small></label><fieldset className="reward-tiers-editor"><legend>Paliers de récompense</legend>{Array.from({ length: Math.max(3, data.rewardTiers.length) }, (_, index) => { const tier = data.rewardTiers[index]; return <div className="field-row" key={tier?.id ?? index}><label>Points<input name="tierThreshold" type="number" min="1" max="1000" defaultValue={tier?.threshold ?? ""} required={index === 0} /></label><label>Récompense<input name="tierRewardText" defaultValue={tier?.rewardText ?? ""} placeholder={index ? "Palier facultatif" : "Votre première récompense"} required={index === 0} /></label></div>; })}<small>Jusqu’à cinq paliers. Chaque palier atteint crée une récompense disponible indépendante.</small></fieldset><input type="hidden" name="rewardText" value={data.rewardTiers[0]?.rewardText ?? data.program.rewardText} /><fieldset className="color-fieldset program-colors"><legend>Couleur de la carte</legend><small>Cette couleur personnalise la carte et la page d’inscription.</small><div className="color-options">{PROGRAM_COLORS.map((color) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={data.merchant.accentColor.toLowerCase() === color.value} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset><label>Conditions affichées au client<textarea name="terms" defaultValue={visibleProgramTerms(data.program.terms)} rows={4} maxLength={200} /><small>Ce texte apparaît sous le QR code personnel de chaque carte.</small></label><button className="button button-large" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button></div></form>
               <section className="panel security-panel">
                 <div className="panel-head"><div><h2>Sécurité du propriétaire</h2><p>Les accès individuels des employés se gèrent dans l’onglet Mon équipe.</p></div></div>
                 <form className="form-grid owner-pin-form" onSubmit={(event) => updateSecurity(event, "change_owner_password")}>
-                  <label>Mot de passe actuel<input name="currentPassword" type="password" autoComplete="current-password" maxLength={128} required /></label>
-                  <label>Nouveau mot de passe<input name="newPassword" type="password" autoComplete="new-password" minLength={8} maxLength={128} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,}" required /><small>8 caractères minimum, une majuscule, une minuscule et un chiffre.</small></label>
-                  <button className="button" disabled={busy}>Modifier mon mot de passe</button>
+                  <label>Code confidentiel actuel<input name="currentPassword" type="password" inputMode="numeric" autoComplete="current-password" maxLength={6} pattern="[0-9]{6}" required /></label>
+                  <label>Nouveau code<input name="newPassword" type="password" inputMode="numeric" autoComplete="new-password" minLength={6} maxLength={6} pattern="[0-9]{6}" required /><small>Exactement 6 chiffres.</small></label>
+                  <button className="button" disabled={busy}>Modifier mon code</button>
                 </form>
               </section>
             </div>
@@ -398,7 +453,8 @@ export function DashboardApp() {
         )}
       </section>
 
-      {stampResult && <div className="modal-backdrop"><section className="result-modal" role="dialog" aria-modal="true"><div className={`result-icon ${stampResult.rewardEarned ? "reward" : ""}`}>{stampResult.rewardEarned ? "★" : `+${stampResult.quantity}`}</div><span className="eyebrow">{stampResult.rewardEarned ? `${stampResult.rewardsEarned} récompense${stampResult.rewardsEarned > 1 ? "s" : ""} débloquée${stampResult.rewardsEarned > 1 ? "s" : ""}` : `${stampResult.quantity} point${stampResult.quantity > 1 ? "s" : ""} ajouté${stampResult.quantity > 1 ? "s" : ""}`}</span><h2>{stampResult.rewardEarned ? `Bravo ${stampResult.customer.firstName} !` : `C’est fait pour ${stampResult.customer.firstName}.`}</h2><p>{stampResult.rewardEarned ? `La récompense est prête à être remise : ${data.program.rewardText}. La carte affiche ${stampResult.customer.points}/${stampResult.customer.goal}.` : `Sa carte affiche maintenant ${stampResult.customer.points}/${stampResult.customer.goal} points.`}</p>{stampResult.availableRewards > 0 && <button className="button reward-action button-full" onClick={() => redeem(stampResult.customer.code)} disabled={busy}>★ Utiliser une récompense</button>}<button className="button button-large button-full" onClick={() => { setStampResult(null); setTab("scan"); }}>Scanner le client suivant</button><button className="text-link result-undo" onClick={() => undoStamp(stampResult.stampId, stampResult.customer.firstName)} disabled={busy}>↶ Annuler cette opération</button><button className="text-link result-close" onClick={() => setStampResult(null)}>Fermer</button></section></div>}
+      {scanCandidate && <div className="modal-backdrop"><section className="scan-decision-modal" role="dialog" aria-modal="true"><button className="modal-close" onClick={() => setScanCandidate(null)} aria-label="Fermer">×</button><span className="eyebrow">Carte reconnue</span><h2>Que fait {scanCandidate.customer.firstName} aujourd’hui ?</h2><p>Choisis l’action exacte. Remettre une récompense seule n’ajoutera aucun point.</p>{scanCandidate.rewards.length > 0 && <div className="available-reward-list"><strong>Récompenses disponibles</strong>{scanCandidate.rewards.map((reward) => <article key={reward.id}><span><Gift size={17} aria-hidden="true" /><b>{reward.rewardText}</b></span><div><button className="button button-ghost" onClick={() => redeem(scanCandidate.customer.code, reward.id)} disabled={busy}>Utiliser seulement</button><button className="text-link" onClick={() => redeemThenEarn(scanCandidate, reward.id)} disabled={busy}>Utiliser puis enregistrer l’achat</button></div></article>)}</div>}<button className="button button-large button-full" onClick={() => stamp(scanCandidate.customer.code, scanCandidate.input.quantity, scanCandidate.input.amountCents)} disabled={busy}>{scanCandidate.earningMode === "spend" ? `Enregistrer ${(Number(scanCandidate.input.amountCents ?? 0) / 100).toFixed(2).replace(".", ",")} €` : `Ajouter ${scanCandidate.input.quantity} point${scanCandidate.input.quantity > 1 ? "s" : ""}`}<ArrowRight size={17} aria-hidden="true" /></button><button className="text-link result-close" onClick={() => setScanCandidate(null)}>Ne rien enregistrer</button></section></div>}
+      {stampResult && <div className="modal-backdrop"><section className="result-modal" role="dialog" aria-modal="true"><div className={`result-icon ${stampResult.rewardEarned ? "reward" : ""}`}>{stampResult.rewardEarned ? "★" : `+${stampResult.quantity}`}</div><span className="eyebrow">{stampResult.rewardEarned ? `${stampResult.rewardsEarned} récompense${stampResult.rewardsEarned > 1 ? "s" : ""} débloquée${stampResult.rewardsEarned > 1 ? "s" : ""}` : `${stampResult.quantity} point${stampResult.quantity > 1 ? "s" : ""} ajouté${stampResult.quantity > 1 ? "s" : ""}`}</span><h2>{stampResult.rewardEarned ? `Bravo ${stampResult.customer.firstName} !` : `C’est fait pour ${stampResult.customer.firstName}.`}</h2><p>{stampResult.rewardEarned ? `La carte compte maintenant ${stampResult.availableRewards} récompense${stampResult.availableRewards > 1 ? "s" : ""} disponible${stampResult.availableRewards > 1 ? "s" : ""}.` : `Sa carte affiche maintenant ${stampResult.customer.points}/${stampResult.customer.goal} points.`}</p>{stampResult.availableRewards > 0 && <button className="button reward-action button-full" onClick={() => redeem(stampResult.customer.code)} disabled={busy}>★ Utiliser une récompense</button>}<button className="button button-large button-full" onClick={() => { setStampResult(null); setTab("scan"); }}>Scanner le client suivant</button><button className="text-link result-undo" onClick={() => undoStamp(stampResult.stampId, stampResult.customer.firstName)} disabled={busy}>↶ Annuler cette opération</button><button className="text-link result-close" onClick={() => setStampResult(null)}>Fermer</button></section></div>}
       {showEmployeePin && <PinChangeModal busy={busy} error={error} onSubmit={changeEmployeePin} onClose={() => { setShowEmployeePin(false); setError(""); }} />}
       {employeeAccess && <EmployeeAccessModal access={employeeAccess} onClose={() => setEmployeeAccess(null)} />}
       {toast && <div className="toast" role="status">✓ {toast}</div>}
@@ -415,10 +471,12 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
     event.preventDefault();
     setBusy(true);
     setError("");
+    const formData = new FormData(event.currentTarget);
+    const payload = { ...Object.fromEntries(formData), rewardTiers: formData.getAll("tierThreshold").map((threshold, index) => ({ threshold: Number(threshold), rewardText: String(formData.getAll("tierRewardText")[index] ?? "") })) };
     const response = await fetch("/api/merchant/program", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))),
+      body: JSON.stringify(payload),
     });
     const result = (await response.json()) as { error?: string };
     if (!response.ok) setError(result.error ?? "Impossible de créer la carte.");
@@ -442,7 +500,9 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
           <div><span className="eyebrow">Votre carte de fidélité</span><h2>Configurez l’essentiel.</h2><p>Vous pourrez tout modifier plus tard depuis l’onglet Mon programme.</p></div>
           <label>Nom du commerce<input value={data.merchant.businessName} disabled /></label>
           <label>Nom de la carte<input name="name" defaultValue="Ma carte fidélité" maxLength={80} required /></label>
-          <div className="field-row"><label>Nombre de points à atteindre<input name="goal" type="number" min="3" max="20" defaultValue="8" required /></label><label>Récompense<input name="rewardText" placeholder="Un avantage au choix" maxLength={120} required /></label></div>
+          <fieldset className="earning-mode"><legend>Comment gagner des points ?</legend><label><input type="radio" name="earningMode" value="visits" defaultChecked />Par passage ou achat</label><label><input type="radio" name="earningMode" value="spend" />Selon le montant dépensé</label></fieldset>
+          <label>En mode montant : 1 point tous les<input name="spendAmountEuros" type="number" min="0.5" max="1000" step="0.5" defaultValue="1" /><small>Montant en euros. Ignoré en mode passages.</small></label>
+          <fieldset className="reward-tiers-editor"><legend>Paliers de récompense</legend><div className="field-row"><label>Points<input name="tierThreshold" type="number" min="1" max="1000" defaultValue="8" required /></label><label>Récompense<input name="tierRewardText" placeholder="Un avantage au choix" maxLength={120} required /></label></div><div className="field-row"><label>Points <small>Facultatif</small><input name="tierThreshold" type="number" min="1" max="1000" /></label><label>Deuxième récompense <small>Facultatif</small><input name="tierRewardText" maxLength={120} /></label></div></fieldset><input type="hidden" name="rewardText" value="Récompense fidélité" />
           <fieldset className="color-fieldset program-colors"><legend>Couleur de la carte</legend><small>Choisissez la couleur qui correspond le mieux à votre activité.</small><div className="color-options">{PROGRAM_COLORS.map((color, index) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={index === 0} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset>
           <label>Conditions affichées au client <small>Facultatif</small><textarea name="terms" rows={3} maxLength={200} placeholder="Un point est accordé par achat éligible…" /></label>
           {error && <p className="form-error" role="alert">{error}</p>}
@@ -493,7 +553,7 @@ function Overview({ data, joinUrl, onScan, onCustomers, onShowQr }: { data: Read
   };
   return <div className="overview-grid">
     <section className="welcome-panel"><div><span className="eyebrow"><Sparkles size={15} aria-hidden="true" />Ton programme est en ligne</span><h2>Prêt pour le prochain passage.</h2><p>Inscris un nouveau client ou ajoute un passage en quelques secondes.</p><div className="welcome-actions"><button className="button button-light" onClick={onShowQr}><QrCodeIcon size={18} aria-hidden="true" />Créer une carte</button><button className="button button-outline-light" onClick={onScan}><ScanLine size={18} aria-hidden="true" />Scanner un client</button><button className="button button-outline-light welcome-clients" onClick={onCustomers}>Voir les clients<ArrowRight size={17} aria-hidden="true" /></button></div></div><div className="welcome-motif"><i /><i /><i /><span><Check size={32} strokeWidth={2.5} aria-hidden="true" /></span></div></section>
-    <section className="stats-row"><article><span className="stat-icon orange"><UsersRound size={20} aria-hidden="true" /></span><div><small>Clients</small><strong>{data.stats.customers}</strong></div></article><article><span className="stat-icon green"><Footprints size={20} aria-hidden="true" /></span><div><small>Passages</small><strong>{data.stats.visits}</strong></div></article><article><span className="stat-icon purple"><Trophy size={20} aria-hidden="true" /></span><div><small>Récompenses</small><strong>{data.stats.rewards}</strong></div></article></section>
+    <section className="stats-row stats-row-expanded"><article><span className="stat-icon orange"><UsersRound size={20} aria-hidden="true" /></span><div><small>Nouveaux membres · 30 j</small><strong>{data.stats.newMembers}</strong></div></article><article><span className="stat-icon green"><Footprints size={20} aria-hidden="true" /></span><div><small>Clients revenus</small><strong>{data.stats.returningCustomers}</strong></div></article><article><span className="stat-icon purple"><Trophy size={20} aria-hidden="true" /></span><div><small>Récompenses utilisées · 30 j</small><strong>{data.stats.rewardsRedeemed}</strong></div></article><article><span className="stat-icon orange"><Coins size={20} aria-hidden="true" /></span><div><small>Fréquence moyenne</small><strong>{data.stats.avgFrequencyDays == null ? "—" : `${data.stats.avgFrequencyDays} j`}</strong></div></article></section>
     <section className="panel activity-panel"><div className="panel-head"><div><h2>Activité récente</h2><p>Les derniers mouvements du programme.</p></div><button className="text-link activity-all" onClick={onCustomers}>Tous les clients<ArrowRight size={15} aria-hidden="true" /></button></div><div className="activity-list">{data.activity.length ? data.activity.map((item) => <Activity key={item.id} item={item} />) : <div className="empty-activity"><span><ScanLine size={21} aria-hidden="true" /></span><h3>Tout commence au premier scan.</h3><p>Inscris un client avec le QR code, puis ajoute son premier passage.</p></div>}</div></section>
     <section className="panel join-qr-panel" id="customer-enrollment-qr"><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />Inscription client</span><div className="dashboard-qr"><QrCode value={joinUrl} size={170} label="QR code d’inscription au programme" /></div><h3>À scanner pour créer une carte</h3><p>Présente ce QR code au client : sa carte est créée immédiatement sur son téléphone.</p><div className="copy-row"><code>{joinUrl.replace(/^https?:\/\//, "")}</code><button onClick={copy}>{copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}<span>{copied ? "Copié" : "Copier"}</span></button></div><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="text-link">Tester l’inscription<ExternalLink size={14} aria-hidden="true" /></a></section>
   </div>;
@@ -502,9 +562,11 @@ function Overview({ data, joinUrl, onScan, onCustomers, onShowQr }: { data: Read
 function Activity({ item }: { item: DashboardData["activity"][number] }) {
   const redeemed = item.reason === "redeem";
   const undone = item.reason === "undo";
+  const purchase = item.reason === "purchase";
+  const bonus = item.reason === "bonus";
   const amount = Math.abs(item.delta);
-  const action = redeemed ? "Récompense remise" : undone ? `${amount} point${amount > 1 ? "s" : ""} annulé${amount > 1 ? "s" : ""}` : `${amount} point${amount > 1 ? "s" : ""} ajouté${amount > 1 ? "s" : ""}`;
-  return <div className="activity-item"><span className={redeemed ? "redeemed" : undone ? "undone" : ""}>{redeemed ? "★" : undone ? "↶" : `+${amount}`}</span><div><strong>{item.firstName}</strong><small>{action} · {item.actorName}</small></div><time>{relativeDate(item.createdAt)}</time></div>;
+  const action = redeemed ? "Récompense remise" : undone ? `${amount} point${amount > 1 ? "s" : ""} annulé${amount > 1 ? "s" : ""}` : bonus ? `Bonus de ${amount} point${amount > 1 ? "s" : ""}${item.note ? ` · ${item.note}` : ""}` : purchase ? `Achat${item.amountCents ? ` ${(item.amountCents / 100).toFixed(2).replace(".", ",")} €` : ""} · ${amount} point${amount > 1 ? "s" : ""}` : `Passage · ${amount} point${amount > 1 ? "s" : ""}`;
+  return <div className="activity-item"><span className={redeemed ? "redeemed" : undone ? "undone" : bonus ? "bonus" : ""}>{redeemed ? "★" : undone ? "↶" : bonus ? "+" : `+${amount}`}</span><div><strong>{item.firstName}</strong><small>{action} · {item.actorName}</small></div><time>{relativeDate(item.createdAt)}</time></div>;
 }
 
 function relativeDate(value: string) {
