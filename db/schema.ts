@@ -89,7 +89,29 @@ export const customers = sqliteTable(
     marketingConsentedAt: text("marketing_consented_at"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [index("idx_customers_merchant_email").on(table.merchantId, table.email)],
+  (table) => [
+    index("idx_customers_merchant_email").on(table.merchantId, table.email),
+    index("idx_customers_merchant_phone").on(table.merchantId, table.phone),
+    uniqueIndex("idx_customers_merchant_phone_unique").on(table.merchantId, table.phone).where(sql`${table.phone} IS NOT NULL`),
+  ],
+);
+
+export const merchantEmailVerifications = sqliteTable(
+  "merchant_email_verifications",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    payloadJson: text("payload_json").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    usedAt: text("used_at"),
+    lastSentAt: text("last_sent_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_email_verifications_token").on(table.tokenHash),
+    index("idx_email_verifications_email").on(table.email, table.createdAt),
+  ],
 );
 
 export const memberships = sqliteTable(

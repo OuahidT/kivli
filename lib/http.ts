@@ -37,6 +37,9 @@ export function safeApiError(error: unknown) {
   if (message.includes("UNIQUE constraint failed: merchants.slug")) return jsonError("Ce nom de commerce est déjà utilisé. Réessaie avec un nom un peu différent.", 409);
   if (message.includes("UNIQUE constraint failed: employees.email")) return jsonError("Cette adresse e-mail est déjà utilisée.", 409);
   if (message.includes("UNIQUE constraint failed: employees.login_code")) return jsonError("L’identifiant généré existe déjà. Réessaie.", 409);
+  if (message.includes("idx_customers_merchant_phone_unique") || message.includes("UNIQUE constraint failed: customers.merchant_id, customers.phone")) {
+    return jsonError("Une carte existe déjà pour ce numéro de téléphone.", 409);
+  }
   console.error(error);
   return jsonError("Impossible de terminer l’action pour le moment.", 500);
 }

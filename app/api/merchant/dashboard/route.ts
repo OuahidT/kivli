@@ -39,9 +39,7 @@ export async function GET(request: Request) {
           mb.updated_at AS updatedAt,
           (SELECT COUNT(*) FROM rewards r WHERE r.membership_id = mb.id AND r.status = 'available') AS availableRewards,
           CASE
-            WHEN c.created_at >= datetime('now', '-30 days') AND NOT EXISTS (
-              SELECT 1 FROM stamps ns WHERE ns.membership_id = mb.id AND ns.reason IN ('visit', 'purchase', 'bonus') AND ns.reversed_at IS NULL
-            ) THEN 'new'
+            WHEN c.created_at >= datetime('now', '-30 days') THEN 'new'
             WHEN mb.total_points >= MAX(10, COALESCE((SELECT MAX(threshold) FROM program_reward_tiers pt WHERE pt.program_id = mb.program_id AND pt.active = 1), 10) * 2) THEN 'loyal'
             WHEN COALESCE((SELECT MAX(rs.created_at) FROM stamps rs WHERE rs.membership_id = mb.id AND rs.reason IN ('visit', 'purchase', 'bonus') AND rs.reversed_at IS NULL), c.created_at) < datetime('now', '-45 days') THEN 'reactivate'
             ELSE 'active' END AS segment,
