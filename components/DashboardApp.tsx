@@ -521,7 +521,7 @@ function FeedbackModal({ busy, error, onSubmit, onClose }: { busy: boolean; erro
 
 function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData; onCreated: () => Promise<void>; onLogout: () => Promise<void> }) {
   const [showForm, setShowForm] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(Boolean(data.welcomePending));
+  const [showWelcome, setShowWelcome] = useState(Boolean(data.welcomePending) || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("welcome") === "preview"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
