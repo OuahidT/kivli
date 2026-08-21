@@ -19,7 +19,7 @@ function readProgram(payload: ProgramPayload | null, fallbackColor: string) {
     .filter((tier) => tier.threshold >= 1 && tier.threshold <= 1000 && tier.rewardText)
     .sort((a, b) => a.threshold - b.threshold)
     .filter((tier, index, list) => index === 0 || tier.threshold !== list[index - 1].threshold)
-    .slice(0, 5);
+    .slice(0, 6);
   if (!rewardTiers.length && rewardText) rewardTiers.push({ threshold: goal, rewardText });
   const cycleGoal = rewardTiers.length ? Math.max(...rewardTiers.map((tier) => tier.threshold)) : goal;
   return { name, rewardText: rewardTiers[0]?.rewardText ?? rewardText, terms, accentColor, goal: cycleGoal, earningMode, spendAmountCents, rewardTiers };
