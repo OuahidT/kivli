@@ -39,8 +39,8 @@ export async function POST(request: Request) {
          ${employeeGuard}
          AND NOT EXISTS (
            SELECT 1 FROM stamps newer
-           WHERE newer.membership_id = s.membership_id AND newer.reason IN ('visit', 'purchase', 'bonus')
-             AND newer.reversed_at IS NULL AND newer.rowid > s.rowid
+           WHERE newer.membership_id = s.membership_id AND newer.reason IN ('visit', 'purchase', 'bonus', 'redeem', 'undo')
+             AND newer.delta != 0 AND newer.reversed_at IS NULL AND newer.rowid > s.rowid
          )`,
       stampId,
       merchant.id,
