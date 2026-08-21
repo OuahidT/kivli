@@ -39,7 +39,10 @@ export async function getCardByCode(code: string) {
   const { queryAll } = await import("../db");
   const [rewardTiers, availableRewardItems] = await Promise.all([
     queryAll<RewardTier>(`SELECT id, threshold, reward_text AS rewardText, sort_order AS sortOrder FROM program_reward_tiers WHERE program_id = ? AND active = 1 ORDER BY threshold`, card.id),
-    queryAll<{ id: string; rewardText: string; threshold: number }>(`SELECT id, COALESCE(reward_text, ?) AS rewardText, COALESCE(threshold, ?) AS threshold FROM rewards WHERE membership_id = (SELECT id FROM memberships WHERE code = ?) AND status = 'available' ORDER BY earned_at`, card.rewardText, card.goal, code),
+    card.earningMode === "visits"
+      ? queryAll<{ id: string; rewardText: string; threshold: number }>(`SELECT id, COALESCE(reward_text, ?) AS rewardText, COALESCE(threshold, ?) AS threshold FROM rewards WHERE membership_id = (SELECT id FROM memberships WHERE code = ?) AND status = 'available' ORDER BY earned_at`, card.rewardText, card.goal, code)
+      : Promise.resolve([]),
   ]);
-  return { ...card, rewardTiers, availableRewardItems };
+  const walletRewards = card.earningMode === "spend" ? rewardTiers.filter((tier) => tier.threshold <= card.points) : availableRewardItems;
+  return { ...card, availableRewards: walletRewards.length, rewardTiers, availableRewardItems: walletRewards };
 }

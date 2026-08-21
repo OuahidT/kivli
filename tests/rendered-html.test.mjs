@@ -97,3 +97,27 @@ test("keeps reward redemption separate from earning operations", async () => {
   assert.match(joinRoute, /marketing_consent/);
   assert.match(migration, /program_reward_tiers/);
 });
+
+test("uses a cumulative wallet for spend programs", async () => {
+  const [stampRoute, bonusRoute, redeemRoute, undoRewardRoute, scanRoute, card, schema] = await Promise.all([
+    readFile(new URL("../app/api/merchant/stamp/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/merchant/bonus/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/merchant/redeem/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/merchant/redeem/undo/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/merchant/scan/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/CustomerCard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../db/index.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(stampRoute, /membership\.points \+ quantity/);
+  assert.match(bonusRoute, /member\.points \+ quantity/);
+  assert.match(redeemRoute, /pointsAfter = member\.points - tier\.threshold/);
+  assert.match(redeemRoute, /delta, reason, actor_role, points_before, points_after/);
+  assert.match(undoRewardRoute, /pointsRestored/);
+  assert.match(undoRewardRoute, /reward_restore:/);
+  assert.match(scanRoute, /program_reward_tiers/);
+  assert.match(card, /wallet-program-view/);
+  assert.match(card, /Encore \$\{missing\}/);
+  assert.doesNotMatch(card, /Utiliser cette récompense/);
+  assert.match(schema, /wallet_mode_ready/);
+  assert.match(schema, /status = 'converted'/);
+});

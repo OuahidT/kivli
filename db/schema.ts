@@ -129,6 +129,7 @@ export const memberships = sqliteTable(
     code: text("code").notNull(),
     points: integer("points").notNull().default(0),
     totalPoints: integer("total_points").notNull().default(0),
+    walletModeReady: integer("wallet_mode_ready", { mode: "boolean" }).notNull().default(false),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },

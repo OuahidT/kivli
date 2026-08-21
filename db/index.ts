@@ -50,7 +50,8 @@ const schemaStatements = [
   `CREATE TABLE IF NOT EXISTS memberships (
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, program_id TEXT NOT NULL,
     customer_id TEXT NOT NULL, code TEXT NOT NULL UNIQUE, points INTEGER NOT NULL DEFAULT 0,
-    total_points INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    total_points INTEGER NOT NULL DEFAULT 0, wallet_mode_ready INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(program_id, customer_id)
   )`,
   `CREATE TABLE IF NOT EXISTS stamps (
@@ -204,6 +205,14 @@ export async function ensureSchema() {
       await db.prepare("CREATE INDEX IF NOT EXISTS idx_customers_merchant_phone ON customers(merchant_id, phone)").run();
       await db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_merchant_phone_unique ON customers(merchant_id, phone) WHERE phone IS NOT NULL").run();
 
+      const membershipColumns = await db.prepare("PRAGMA table_info(memberships)").all<{ name: string }>();
+      const existingMembershipColumns = new Set((membershipColumns.results ?? []).map((column) => column.name));
+      if (!existingMembershipColumns.has("wallet_mode_ready")) {
+        try { await db.prepare("ALTER TABLE memberships ADD COLUMN wallet_mode_ready INTEGER NOT NULL DEFAULT 0").run(); } catch (error) {
+          if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+        }
+      }
+
       const stampColumns = await db.prepare("PRAGMA table_info(stamps)").all<{ name: string }>();
       const existingStampColumns = new Set((stampColumns.results ?? []).map((column) => column.name));
       const stampMigrations = [
@@ -236,6 +245,15 @@ export async function ensureSchema() {
         reward_text = COALESCE(reward_text, (SELECT p.reward_text FROM programs p WHERE p.id = rewards.program_id)),
         threshold = COALESCE(threshold, (SELECT p.goal FROM programs p WHERE p.id = rewards.program_id))
         WHERE reward_text IS NULL OR threshold IS NULL`).run();
+      await db.prepare(`UPDATE memberships SET
+        points = points + COALESCE((SELECT SUM(COALESCE(r.threshold, 0)) FROM rewards r WHERE r.membership_id = memberships.id AND r.status = 'available'), 0),
+        wallet_mode_ready = 1,
+        updated_at = CURRENT_TIMESTAMP
+        WHERE wallet_mode_ready = 0 AND program_id IN (SELECT id FROM programs WHERE earning_mode = 'spend')`).run();
+      await db.prepare(`UPDATE rewards SET status = 'converted'
+        WHERE status = 'available' AND membership_id IN (
+          SELECT mb.id FROM memberships mb JOIN programs p ON p.id = mb.program_id WHERE p.earning_mode = 'spend' AND mb.wallet_mode_ready = 1
+        )`).run();
       await db.prepare(`INSERT OR IGNORE INTO program_reward_tiers (id, program_id, threshold, reward_text, sort_order)
         SELECT 'tier_' || id, id, goal, reward_text, 0 FROM programs`).run();
       const employeeColumns = await db.prepare("PRAGMA table_info(employees)").all<{ name: string }>();

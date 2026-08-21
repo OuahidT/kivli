@@ -67,7 +67,7 @@ export async function PATCH(request: Request) {
     const program = await queryFirst<{ id: string }>("SELECT id FROM programs WHERE merchant_id = ?", merchant.id);
     if (!program) return jsonError("Programme introuvable.", 404);
     const progress = await queryFirst<{ highest: number }>("SELECT COALESCE(MAX(points), 0) AS highest FROM memberships WHERE merchant_id = ?", merchant.id);
-    if ((progress?.highest ?? 0) >= values.goal) return jsonError(`Le dernier palier doit dépasser la progression actuelle la plus élevée (${progress?.highest ?? 0} points).`);
+    if (values.earningMode === "visits" && (progress?.highest ?? 0) >= values.goal) return jsonError(`Le dernier palier doit dépasser la progression actuelle la plus élevée (${progress?.highest ?? 0} points).`);
     await db.batch([
       db.prepare("UPDATE programs SET name = ?, goal = ?, reward_text = ?, terms = ?, earning_mode = ?, spend_amount_cents = ?, updated_at = CURRENT_TIMESTAMP WHERE merchant_id = ?")
         .bind(values.name, values.goal, values.rewardText, values.terms || DEFAULT_PROGRAM_TERMS, values.earningMode, values.spendAmountCents, merchant.id),

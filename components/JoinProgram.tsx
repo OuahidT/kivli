@@ -56,8 +56,7 @@ export function JoinProgram({ slug }: { slug: string }) {
           <span className="card-kicker">{program.name}</span>
           <h1>Une récompense t’attend.</h1>
           <p className="join-promise">{program.earningMode === "spend" ? `À chaque achat, tu gagnes 1 point tous les ${(program.spendAmountCents / 100).toFixed(2).replace(".", ",")} € dépensés.` : "À chaque passage, ton commerçant scanne ta carte et ta progression se met à jour instantanément."}</p>
-          <div className="join-stamps">{Array.from({ length: Math.min(program.goal, 10) }, (_, index) => <span key={index}>{index + 1}</span>)}</div>
-          <div className="reward-line"><span className="reward-symbol"><Gift size={20} aria-hidden="true" /></span><span>Dès {program.rewardTiers[0]?.threshold ?? program.goal} points</span><strong>{program.rewardTiers[0]?.rewardText ?? program.rewardText}</strong></div>
+          {program.earningMode === "spend" ? <div className="join-wallet-preview"><div><span>Ton solde</span><strong>0</strong><small>points</small></div><section><span>Paliers de récompenses</span>{program.rewardTiers.map((tier) => <p key={tier.id}><b>{tier.threshold} pts</b><small>{tier.rewardText}</small></p>)}</section></div> : <><div className="join-stamps">{Array.from({ length: Math.min(program.goal, 10) }, (_, index) => <span key={index}>{index + 1}</span>)}</div><div className="reward-line"><span className="reward-symbol"><Gift size={20} aria-hidden="true" /></span><span>Dès {program.rewardTiers[0]?.threshold ?? program.goal} points</span><strong>{program.rewardTiers[0]?.rewardText ?? program.rewardText}</strong></div></>}
         </div>
         <div className="join-form-wrap">
           <Brand />
