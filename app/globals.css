@@ -1654,17 +1654,17 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 .config-group > h3, .config-group-title h3 { margin: 0 0 15px; font-size: 15px; letter-spacing: -.015em; }
 .config-group-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
 .config-group-title h3 { margin: 0; }
-.config-group-title > span { padding: 5px 8px; border-radius: 99px; background: #f1eee8; color: #777168; font-size: 10px; font-weight: 800; }
+.config-group-title > span { display: none; }
 .spend-rule-inline { display: flex; align-items: center; gap: 10px; margin-top: 11px; padding: 12px 14px; border-radius: 13px; background: #fff3ee; color: #a34530; animation: setup-reveal .18s ease both; }
 .spend-rule-inline > span { display: grid; gap: 2px; }
 .spend-rule-inline strong { color: #4e2d25; font-size: 12px; }
 .spend-rule-inline small { color: #9c6b5f; font-size: 10px; }
 .dynamic-reward-list { display: grid; gap: 9px; }
-.dynamic-reward-row { display: grid; grid-template-columns: 32px 132px minmax(0,1fr) 36px; align-items: end; gap: 10px; padding: 12px; border: 1px solid #dfdad1; border-radius: 15px; background: #f8f6f2; animation: setup-reveal .18s ease both; }
+.dynamic-reward-row { display: grid; grid-template-columns: 132px minmax(0,1fr) 36px; align-items: end; gap: 10px; padding: 12px; border: 1px solid #dfdad1; border-radius: 15px; background: #f8f6f2; animation: setup-reveal .18s ease both; }
 .dynamic-reward-row label { display: grid; gap: 6px; color: #575149; font-size: 10px; font-weight: 800; }
 .dynamic-reward-row input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #d3cdc3; border-radius: 10px; background: #fff; outline: 0; }
 .dynamic-reward-row input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(240,91,60,.1); }
-.reward-index { width: 32px; height: 32px; align-self: center; display: grid; place-items: center; border-radius: 10px; background: #1b1b18; color: #fff; font-size: 11px; font-weight: 850; }
+.reward-index { display: none; }
 .remove-reward { width: 36px; height: 36px; align-self: center; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: #9b6b61; cursor: pointer; }
 .dynamic-reward-row:not(:last-child) .remove-reward { visibility: hidden; }
 .remove-reward:hover { background: #ffebe6; color: #b3422b; }
@@ -1777,10 +1777,9 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .form-open .program-setup-stage { padding: 10px; border-radius: 22px; }
   .form-open .program-setup-form, .program-config-form { padding: 22px 16px!important; border-radius: 19px; }
   .program-setup-form > div:first-child h2 { font-size: 30px; }
-  .dynamic-reward-row { grid-template-columns: 32px 1fr 36px; align-items: start; }
-  .dynamic-reward-row label { grid-column: 2; }
-  .dynamic-reward-row .reward-index { grid-row: 1 / 3; }
-  .dynamic-reward-row .remove-reward { grid-column: 3; grid-row: 1 / 3; }
+  .dynamic-reward-row { grid-template-columns: 1fr 36px; align-items: start; }
+  .dynamic-reward-row label { grid-column: 1; }
+  .dynamic-reward-row .remove-reward { grid-column: 2; grid-row: 1 / 3; }
   .config-form-head { display: block; }
   .config-form-head > p { margin-top: 10px; text-align: left; }
   .employee-pin-setup > section { padding: 42px 0; }
