@@ -115,32 +115,35 @@ function truncate(value: string, length: number) {
   return value.length <= length ? value : `${value.slice(0, Math.max(1, length - 1)).trim()}…`;
 }
 
-function rewardSummary(card: CardData) {
-  if (card.earningMode === "spend") {
-    return card.rewardTiers.slice(0, 6).map((tier) => {
-      const missing = Math.max(0, tier.threshold - card.points);
-      return `${tier.threshold} pts · ${tier.rewardText}${missing === 0 ? " · Disponible" : ` · Encore ${missing} pts`}`;
-    }).join("\n");
-  }
-  if (card.availableRewardItems.length) {
-    return card.availableRewardItems.slice(0, 6).map((reward) => `Disponible · ${reward.rewardText}`).join("\n");
-  }
-  const next = card.rewardTiers.find((tier) => tier.threshold > card.points) ?? card.rewardTiers[0];
-  return next ? `Prochaine récompense à ${next.threshold} points · ${next.rewardText}` : card.rewardText;
-}
-
 function walletRewardSnapshot(card: CardData) {
-  const available = [...card.availableRewardItems]
-    .sort((left, right) => right.threshold - left.threshold)[0];
-  const next = card.rewardTiers.find((tier) => tier.threshold > card.points);
+  const tiers = card.rewardTiers.length
+    ? card.rewardTiers
+    : [{ id: "default", threshold: card.goal, rewardText: card.rewardText, sortOrder: 0 }];
+  const available = [...card.availableRewardItems].sort((left, right) => left.threshold - right.threshold);
+  const locked = tiers.filter((tier) => tier.threshold > card.points);
+  const next = locked[0];
   const missing = next ? Math.max(0, next.threshold - card.points) : 0;
+  const availableCount = available.length;
+  const availableLabel = availableCount === 0
+    ? "Aucune disponible · voir les détails"
+    : `${availableCount} disponible${availableCount > 1 ? "s" : ""} · voir les détails`;
 
   return {
-    availableCount: card.availableRewardItems.length,
-    availableNow: available ? truncate(available.rewardText, 30) : "Aucune pour le moment",
+    availableCount,
+    availableLabel,
     nextTier: next
       ? truncate(`${next.rewardText} · encore ${missing} pt${missing > 1 ? "s" : ""}`, 42)
-      : "Tous les paliers sont atteints",
+      : "Dernier palier atteint",
+    allTiers: tiers.map((tier) => `${tier.threshold} pts · ${tier.rewardText}`).join("\n"),
+    availableTiers: availableCount
+      ? available.map((tier) => `${tier.threshold} pts · ${tier.rewardText}`).join("\n")
+      : "Aucune récompense accessible pour le moment.",
+    lockedTiers: locked.length
+      ? locked.map((tier) => {
+        const tierMissing = Math.max(0, tier.threshold - card.points);
+        return `${tier.threshold} pts · ${tier.rewardText} · encore ${tierMissing} pt${tierMissing > 1 ? "s" : ""}`;
+      }).join("\n")
+      : "Tous les paliers sont atteints.",
   };
 }
 
@@ -175,15 +178,23 @@ function loyaltyClass(card: CardData, issuerId: string) {
           {
             twoItems: {
               startItem: field("object.loyaltyPoints.balance"),
-              endItem: field("object.secondaryLoyaltyPoints.balance"),
+              endItem: field("object.textModulesData['kivli_rewards_count']"),
             },
           },
           {
-            twoItems: {
-              startItem: field("object.textModulesData['kivli_available_reward']"),
-              endItem: field("object.textModulesData['kivli_next_tier']"),
+            oneItem: {
+              item: field("object.textModulesData['kivli_next_tier']"),
             },
           },
+        ],
+      },
+      detailsTemplateOverride: {
+        detailsItemInfos: [
+          { item: field("object.textModulesData['kivli_all_tiers']") },
+          { item: field("object.textModulesData['kivli_available_tiers']") },
+          { item: field("object.textModulesData['kivli_locked_tiers']") },
+          { item: field("object.textModulesData['kivli_conditions']") },
+          { item: field("object.textModulesData['kivli_signature']") },
         ],
       },
     },
@@ -195,9 +206,6 @@ function loyaltyObject(card: CardData, issuerId: string) {
   const { classId, objectId } = walletIds(card, issuerId);
   const rewardSnapshot = walletRewardSnapshot(card);
   const cardUrl = `${KIVLI_ORIGIN}/c/${encodeURIComponent(card.code)}`;
-  const progressCopy = card.earningMode === "spend"
-    ? `${card.points} points disponibles`
-    : `${card.points} sur ${card.goal} points`;
   return {
     id: objectId,
     classId,
@@ -208,10 +216,13 @@ function loyaltyObject(card: CardData, issuerId: string) {
     secondaryLoyaltyPoints: { label: "Récomp.", balance: { int: rewardSnapshot.availableCount } },
     barcode: { type: "QR_CODE", value: cardUrl, alternateText: card.code },
     textModulesData: [
-      { id: "kivli_available_reward", header: "Disponible maintenant", body: rewardSnapshot.availableNow },
+      { id: "kivli_rewards_count", header: "Récompenses", body: rewardSnapshot.availableLabel },
       { id: "kivli_next_tier", header: "Prochain palier", body: rewardSnapshot.nextTier },
-      { id: "kivli_progress", header: "Progression", body: progressCopy },
-      { id: "kivli_rewards", header: "Récompenses", body: rewardSummary(card) },
+      { id: "kivli_all_tiers", header: "Tous les paliers", body: rewardSnapshot.allTiers },
+      { id: "kivli_available_tiers", header: "Récompenses accessibles", body: rewardSnapshot.availableTiers },
+      { id: "kivli_locked_tiers", header: "À débloquer", body: rewardSnapshot.lockedTiers },
+      { id: "kivli_conditions", header: "Conditions du programme", body: card.terms || "Les conditions sont définies par le professionnel." },
+      { id: "kivli_signature", header: "Kivli", body: "Carte de fidélité propulsée par Kivli 🧡" },
     ],
     linksModuleData: {
       uris: [{ id: "kivli_card", uri: cardUrl, description: "Ouvrir ma carte Kivli" }],
