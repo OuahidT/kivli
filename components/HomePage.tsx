@@ -3,17 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import {
   ArrowRight,
-  BarChart3,
   Check,
   Gift,
-  History,
   MailCheck,
   QrCode,
   ScanLine,
-  ShieldCheck,
   Sparkles,
   UserPlus,
-  Users,
 } from "lucide-react";
 import { Brand } from "./Brand";
 import { QrCode as KivliQrCode } from "./QrCode";
@@ -150,30 +146,22 @@ export function HomePage() {
           <h2>Chaque écran a un rôle clair.</h2>
           <p>Le client garde sa carte. L’équipe scanne. Le responsable pilote. Tout le monde voit uniquement ce dont il a besoin.</p>
         </div>
-        <div className="product-grid">
-          <article className="product-shot product-shot-card">
-            <div className="product-shot-head"><span><QrCode size={18} aria-hidden="true" /></span><div><small>CARTE CLIENT</small><strong>Une progression toujours accessible</strong></div></div>
-            <div className="mini-progress"><div><b>6</b><span>/ 8 passages</span></div><i><i /></i><strong>75%</strong></div>
-            <div className="mini-stamps">{Array.from({ length: 8 }, (_, index) => <span key={index} className={index < 6 ? "filled" : ""}>{index < 6 ? "✓" : index + 1}</span>)}</div>
-            <p><Gift size={17} aria-hidden="true" />Un avantage au choix</p>
+        <div className="real-product-grid">
+          <article className="real-product-card real-product-card-wide">
+            <div className="real-product-copy"><span>TABLEAU DE BORD COMMERÇANT</span><h3>Le pilotage utile, dès l’ouverture.</h3><p>Les indicateurs, les accès rapides et l’activité récente réunis sur le véritable écran d’accueil Kivli.</p></div>
+            <div className="real-product-window"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>kivli.fr/dashboard</small></div><img src="/product-real/dashboard.jpg" alt="Véritable tableau de bord commerçant Kivli pour Studio Nova" loading="lazy" /></div>
           </article>
-
-          <article className="product-shot product-shot-scan">
-            <div className="product-shot-head"><span><ScanLine size={18} aria-hidden="true" /></span><div><small>SCAN</small><strong>Un passage validé en un geste</strong></div></div>
-            <div className="scan-preview"><i /><i /><i /><i /><QrCode size={70} strokeWidth={1.25} aria-hidden="true" /></div>
-            <div className="scan-success"><Check size={16} aria-hidden="true" /><span><strong>Carte reconnue</strong><small>Prête à recevoir 1 point</small></span></div>
+          <article className="real-product-card">
+            <div className="real-product-copy"><span>CARTE CLIENT</span><h3>La progression et le QR code, au même endroit.</h3><p>Une vraie carte créée dans Kivli, avec ses paliers et sa prochaine récompense.</p></div>
+            <div className="real-product-window real-product-window-card"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>Carte de Léa</small></div><img src="/product-real/client-card.jpg" alt="Véritable carte client Kivli de Studio Nova avec six points" loading="lazy" /></div>
           </article>
-
-          <article className="product-shot product-shot-dashboard">
-            <div className="product-shot-head"><span><BarChart3 size={18} aria-hidden="true" /></span><div><small>TABLEAU DE BORD</small><strong>L’activité utile, au même endroit</strong></div></div>
-            <div className="metric-preview"><span><small>Clients</small><b>48</b></span><span><small>Passages</small><b>128</b></span><span><small>Récompenses</small><b>14</b></span></div>
-            <div className="history-preview"><span><History size={15} aria-hidden="true" />Historique récent</span><i /><i /><i /></div>
+          <article className="real-product-card">
+            <div className="real-product-copy"><span>SCANNER</span><h3>Un passage validé sans détour.</h3><p>Caméra, saisie manuelle et quantité de points depuis le véritable espace de scan.</p></div>
+            <div className="real-product-window"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>Espace équipe</small></div><img src="/product-real/scanner.jpg" alt="Véritable écran du scanner Kivli" loading="lazy" /></div>
           </article>
-
-          <article className="product-shot product-shot-team">
-            <div className="product-shot-head"><span><Users size={18} aria-hidden="true" /></span><div><small>ESPACE ÉQUIPE</small><strong>Le bon accès pour chaque rôle</strong></div></div>
-            <div className="team-preview"><span>A</span><div><strong>Anaïs · Équipe</strong><small>Scanner et annuler ses propres actions</small></div><i>Actif</i></div>
-            <p><ShieldCheck size={17} aria-hidden="true" />Les données clients restent réservées au responsable.</p>
+          <article className="real-product-card">
+            <div className="real-product-copy"><span>PROGRAMME</span><h3>Une carte fidèle à chaque commerce.</h3><p>Couleur, récompenses et conditions restent modifiables depuis l’interface réelle.</p></div>
+            <div className="real-product-window"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>Mon programme</small></div><img src="/product-real/program.jpg" alt="Véritable écran de gestion du programme Kivli" loading="lazy" /></div>
           </article>
         </div>
       </section>
