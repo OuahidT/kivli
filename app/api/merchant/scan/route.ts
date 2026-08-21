@@ -16,9 +16,12 @@ export async function POST(request: Request) {
       FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
       WHERE mb.code = ? AND mb.merchant_id = ?`, code, merchant.id);
     if (!card) return jsonError("Cette carte n’appartient pas à ton programme.", 404);
-    const rewards = await queryAll<RewardRow>(`SELECT id, COALESCE(reward_text, (SELECT reward_text FROM programs WHERE id = r.program_id)) AS rewardText,
-      COALESCE(threshold, (SELECT goal FROM programs WHERE id = r.program_id)) AS threshold
-      FROM rewards r WHERE membership_id = ? AND status = 'available' ORDER BY earned_at`, card.membershipId);
+    const rewards = card.earningMode === "spend"
+      ? await queryAll<RewardRow>(`SELECT id, reward_text AS rewardText, threshold
+          FROM program_reward_tiers WHERE program_id = (SELECT program_id FROM memberships WHERE id = ?) AND active = 1 AND threshold <= ? ORDER BY threshold`, card.membershipId, card.points)
+      : await queryAll<RewardRow>(`SELECT id, COALESCE(reward_text, (SELECT reward_text FROM programs WHERE id = r.program_id)) AS rewardText,
+          COALESCE(threshold, (SELECT goal FROM programs WHERE id = r.program_id)) AS threshold
+          FROM rewards r WHERE membership_id = ? AND status = 'available' ORDER BY earned_at`, card.membershipId);
     return Response.json({ customer: { firstName: card.firstName, code: card.code, points: card.points, goal: card.goal }, earningMode: card.earningMode, spendAmountCents: card.spendAmountCents, rewards });
   } catch (error) { return safeApiError(error); }
 }
