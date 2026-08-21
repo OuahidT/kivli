@@ -1571,6 +1571,7 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   background: rgba(255,255,255,.76);
   box-shadow: 0 28px 70px rgba(32,29,24,.08);
   backdrop-filter: blur(16px);
+  align-items: start;
 }
 .program-setup-preview { width: min(100%, 420px); }
 .setup-preview-card {
@@ -1589,14 +1590,21 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 .setup-preview-card p { margin: 32px 0 0; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.2); display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 750; }
 .program-setup-preview > p { margin: 22px 12px 0; display: flex; gap: 9px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .program-setup-preview > p svg { flex: 0 0 auto; color: var(--orange); }
-.program-setup-form { width: min(100%, 530px); display: grid; gap: 16px; }
+.program-setup-form { width: min(100%, 530px); display: grid; gap: 18px; }
 .program-setup-form > div:first-child { margin-bottom: 4px; }
 .program-setup-form h2 { margin: 7px 0 5px; font-size: 32px; letter-spacing: -.04em; }
 .program-setup-form > div:first-child p { margin: 0; color: var(--muted); font-size: 13px; }
-.program-setup-form label { display: grid; gap: 7px; font-size: 12px; font-weight: 780; }
+.program-setup-form > label { display: grid; gap: 8px; padding: 14px 15px; border: 1px solid #e5e0d7; border-radius: 15px; background: rgba(255,255,255,.78); font-size: 12px; font-weight: 800; color: #3d3932; }
+.program-setup-form > label small { color: #8a857c; font-size: 11px; font-weight: 600; }
+.program-setup-form input, .program-setup-form textarea { min-height: 48px; border-color: #d8d2c8; border-radius: 11px; background: #fff; }
+.program-setup-form textarea { min-height: 88px; padding-top: 12px; resize: vertical; }
 .program-setup-form input,
 .program-setup-form textarea { width: 100%; }
-.program-setup-form input:disabled { color: #77736b; background: #eeece6; cursor: not-allowed; }
+.program-setup-form input:disabled { color: #4e4a42; background: #eeece6; cursor: not-allowed; opacity: 1; }
+.program-setup-form .earning-mode, .program-setup-form .reward-tiers-editor, .program-setup-form .color-fieldset { padding: 18px; border-color: #e5e0d7; background: rgba(255,255,255,.64); }
+.program-setup-form .earning-mode legend, .program-setup-form .reward-tiers-editor legend, .program-setup-form .color-fieldset legend { font-size: 13px; color: #2d2a25; }
+.program-setup-form .earning-mode input { min-height: 17px; }
+.program-setup-form .field-row label { display: grid; gap: 7px; font-size: 12px; font-weight: 780; color: #3d3932; }
 .employee-pin-note { margin: 0; padding: 13px 14px; display: flex; gap: 9px; border-radius: 13px; background: #f4f2ed; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .employee-pin-note svg { flex: 0 0 auto; color: var(--orange); }
 
