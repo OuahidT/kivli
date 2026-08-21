@@ -26,13 +26,14 @@ export async function GET(request: Request) {
     if (!merchant) return jsonError("Connecte-toi pour accéder au tableau de bord.", 401);
 
     const owner = merchant.role === "owner";
+    const previewWelcome = new URL(request.url).searchParams.get("welcome") === "preview";
     let welcomePending = false;
     if (owner) {
       const marker = await queryFirst<{ welcomeSeenAt: string | null }>(
         "SELECT welcome_seen_at AS welcomeSeenAt FROM merchants WHERE id = ?",
         merchant.id,
       );
-      if (!marker?.welcomeSeenAt) {
+      if (previewWelcome || !marker?.welcomeSeenAt) {
         welcomePending = true;
       }
     }
