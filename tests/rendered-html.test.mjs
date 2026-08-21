@@ -158,11 +158,16 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   const wallet = await readFile(new URL("../lib/google-wallet.ts", import.meta.url), "utf8");
 
   assert.match(wallet, /cardTemplateOverride/);
+  assert.match(wallet, /detailsTemplateOverride/);
   assert.match(wallet, /object\.loyaltyPoints\.balance/);
-  assert.match(wallet, /object\.secondaryLoyaltyPoints\.balance/);
-  assert.match(wallet, /kivli_available_reward/);
+  assert.match(wallet, /kivli_rewards_count/);
   assert.match(wallet, /kivli_next_tier/);
-  assert.match(wallet, /Disponible maintenant/);
+  assert.match(wallet, /kivli_all_tiers/);
+  assert.match(wallet, /kivli_available_tiers/);
+  assert.match(wallet, /kivli_locked_tiers/);
+  assert.match(wallet, /kivli_conditions/);
+  assert.match(wallet, /Carte de fidélité propulsée par Kivli 🧡/);
+  assert.match(wallet, /voir les détails/);
   assert.match(wallet, /Prochain palier/);
   assert.match(wallet, /await upsertClass\(card, config\.issuerId\)/);
 });
