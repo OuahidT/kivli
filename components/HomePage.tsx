@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
 import {
   ArrowRight,
   Check,
@@ -181,7 +180,7 @@ export function HomePage() {
         <div className="feature-list"><span><Check size={17} aria-hidden="true" />QR code unique par client</span><span><Check size={17} aria-hidden="true" />Progression en temps réel</span><span><Check size={17} aria-hidden="true" />Récompenses automatiques</span><span><Check size={17} aria-hidden="true" />Accès équipe limité</span></div>
       </section>
 
-      <footer className="footer"><div className="shell"><div><Brand light /><p>La fidélité, simplement.</p></div><div className="footer-links"><a href="/merchant">Espace commerçant →</a><Link href="/mentions-legales">Mentions légales</Link><Link href="/confidentialite">Confidentialité</Link><Link href="/conditions-pilote">Pilote gratuit</Link></div></div></footer>
+      <footer className="footer"><div className="shell"><div><Brand light /><p>La fidélité, simplement.</p></div><nav className="footer-links" aria-label="Informations et accès"><a href="/merchant">Espace commerçant →</a><a href="/mentions-legales">Mentions légales</a><a href="/confidentialite">Confidentialité</a><a href="/conditions-pilote">Pilote gratuit</a><a href="/accord-traitement-donnees">Annexe RGPD</a></nav></div></footer>
 
       {step !== "intro" && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStep("intro"); }}>
@@ -196,8 +195,8 @@ export function HomePage() {
               <label>E-mail professionnel<input name="email" type="email" autoComplete="email" placeholder="bonjour@ateliernova.fr" required /></label>
               <label>Téléphone <small>Facultatif</small><input name="phone" type="tel" autoComplete="tel" placeholder="06 12 34 56 78" /></label>
               <div className="field-row pin-field-row"><label>Code confidentiel<input name="password" type="password" inputMode="numeric" autoComplete="new-password" minLength={6} maxLength={6} pattern="[0-9]{6}" placeholder="6 chiffres" required /><small>Il servira à vous connecter.</small></label><label>Confirmer le code<input name="confirmPassword" type="password" inputMode="numeric" autoComplete="new-password" minLength={6} maxLength={6} pattern="[0-9]{6}" placeholder="6 chiffres" required /><small>Saisissez exactement le même code.</small></label></div>
-              <small className="form-privacy-note">Kivli utilise ces informations pour créer et sécuriser votre compte. Le téléphone est facultatif. <Link href="/confidentialite" target="_blank">Comment vos données sont protégées</Link>.</small>
-              <label className="consent-check form-legal-consent"><input name="termsAccepted" type="checkbox" required /><span>J’accepte les <Link href="/conditions-pilote" target="_blank">conditions du pilote gratuit</Link> et l’<Link href="/accord-traitement-donnees" target="_blank">annexe RGPD</Link>.</span></label>
+              <small className="form-privacy-note">Kivli utilise ces informations pour créer et sécuriser votre compte. Le téléphone est facultatif. <a href="/confidentialite" target="_blank" rel="noreferrer">Comment vos données sont protégées</a>.</small>
+              <label className="consent-check form-legal-consent"><input name="termsAccepted" type="checkbox" required /><span>J’accepte les <a href="/conditions-pilote" target="_blank" rel="noreferrer">conditions du pilote gratuit</a> et l’<a href="/accord-traitement-donnees" target="_blank" rel="noreferrer">annexe RGPD</a>.</span></label>
               {error && <p className="form-error" role="alert">{error}</p>}
               <button className="button button-large button-full" disabled={busy}>{busy ? "Création en cours…" : "Créer mon compte"}</button>
             </form> : <div className="signup-confirmation"><span className="signup-confirmation-icon"><MailCheck size={26} aria-hidden="true" /></span><h3>Confirme ton adresse e-mail.</h3><p>Nous avons envoyé un lien valable 30 minutes à <strong>{pendingEmail}</strong>. Ouvre-le pour activer ton compte.</p>{error && <p className="form-error" role="status">{error}</p>}<button className="button button-ghost button-full" onClick={resend} disabled={busy}>{busy ? "Envoi…" : "Renvoyer l’e-mail"}</button><button className="text-link" onClick={() => { setStep("form"); setError(""); }}>Modifier mes informations</button></div>}

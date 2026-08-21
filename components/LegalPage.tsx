@@ -9,7 +9,7 @@ export function LegalPage({ eyebrow, title, intro, children }: { eyebrow: string
         <header><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{intro}</p><small>Version du 21 août 2026</small></header>
         <div className="legal-content">{children}</div>
       </article>
-      <footer className="legal-footer">
+      <footer className="legal-footer" aria-label="Navigation légale">
         <a href="/mentions-legales">Mentions légales</a>
         <a href="/confidentialite">Confidentialité</a>
         <a href="/conditions-pilote">Conditions du pilote</a>
