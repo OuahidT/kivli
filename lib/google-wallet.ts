@@ -129,6 +129,25 @@ function rewardSummary(card: CardData) {
   return next ? `Prochaine récompense à ${next.threshold} points · ${next.rewardText}` : card.rewardText;
 }
 
+function walletRewardSnapshot(card: CardData) {
+  const available = [...card.availableRewardItems]
+    .sort((left, right) => right.threshold - left.threshold)[0];
+  const next = card.rewardTiers.find((tier) => tier.threshold > card.points);
+  const missing = next ? Math.max(0, next.threshold - card.points) : 0;
+
+  return {
+    availableCount: card.availableRewardItems.length,
+    availableNow: available ? truncate(available.rewardText, 30) : "Aucune pour le moment",
+    nextTier: next
+      ? truncate(`${next.rewardText} · encore ${missing} pt${missing > 1 ? "s" : ""}`, 42)
+      : "Tous les paliers sont atteints",
+  };
+}
+
+function field(path: string) {
+  return { firstValue: { fields: [{ fieldPath: path }] } };
+}
+
 function loyaltyClass(card: CardData, issuerId: string) {
   const { classId } = walletIds(card, issuerId);
   return {
@@ -150,12 +169,31 @@ function loyaltyClass(card: CardData, issuerId: string) {
     linksModuleData: {
       uris: [{ id: "kivli_home", uri: KIVLI_ORIGIN, description: "Ouvrir Kivli" }],
     },
+    classTemplateInfo: {
+      cardTemplateOverride: {
+        cardRowTemplateInfos: [
+          {
+            twoItems: {
+              startItem: field("object.loyaltyPoints.balance"),
+              endItem: field("object.secondaryLoyaltyPoints.balance"),
+            },
+          },
+          {
+            twoItems: {
+              startItem: field("object.textModulesData['kivli_available_reward']"),
+              endItem: field("object.textModulesData['kivli_next_tier']"),
+            },
+          },
+        ],
+      },
+    },
     multipleDevicesAndHoldersAllowedStatus: "ONE_USER_ALL_DEVICES",
   };
 }
 
 function loyaltyObject(card: CardData, issuerId: string) {
   const { classId, objectId } = walletIds(card, issuerId);
+  const rewardSnapshot = walletRewardSnapshot(card);
   const cardUrl = `${KIVLI_ORIGIN}/c/${encodeURIComponent(card.code)}`;
   const progressCopy = card.earningMode === "spend"
     ? `${card.points} points disponibles`
@@ -167,9 +205,11 @@ function loyaltyObject(card: CardData, issuerId: string) {
     accountName: truncate(card.firstName, 20),
     accountId: card.code,
     loyaltyPoints: { label: card.earningMode === "spend" ? "Points" : "Passages", balance: { int: card.points } },
-    ...(card.earningMode === "visits" ? { secondaryLoyaltyPoints: { label: "Objectif", balance: { int: card.goal } } } : {}),
+    secondaryLoyaltyPoints: { label: "Récomp.", balance: { int: rewardSnapshot.availableCount } },
     barcode: { type: "QR_CODE", value: cardUrl, alternateText: card.code },
     textModulesData: [
+      { id: "kivli_available_reward", header: "Disponible maintenant", body: rewardSnapshot.availableNow },
+      { id: "kivli_next_tier", header: "Prochain palier", body: rewardSnapshot.nextTier },
       { id: "kivli_progress", header: "Progression", body: progressCopy },
       { id: "kivli_rewards", header: "Récompenses", body: rewardSummary(card) },
     ],
@@ -257,6 +297,7 @@ export async function syncGoogleWalletByCode(code: string) {
   if (!config) return false;
   const card = await getCardByCode(code.toUpperCase());
   if (!card) return false;
+  await upsertClass(card, config.issuerId);
   return upsertObject(card, config.issuerId, false);
 }
 

@@ -153,3 +153,16 @@ test("keeps the premium iPhone mockup tightly fitted to its screen", async () =>
   assert.match(styles, /inset: 2% 5\.45% 2\.4%/);
   assert.match(styles, /clip-path: inset\(0 round 13\.5% \/ 6\.5%\)/);
 });
+
+test("keeps Google Wallet rewards visible on the card face", async () => {
+  const wallet = await readFile(new URL("../lib/google-wallet.ts", import.meta.url), "utf8");
+
+  assert.match(wallet, /cardTemplateOverride/);
+  assert.match(wallet, /object\.loyaltyPoints\.balance/);
+  assert.match(wallet, /object\.secondaryLoyaltyPoints\.balance/);
+  assert.match(wallet, /kivli_available_reward/);
+  assert.match(wallet, /kivli_next_tier/);
+  assert.match(wallet, /Disponible maintenant/);
+  assert.match(wallet, /Prochain palier/);
+  assert.match(wallet, /await upsertClass\(card, config\.issuerId\)/);
+});
