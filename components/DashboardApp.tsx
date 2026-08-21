@@ -107,7 +107,8 @@ export function DashboardApp() {
   const sessionInitialized = useRef(false);
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/merchant/dashboard", { cache: "no-store" });
+    const preview = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("welcome") === "preview";
+    const response = await fetch(`/api/merchant/dashboard${preview ? "?welcome=preview" : ""}`, { cache: "no-store" });
     if (response.status === 401) {
       window.location.href = "/merchant";
       return;
