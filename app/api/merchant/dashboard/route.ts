@@ -26,6 +26,17 @@ export async function GET(request: Request) {
     if (!merchant) return jsonError("Connecte-toi pour accéder au tableau de bord.", 401);
 
     const owner = merchant.role === "owner";
+    let welcomePending = false;
+    if (owner) {
+      const marker = await queryFirst<{ welcomeSeenAt: string | null }>(
+        "SELECT welcome_seen_at AS welcomeSeenAt FROM merchants WHERE id = ?",
+        merchant.id,
+      );
+      if (!marker?.welcomeSeenAt) {
+        await queryFirst("UPDATE merchants SET welcome_seen_at = CURRENT_TIMESTAMP WHERE id = ? AND welcome_seen_at IS NULL RETURNING id", merchant.id);
+        welcomePending = true;
+      }
+    }
     const [program, customers, activity, stats, employees] = await Promise.all([
       queryFirst<ProgramRow>(
         `SELECT id, name, goal, reward_text AS rewardText, terms, active,
@@ -103,6 +114,7 @@ export async function GET(request: Request) {
 
     return Response.json({
       merchant,
+      welcomePending,
       program,
       customers,
       activity,
