@@ -54,6 +54,12 @@ export function CustomerCard({ code }: { code: string }) {
   const nextTier = card.rewardTiers.find((tier) => tier.threshold > card.points) ?? card.rewardTiers[0];
   const progress = Math.min(100, Math.round(card.points / card.goal * 100));
   const terms = visibleProgramTerms(card.terms);
+  const availableRewardGroups = card.availableRewardItems.reduce<Array<{ id: string; rewardText: string; threshold: number; count: number }>>((groups, reward) => {
+    const existing = groups.find((group) => group.rewardText === reward.rewardText && group.threshold === reward.threshold);
+    if (existing) existing.count += 1;
+    else groups.push({ ...reward, count: 1 });
+    return groups;
+  }, []);
 
   async function share() {
     if (navigator.share) await navigator.share({ title: `Carte ${card?.businessName}`, url: shareUrl });
@@ -104,7 +110,7 @@ export function CustomerCard({ code }: { code: string }) {
           <div className="loyalty-progress"><span><b>{card.points}</b> sur {card.goal} points</span><i><i style={{ width: `${progress}%` }} /></i><strong>{progress}%</strong></div>
           {card.goal <= 12 ? <div className="customer-stamps" aria-label={`${card.points} points sur ${card.goal}`}>{Array.from({ length: card.goal }, (_, index) => <span key={index} className={index < card.points ? "filled" : ""}>{index < card.points ? "✓" : index + 1}</span>)}</div> : <div className="customer-milestones">{card.rewardTiers.map((tier) => <span key={tier.id} className={card.points >= tier.threshold ? "reached" : ""}><b>{tier.threshold}</b><small>{tier.rewardText}</small></span>)}</div>}
           <div className="reward-line"><span className="reward-symbol"><Gift size={20} aria-hidden="true" /></span><span>Prochaine récompense · {nextTier?.threshold ?? card.goal} points</span><strong>{nextTier?.rewardText ?? card.rewardText}</strong></div>
-          {card.availableRewards > 0 && <div className="reward-ready"><Sparkles size={17} aria-hidden="true" /><span className="reward-ready-copy"><b>{card.availableRewards} récompense{card.availableRewards > 1 ? "s" : ""} disponible{card.availableRewards > 1 ? "s" : ""}</b><strong>{card.availableRewardItems[0]?.rewardText ?? card.rewardText}</strong></span>{card.availableRewardItems.length > 1 && <details className="reward-ready-details"><summary>Voir les {card.availableRewardItems.length}</summary><div>{card.availableRewardItems.map((reward) => <span key={reward.id}><Gift size={13} aria-hidden="true" />{reward.rewardText}</span>)}</div></details>}</div>}
+          {card.availableRewards > 0 && <div className="reward-ready"><Sparkles size={17} aria-hidden="true" /><span className="reward-ready-copy"><b>{card.availableRewards} récompense{card.availableRewards > 1 ? "s" : ""} disponible{card.availableRewards > 1 ? "s" : ""}</b><strong>{availableRewardGroups[0]?.rewardText ?? card.rewardText}</strong></span>{availableRewardGroups.length > 1 && <details className="reward-ready-details"><summary>Voir les {availableRewardGroups.length} types</summary><div>{availableRewardGroups.map((reward) => <span key={`${reward.rewardText}-${reward.threshold}`}><Gift size={13} aria-hidden="true" />{reward.rewardText}{reward.count > 1 ? ` · ×${reward.count}` : ""}</span>)}</div></details>}</div>}
 
           <div className="card-qr-mobile">
             <span className="card-qr-mobile-label"><QrCodeIcon size={13} aria-hidden="true" />À présenter à l’équipe</span>
