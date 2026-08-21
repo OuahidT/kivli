@@ -964,17 +964,13 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   pointer-events: none;
   user-select: none;
 }
-.iphone-screen { position: absolute; z-index: 2; inset: 2% 5.45% 2.4%; overflow: hidden; display: flex; flex-direction: column; border-radius: 13.5% / 6.5%; background: #f4f2ec; color: var(--ink); box-shadow: 0 0 0 1px rgba(0,0,0,.08) inset; }
-.phone-top { position: relative; z-index: 2; min-height: 38px; align-items: center; padding: 13px 15px 6px; color: var(--ink); font-size: 8px; font-weight: 780; }
-.phone-status { display: flex; align-items: center; gap: 5px; }
-.iphone-screen .phone-status { filter: invert(1); }
-.phone-status i { display: block; position: relative; }
-.phone-signal { width: 12px; height: 8px; background: linear-gradient(to right, #fff 0 18%, transparent 18% 28%, #fff 28% 48%, transparent 48% 58%, #fff 58% 78%, transparent 78% 88%, #fff 88%); clip-path: polygon(0 100%,0 70%,18% 70%,18% 100%,28% 100%,28% 48%,48% 48%,48% 100%,58% 100%,58% 24%,78% 24%,78% 100%,88% 100%,88% 0,100% 0,100% 100%); }
-.phone-wifi { width: 12px; height: 8px; border-top: 2px solid #fff; border-radius: 50%; }
-.phone-wifi::after { content: ""; position: absolute; left: 4px; bottom: 0; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
-.phone-battery { width: 15px; height: 8px; border: 1px solid rgba(255,255,255,.82); border-radius: 2px; }
-.phone-battery::before { content: ""; position: absolute; inset: 1px; border-radius: 1px; background: #fff; }
-.phone-battery::after { content: ""; position: absolute; right: -3px; top: 2px; width: 2px; height: 4px; border-radius: 0 2px 2px 0; background: rgba(255,255,255,.7); }
+.iphone-screen { position: absolute; z-index: 2; inset: 2% 5.45% 2.4%; overflow: hidden; display: flex; flex-direction: column; border-radius: 13.5% / 6.5%; background: #f4f2ec; color: var(--ink); box-shadow: 0 0 0 .75px rgba(0,0,0,.035) inset; clip-path: inset(0 round 13.5% / 6.5%); }
+.phone-top { position: relative; z-index: 3; min-height: 42px; display: flex; align-items: center; justify-content: space-between; padding: 7px 13px 6px 16px; color: #080807; font-size: 9.8px; font-weight: 680; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.phone-top > span:first-child, .phone-status { transform: translateY(-2px); }
+.phone-status { display: flex; align-items: center; gap: 4px; color: #080807; line-height: 0; }
+.phone-signal { width: 14px; height: 9.8px; overflow: visible; flex: none; }
+.phone-wifi { width: 16px; height: 10.8px; overflow: visible; flex: none; }
+.phone-battery { width: 23.5px; height: 10.8px; overflow: visible; flex: none; }
 .kivli-app { flex: 1; min-height: 0; padding: 8px 15px 20px; overflow: hidden; }
 .kivli-app-head { display: flex; align-items: center; justify-content: space-between; }
 .kivli-app-brand { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; letter-spacing: -.04em; }
@@ -1321,6 +1317,34 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   line-height: 1.45;
 }
 .save-card-panel small svg { flex: 0 0 auto; color: var(--merchant); }
+.google-wallet-action {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #e8e4db;
+}
+.google-wallet-button {
+  min-width: 0;
+  min-height: 64px;
+  display: inline-grid;
+  place-items: center;
+  padding: 8px;
+  border: 0;
+  border-radius: 32px;
+  background: transparent;
+  cursor: pointer;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.google-wallet-button:hover { transform: translateY(-1px); }
+.google-wallet-button:focus-visible { outline: 3px solid color-mix(in srgb, var(--merchant) 35%, #fff); outline-offset: 2px; }
+.google-wallet-button:disabled { cursor: wait; opacity: .62; transform: none; }
+.google-wallet-button img { width: auto; height: 55px; max-width: min(100%,199px); display: block; }
+.google-wallet-status,
+.google-wallet-error { margin: 0 8px!important; padding: 0!important; border: 0!important; font-size: 9px!important; }
+.google-wallet-error { color: #a62d20!important; }
 .save-card-install {
   min-height: 39px;
   margin-top: 12px;
@@ -1552,6 +1576,12 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .card-mobile-tools-content > div strong { display: block; margin-bottom: 2px; color: var(--ink); font-size: 9px; }
   .card-mobile-tools > small { min-width: 0; display: flex; align-items: flex-start; gap: 5px; color: rgba(255,255,255,.7); font-size: 7px; line-height: 1.25; }
   .card-mobile-tools > small svg { flex: 0 0 auto; }
+  .card-mobile-tools .google-wallet-action { margin: 0; padding: 0; border: 0; }
+  .card-mobile-tools .google-wallet-button { min-height: 48px; padding: 0; }
+  .card-mobile-tools .google-wallet-button img { height: 48px; }
+  .card-mobile-tools .google-wallet-status,
+  .card-mobile-tools .google-wallet-error { color: rgba(255,255,255,.82)!important; font-size: 7px!important; }
+  .card-mobile-tools .google-wallet-error { color: #fff!important; }
   .customer-wrap .loyalty-card:has(.card-mobile-tools details[open]),
   .customer-wrap .loyalty-card:has(.reward-ready-details[open]) { overflow-y: auto; align-content: start; }
 
@@ -2058,4 +2088,104 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .legal-document > header h1 { font-size: 34px; }
   .legal-footer, .footer-links { grid-template-columns: 1fr; }
   .legal-footer a:last-child { grid-column: auto; }
+}
+
+/* Final interaction polish: stable mobile layouts, natural sticky navigation and no focus zoom. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html[data-route-reset="true"] { scroll-behavior: auto; }
+.modal-close { display: inline-grid; place-items: center; align-items: center; justify-content: center; flex: 0 0 36px; }
+.modal-close svg { width: 18px; height: 18px; display: block; }
+
+.segment-filters {
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  padding: 1px 1px 16px;
+  scroll-padding-inline: 1px;
+  box-sizing: border-box;
+}
+.segment-filters button { min-height: 38px; margin: 0; justify-content: center; line-height: 1; white-space: nowrap; box-sizing: border-box; }
+.segment-filters b { min-height: 20px; display: inline-grid; place-items: center; padding: 2px 5px; line-height: 1; }
+
+.legal-nav {
+  position: sticky;
+  isolation: isolate;
+  border-bottom-color: transparent;
+  background: transparent;
+  backdrop-filter: none;
+  transition: min-height .2s ease;
+}
+.legal-nav::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  border-bottom: 1px solid transparent;
+  background: rgba(243,240,232,.72);
+  backdrop-filter: blur(8px) saturate(1.04);
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, backdrop-filter .2s ease;
+}
+.legal-nav > * { position: relative; z-index: 1; }
+.legal-nav.legal-nav-scrolled { min-height: 70px; }
+.legal-nav.legal-nav-scrolled::before {
+  border-bottom-color: rgba(211,205,194,.78);
+  background: rgba(247,245,239,.9);
+  box-shadow: 0 8px 24px rgba(45,39,30,.05);
+  backdrop-filter: blur(16px) saturate(1.08);
+}
+
+@media (max-width: 760px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select { font-size: 16px; }
+
+  .customer-wrap .loyalty-card {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .customer-wrap .loyalty-card::-webkit-scrollbar { display: none; }
+  .card-mobile-tools { display: grid; align-items: start; gap: 8px; }
+  .card-mobile-save { min-width: 0; display: grid; grid-template-rows: auto 0fr; transition: grid-template-rows .2s ease; }
+  .card-mobile-save.is-open { grid-template-rows: auto 1fr; }
+  .card-mobile-save-trigger {
+    min-height: 31px;
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 9px;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 10px;
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    font: inherit;
+    font-size: 9px;
+    font-weight: 780;
+    cursor: pointer;
+  }
+  .card-mobile-save-trigger svg:last-child { transition: transform .2s ease; }
+  .card-mobile-save.is-open .card-mobile-save-trigger svg:last-child { transform: rotate(180deg); }
+  .card-mobile-tools-content {
+    min-height: 0;
+    overflow: hidden;
+    margin-top: 0;
+    padding: 0 12px;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: margin .2s ease, padding .2s ease, opacity .16s ease, transform .2s ease;
+  }
+  .card-mobile-save.is-open .card-mobile-tools-content {
+    margin-top: 8px;
+    padding: 12px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .customer-wrap .loyalty-card:has(.card-mobile-tools details[open]),
+  .customer-wrap .loyalty-card:has(.reward-ready-details[open]) { overflow-y: auto; align-content: start; }
+  .legal-nav.legal-nav-scrolled { min-height: 64px; }
 }

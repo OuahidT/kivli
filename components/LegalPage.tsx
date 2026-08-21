@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { Brand } from "./Brand";
+import { LegalHeader } from "./LegalHeader";
 
 export function LegalPage({ eyebrow, title, intro, children }: { eyebrow: string; title: string; intro: string; children: ReactNode }) {
   return (
     <main className="legal-page">
-      <nav className="legal-nav"><Brand /><a href="/" className="text-link">Retour à l’accueil</a></nav>
+      <LegalHeader />
       <article className="legal-document">
         <header><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{intro}</p><small>Version du 21 août 2026</small></header>
         <div className="legal-content">{children}</div>

@@ -24,3 +24,4 @@ export function toWalletPassPayload(card: CardData): WalletPassPayload {
 
 // The Apple and Google signing adapters intentionally live beyond this shared payload.
 // They can be connected later without changing customer, membership or reward data.
+

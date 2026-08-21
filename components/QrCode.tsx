@@ -18,3 +18,4 @@ export function QrCode({ value, size = 196, label = "QR code" }: { value: string
 
   return <canvas ref={ref} width={size} height={size} role="img" aria-label={label} />;
 }
+

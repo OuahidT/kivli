@@ -16,6 +16,7 @@ export type Program = {
 export type RewardTier = { id: string; threshold: number; rewardText: string; sortOrder: number };
 
 export type CardData = Program & {
+  membershipId: string;
   code: string;
   firstName: string;
   points: number;

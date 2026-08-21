@@ -10,6 +10,7 @@ import {
   ScanLine,
   Sparkles,
   UserPlus,
+  X,
 } from "lucide-react";
 import { Brand } from "./Brand";
 import { QrCode as KivliQrCode } from "./QrCode";
@@ -102,15 +103,15 @@ export function HomePage() {
         <div className="hero-visual" aria-label="Aperçu de la carte digitale et du suivi Kivli">
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />
           <div className="phone-card iphone-mockup">
-            <img className="iphone-frame-image" src="/kivli-iphone-frame.png" alt="" aria-hidden="true" draggable="false" />
+            <img className="iphone-frame-image" src="/kivli-iphone-premium.png" alt="" aria-hidden="true" draggable="false" />
             <div className="iphone-screen">
-              <div className="phone-top"><span>9:41</span><span className="phone-status" aria-hidden="true"><i className="phone-signal" /><i className="phone-wifi" /><i className="phone-battery" /></span></div>
+              <div className="phone-top"><span>9:41</span><span className="phone-status" aria-label="Réseau, Wi-Fi et batterie pleine"><svg className="phone-signal" viewBox="0 0 21 15" fill="none"><rect x=".4" y="10.8" width="3.6" height="3.8" rx="1.25" fill="currentColor" /><rect x="5.9" y="7.5" width="3.6" height="7.1" rx="1.25" fill="currentColor" /><rect x="11.4" y="4.15" width="3.6" height="10.45" rx="1.25" fill="currentColor" /><rect x="16.9" y=".4" width="3.6" height="14.2" rx="1.25" fill="currentColor" /></svg><svg className="phone-wifi" viewBox="0 0 25 18" fill="none"><path d="M1 5.65C7.32-.18 17.68-.18 24 5.65l-3.02 3C16.35 4.5 8.65 4.5 4.02 8.65L1 5.65Z" fill="currentColor" /><path d="M6.25 10.88c3.45-3.25 9.05-3.25 12.5 0l-3.03 3.02a4.66 4.66 0 0 0-6.44 0l-3.03-3.02Z" fill="currentColor" /><path d="M10.56 15.14a2.76 2.76 0 0 1 3.88 0L12.5 17.1l-1.94-1.96Z" fill="currentColor" /></svg><svg className="phone-battery" viewBox="0 0 30 15" fill="none"><rect x=".7" y=".85" width="24.3" height="13.3" rx="4.25" stroke="currentColor" strokeWidth="1.4" /><rect x="2.45" y="2.6" width="20.8" height="9.8" rx="2.65" fill="currentColor" /><path d="M26.35 4.8c1.55.58 2.55 1.64 2.55 2.7s-1 2.12-2.55 2.7V4.8Z" fill="currentColor" /></svg></span></div>
               <div className="kivli-app">
                 <div className="kivli-app-head">
                   <span className="kivli-app-brand"><i className="kivli-app-mark" aria-hidden="true"><i /><i /><i /></i><b>Kivli</b></span>
                   <span className="kivli-app-avatar">L</span>
                 </div>
-                <div className="kivli-app-greeting"><small>BONJOUR LÉA</small><h3>Ta fidélité prend forme.</h3></div>
+                <div className="kivli-app-greeting"><small>BONJOUR ANAÏS</small><h3>Ta fidélité prend forme.</h3></div>
                 <section className="kivli-app-card">
                   <div className="kivli-app-merchant"><span>A</span><div><small>CARTE FIDÉLITÉ</small><strong>Atelier Nova</strong></div><i><Sparkles size={10} aria-hidden="true" />Active</i></div>
                   <div className="kivli-app-progress"><span><b>6</b> / 8 passages</span><strong>75%</strong></div>
@@ -120,7 +121,7 @@ export function HomePage() {
                   </div>
                   <div className="kivli-app-reward"><span><Gift size={15} aria-hidden="true" /></span><div><small>PROCHAINE RÉCOMPENSE</small><strong>Un avantage au choix</strong></div></div>
                   <div className="kivli-app-qr"><small>À PRÉSENTER À L’ÉQUIPE</small><div><KivliQrCode value="https://kivli.fr/c/DEMO-KIVLI" size={96} label="Aperçu du QR code personnel Kivli" /></div><code>DEMO-KIVLI</code></div>
-                  <p className="kivli-app-wallet">Bientôt disponible dans Apple Wallet et Google Wallet.</p>
+                  <p className="kivli-app-wallet">Disponible dans Google Wallet. Apple Wallet arrive bientôt.</p>
                 </section>
               </div>
               <div className="home-indicator" aria-hidden="true" />
@@ -153,7 +154,7 @@ export function HomePage() {
           </article>
           <article className="real-product-card">
             <div className="real-product-copy"><span>CARTE CLIENT</span><h3>La progression et le QR code, au même endroit.</h3><p>Une vraie carte créée dans Kivli, avec ses paliers et sa prochaine récompense.</p></div>
-            <div className="real-product-window real-product-window-card"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>Carte de Léa</small></div><img src="/product-real/client-card.jpg" alt="Véritable carte client Kivli de Studio Nova avec six points" loading="lazy" /></div>
+            <div className="real-product-window real-product-window-card"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>Carte d’Anaïs</small></div><img src="/product-real/client-card.jpg" alt="Véritable carte client Kivli de Studio Nova avec six points" loading="lazy" /></div>
           </article>
           <article className="real-product-card">
             <div className="real-product-copy"><span>SCANNER</span><h3>Un passage validé sans détour.</h3><p>Caméra, saisie manuelle et quantité de points depuis le véritable espace de scan.</p></div>
@@ -185,12 +186,12 @@ export function HomePage() {
       {step !== "intro" && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStep("intro"); }}>
           <section className="signup-modal" role="dialog" aria-modal="true" aria-labelledby="signup-title">
-            <button className="modal-close" aria-label="Fermer" onClick={() => setStep("intro")}>×</button>
+            <button type="button" className="modal-close" aria-label="Fermer" onClick={() => setStep("intro")}><X size={18} aria-hidden="true" /></button>
             <span className="eyebrow">Votre espace en 1 minute</span>
             <h2 id="signup-title">Créez simplement votre compte.</h2>
             <p>Votre carte de fidélité se configure juste après, tranquillement depuis votre espace.</p>
             {step === "form" ? <form onSubmit={submit} className="form-grid">
-              <div className="field-row"><label>Prénom<input name="firstName" autoComplete="given-name" placeholder="Léa" required /></label><label>Nom<input name="lastName" autoComplete="family-name" placeholder="Martin" required /></label></div>
+              <div className="field-row"><label>Prénom<input name="firstName" autoComplete="given-name" placeholder="Anaïs" required /></label><label>Nom<input name="lastName" autoComplete="family-name" placeholder="Martin" required /></label></div>
               <label>Nom du commerce<input name="businessName" placeholder="Atelier Nova" required /></label>
               <label>E-mail professionnel<input name="email" type="email" autoComplete="email" placeholder="bonjour@ateliernova.fr" required /></label>
               <label>Téléphone <small>Facultatif</small><input name="phone" type="tel" autoComplete="tel" placeholder="06 12 34 56 78" /></label>

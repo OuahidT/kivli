@@ -10,3 +10,4 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
     return safeApiError(error);
   }
 }
+

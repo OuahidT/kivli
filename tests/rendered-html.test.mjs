@@ -121,3 +121,35 @@ test("uses a cumulative wallet for spend programs", async () => {
   assert.match(schema, /wallet_mode_ready/);
   assert.match(schema, /status = 'converted'/);
 });
+
+test("keeps first-visit and navigation polish deterministic", async () => {
+  const [dashboard, dashboardRoute, customerCard, scrollReset] = await Promise.all([
+    readFile(new URL("../components/DashboardApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/merchant/dashboard/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/CustomerCard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/RouteScrollReset.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.doesNotMatch(dashboard, /welcome=preview/);
+  assert.doesNotMatch(dashboardRoute, /previewWelcome/);
+  assert.match(dashboard, /welcomePending: false/);
+  assert.match(customerCard, /card-mobile-save/);
+  assert.match(customerCard, /aria-expanded=\{saveCardOpen\}/);
+  assert.match(scrollReset, /window\.scrollTo\(0, 0\)/);
+});
+
+test("keeps the premium iPhone mockup tightly fitted to its screen", async () => {
+  const [homePage, styles] = await Promise.all([
+    readFile(new URL("../components/HomePage.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(homePage, /kivli-iphone-premium\.png/);
+  assert.match(homePage, /className="phone-signal"/);
+  assert.match(homePage, /className="phone-wifi"/);
+  assert.match(homePage, /className="phone-battery"/);
+  assert.doesNotMatch(homePage, /className="phone-dynamic-island"/);
+  assert.match(homePage, /strokeWidth="1\.4"/);
+  assert.doesNotMatch(homePage, /phone-battery"><b>4<\/b>/);
+  assert.match(styles, /inset: 2% 5\.45% 2\.4%/);
+  assert.match(styles, /clip-path: inset\(0 round 13\.5% \/ 6\.5%\)/);
+});
