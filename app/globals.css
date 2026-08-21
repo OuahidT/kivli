@@ -68,7 +68,8 @@
 .available-reward-list article small { color: var(--muted); font-size: 9px; }
 .available-reward-list article button { min-height: 39px; padding-inline: 12px; white-space: nowrap; }
 .available-reward-list > p { margin: -1px 3px 1px; color: var(--muted); font-size: 10px; line-height: 1.45; }
-.earn-action-card { display: grid; gap: 14px; padding: 16px; border: 1px solid #dedbd3; border-radius: 19px; background: #fff; }
+.earn-action-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px; border: 1px solid #dedbd3; border-radius: 19px; background: #fff; }
+.earn-action-card > * { min-width: 0; max-width: 100%; }
 .earn-action-title { display: flex; align-items: center; gap: 10px; }
 .earn-action-title > span { width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; border-radius: 13px; background: #eaf5f1; color: var(--green); }
 .earn-action-title > div { min-width: 0; display: grid; gap: 2px; }
