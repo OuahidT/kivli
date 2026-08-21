@@ -144,6 +144,7 @@ a { color: inherit; text-decoration: none; }
 .welcome-modal-icon, .feedback-modal-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 17px; background: #fff0e9; color: var(--orange); margin-bottom: 19px; font-size: 25px; }
 .welcome-modal h2, .feedback-modal h2 { margin: 9px 0 14px; font-size: clamp(28px, 4vw, 38px); letter-spacing: -.045em; line-height: 1.02; }
 .welcome-modal p, .feedback-modal > p { margin: 0 0 13px; color: #69665f; line-height: 1.62; font-size: 15px; }
+.welcome-modal p { text-align: justify; text-justify: inter-word; }
 .welcome-modal .welcome-thanks { color: #1b1b18; font-weight: 700; margin-top: 18px; }
 .welcome-modal .button { margin-top: 12px; }
 .welcome-modal .text-link, .feedback-modal .text-link { display: block; margin: 15px auto 0; }
