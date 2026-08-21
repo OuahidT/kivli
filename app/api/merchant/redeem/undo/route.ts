@@ -2,6 +2,7 @@ import { ensureSchema, getD1, queryFirst } from "../../../../../db";
 import { getMerchant } from "../../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../../lib/http";
 import { makeId } from "../../../../../lib/ids";
+import { syncGoogleWalletSafely } from "../../../../../lib/google-wallet";
 
 type UndoPayload = { stampId?: string };
 type RedemptionRow = {
@@ -12,6 +13,7 @@ type RedemptionRow = {
   rewardText: string;
   pointsCost: number;
   currentPoints: number;
+  code: string;
 };
 
 export async function POST(request: Request) {
@@ -29,7 +31,7 @@ export async function POST(request: Request) {
     const redemption = await queryFirst<RedemptionRow>(
       `SELECT s.id, s.membership_id AS membershipId, s.reward_id AS rewardId,
         c.first_name AS firstName, COALESCE(r.reward_text, s.note, 'Récompense') AS rewardText,
-        ABS(s.delta) AS pointsCost, mb.points AS currentPoints
+        ABS(s.delta) AS pointsCost, mb.points AS currentPoints, mb.code
        FROM stamps s
        JOIN memberships mb ON mb.id = s.membership_id
        JOIN customers c ON c.id = mb.customer_id
@@ -68,6 +70,7 @@ export async function POST(request: Request) {
       statements.push(db.prepare("INSERT INTO employee_actions (stamp_id, employee_id) VALUES (?, ?)").bind(undoId, merchant.employeeId));
     }
     await db.batch(statements);
+    await syncGoogleWalletSafely(redemption.code);
     return Response.json({ ok: true, firstName: redemption.firstName, rewardText: redemption.rewardText, pointsRestored: redemption.pointsCost, pointsAfter });
   } catch (error) {
     return safeApiError(error);

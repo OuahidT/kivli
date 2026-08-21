@@ -2,6 +2,7 @@ import { ensureSchema, getD1, queryAll, queryFirst } from "../../../../db";
 import { getMerchant } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
+import { syncGoogleWalletSafely } from "../../../../lib/google-wallet";
 
 type StampPayload = {
   code?: string;
@@ -166,6 +167,7 @@ export async function POST(request: Request) {
       if (duplicate) return Response.json(JSON.parse(duplicate.responseJson));
       throw error;
     }
+    await syncGoogleWalletSafely(code);
     return Response.json(result);
   } catch (error) {
     return safeApiError(error);

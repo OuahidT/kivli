@@ -4,3 +4,4 @@ export default async function JoinPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   return <JoinProgram slug={slug} />;
 }
+

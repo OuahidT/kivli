@@ -2,6 +2,7 @@ import { ensureSchema, getD1, queryAll, queryFirst } from "../../../../db";
 import { getMerchant } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
+import { syncGoogleWalletSafely } from "../../../../lib/google-wallet";
 
 type RedeemPayload = { code?: string; rewardId?: string };
 type MemberRow = { id: string; firstName: string; points: number; programId: string; earningMode: "visits" | "spend" };
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
         statements.push(db.prepare("INSERT INTO employee_actions (stamp_id, employee_id) VALUES (?, ?)").bind(stampId, merchant.employeeId));
       }
       await db.batch(statements);
+      await syncGoogleWalletSafely(code);
       return Response.json({ ok: true, rewardId: tier.id, redemptionId, stampId, firstName: member.firstName, rewardText: tier.rewardText, pointsDebited: tier.threshold, pointsAfter });
     }
 
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
       statements.push(db.prepare("INSERT INTO employee_actions (stamp_id, employee_id) VALUES (?, ?)").bind(stampId, merchant.employeeId));
     }
     await db.batch(statements);
+    await syncGoogleWalletSafely(code);
     return Response.json({ ok: true, rewardId: reward.id, stampId, firstName: reward.firstName, rewardText: reward.rewardText });
   } catch (error) {
     return safeApiError(error);

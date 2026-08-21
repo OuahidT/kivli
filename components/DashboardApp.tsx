@@ -112,8 +112,7 @@ export function DashboardApp() {
   const sessionInitialized = useRef(false);
 
   const load = useCallback(async () => {
-    const preview = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("welcome") === "preview";
-    const response = await fetch(`/api/merchant/dashboard${preview ? "?welcome=preview" : ""}`, { cache: "no-store" });
+    const response = await fetch("/api/merchant/dashboard", { cache: "no-store" });
     if (response.status === 401) {
       window.location.href = "/merchant";
       return;
@@ -125,6 +124,17 @@ export function DashboardApp() {
     if (!sessionInitialized.current) {
       sessionInitialized.current = true;
       if (result.merchant.role === "employee") setTab("scan");
+    }
+  }, []);
+
+  const dismissWelcome = useCallback(async () => {
+    setShowWelcome(false);
+    setData((current) => current ? { ...current, welcomePending: false } : current);
+    try {
+      const response = await fetch("/api/merchant/welcome-seen", { method: "POST" });
+      if (!response.ok) throw new Error();
+    } catch {
+      setError("La fermeture de la bienvenue n’a pas pu être enregistrée. Réessaie dans un instant.");
     }
   }, []);
 
@@ -500,7 +510,7 @@ export function DashboardApp() {
       {showEmployeePin && <PinChangeModal busy={busy} error={error} onSubmit={changeEmployeePin} onClose={() => { setShowEmployeePin(false); setError(""); }} />}
       {customerDialog && <CustomerActionModal dialog={customerDialog} busy={busy} error={error} onBonus={submitBonus} onClose={() => { setCustomerDialog(null); setError(""); }} />}
       {employeeAccess && <EmployeeAccessModal access={employeeAccess} onClose={() => setEmployeeAccess(null)} />}
-      {showWelcome && <WelcomeModal onClose={() => { void fetch("/api/merchant/welcome-seen", { method: "POST" }); setShowWelcome(false); }} onContinue={() => { void fetch("/api/merchant/welcome-seen", { method: "POST" }); setShowWelcome(false); setTab("program"); }} />}
+      {showWelcome && <WelcomeModal onClose={() => { void dismissWelcome(); }} onContinue={async () => { await dismissWelcome(); setTab("program"); }} />}
       {feedbackOpen && <FeedbackModal busy={busy} error={feedbackError} onSubmit={submitFeedback} onClose={() => { setFeedbackOpen(false); setFeedbackError(""); }} />}
       {toast && <div className="toast" role="status">✓ {toast}</div>}
     </main>
@@ -528,7 +538,7 @@ function ScanDecisionModal({ candidate, busy, onClose, onStamp, onRedeem }: { ca
 }
 
 function CustomerActionModal({ dialog, busy, error, onBonus, onClose }: { dialog: CustomerDialog; busy: boolean; error: string; onBonus: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="customer-action-modal" role="dialog" aria-modal="true" aria-labelledby="customer-action-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className="customer-action-icon bonus"><Coins size={23} aria-hidden="true" /></span><span className="eyebrow">Geste commercial</span><h2 id="customer-action-title">Ajouter un bonus à {dialog.customer.firstName}</h2><p>Les points bonus sont clairement identifiés dans l’historique et restent réservés au propriétaire.</p><form className="form-grid" onSubmit={onBonus}><label>Nombre de points bonus<input name="quantity" type="number" min="1" max="100" defaultValue="1" required autoFocus /></label><label>Motif <small>Facultatif</small><input name="note" maxLength={120} placeholder="Geste commercial, anniversaire…" /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Ajouter le bonus"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="customer-action-modal" role="dialog" aria-modal="true" aria-labelledby="customer-action-title"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="customer-action-icon bonus"><Coins size={23} aria-hidden="true" /></span><span className="eyebrow">Geste commercial</span><h2 id="customer-action-title">Ajouter un bonus à {dialog.customer.firstName}</h2><p>Les points bonus sont clairement identifiés dans l’historique et restent réservés au propriétaire.</p><form className="form-grid" onSubmit={onBonus}><label>Nombre de points bonus<input name="quantity" type="number" min="1" max="100" defaultValue="1" required autoFocus /></label><label>Motif <small>Facultatif</small><input name="note" maxLength={120} placeholder="Geste commercial, anniversaire…" /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Ajouter le bonus"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
 }
 
 function ProgramPreview({ data }: { data: ReadyDashboardData }) {
@@ -536,17 +546,17 @@ function ProgramPreview({ data }: { data: ReadyDashboardData }) {
   return <div className="panel program-preview"><span className="eyebrow"><Sparkles size={15} aria-hidden="true" />Aperçu client</span><div className={`mini-loyalty mini-loyalty-modern ${spend ? "mini-wallet" : ""}`}><div className="mini-card-head"><span>{data.merchant.businessName.slice(0, 1)}</span><div><small>CARTE FIDÉLITÉ</small><strong>{data.merchant.businessName}</strong></div></div><span className="mini-card-kicker">{data.program.name}</span>{spend ? <><div className="mini-wallet-balance"><small>SOLDE DISPONIBLE</small><strong>0</strong><span>points</span></div><div className="mini-wallet-tiers">{data.rewardTiers.map((tier) => <span key={tier.id}><b>{tier.threshold} pts</b><small>{tier.rewardText}</small></span>)}</div></> : <><h3>Encore {data.rewardTiers[0]?.threshold ?? data.program.goal} passages.</h3><div className="mini-card-stamps">{Array.from({ length: Math.min(data.program.goal, 10) }, (_, index) => <span key={index}>{index + 1}</span>)}</div><p><span><Gift size={16} aria-hidden="true" />Récompense</span><b>{data.program.rewardText}</b></p></>}</div><p className="preview-terms"><ShieldCheck size={16} aria-hidden="true" />{visibleProgramTerms(data.program.terms)}</p><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="button button-ghost preview-open">Ouvrir la page d’inscription<ExternalLink size={16} aria-hidden="true" /></a></div>;
 }
 
-function WelcomeModal({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className="welcome-modal-icon">👋</span><span className="eyebrow">Bienvenue chez Kivli</span><h2 id="welcome-title">Bienvenue chez Kivli 👋</h2><p>Toute l’équipe Kivli vous remercie pour votre confiance.</p><p>En rejoignant Kivli aujourd’hui, vous faites partie de nos premiers ambassadeurs. À ce titre, vous bénéficiez actuellement de la plateforme gratuitement, pendant que nous construisons Kivli avec nos premiers commerçants.</p><p>Votre expérience compte énormément pour nous. Une idée, une amélioration, quelque chose qui vous manque ou qui pourrait être plus simple ? N’hésitez pas à nous le dire. Vos retours participent directement à l’évolution de Kivli.</p><p className="welcome-thanks">Merci de faire partie de l’aventure 🧡</p><button className="button button-large button-full" onClick={onContinue}>Créer ma carte de fidélité<ArrowRight size={18} aria-hidden="true" /></button><button className="text-link" onClick={onClose}>Continuer vers mon espace</button></section></div>;
+function WelcomeModal({ onClose, onContinue }: { onClose: () => void | Promise<void>; onContinue: () => void | Promise<void> }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="welcome-modal-icon">👋</span><span className="eyebrow">Bienvenue chez Kivli</span><h2 id="welcome-title">Bienvenue chez Kivli 👋</h2><p>Toute l’équipe Kivli vous remercie pour votre confiance.</p><p>En rejoignant Kivli aujourd’hui, vous faites partie de nos premiers ambassadeurs. À ce titre, vous bénéficiez actuellement de la plateforme gratuitement, pendant que nous construisons Kivli avec nos premiers commerçants.</p><p>Votre expérience compte énormément pour nous. Une idée, une amélioration, quelque chose qui vous manque ou qui pourrait être plus simple ? N’hésitez pas à nous le dire. Vos retours participent directement à l’évolution de Kivli.</p><p className="welcome-thanks">Merci de faire partie de l’aventure 🧡</p><button className="button button-large button-full" onClick={onContinue}>Créer ma carte de fidélité<ArrowRight size={18} aria-hidden="true" /></button><button className="text-link" onClick={onClose}>Continuer vers mon espace</button></section></div>;
 }
 
 function FeedbackModal({ busy, error, onSubmit, onClose }: { busy: boolean; error: string; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className="feedback-modal-icon"><MessageSquareText size={23} aria-hidden="true" /></span><span className="eyebrow">Votre avis compte</span><h2 id="feedback-title">Faire un retour</h2><p>Une idée, une amélioration ou un problème ? Votre message est envoyé directement à l’équipe Kivli.</p><form className="form-grid" onSubmit={onSubmit}><label>Type de retour<select name="type" defaultValue="Idée" required><option>Idée</option><option>Amélioration</option><option>Problème</option><option>Autre</option></select></label><label>Message<textarea name="message" rows={6} minLength={5} maxLength={2000} placeholder="Dites-nous ce qui pourrait être plus simple…" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Envoi…" : "Envoyer mon retour"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="feedback-modal-icon"><MessageSquareText size={23} aria-hidden="true" /></span><span className="eyebrow">Votre avis compte</span><h2 id="feedback-title">Faire un retour</h2><p>Une idée, une amélioration ou un problème ? Votre message est envoyé directement à l’équipe Kivli.</p><form className="form-grid" onSubmit={onSubmit}><label>Type de retour<select name="type" defaultValue="Idée" required><option>Idée</option><option>Amélioration</option><option>Problème</option><option>Autre</option></select></label><label>Message<textarea name="message" rows={6} minLength={5} maxLength={2000} placeholder="Dites-nous ce qui pourrait être plus simple…" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Envoi…" : "Envoyer mon retour"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
 }
 
 function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData; onCreated: () => Promise<void>; onLogout: () => Promise<void> }) {
   const [showForm, setShowForm] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(Boolean(data.welcomePending) || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("welcome") === "preview"));
+  const [showWelcome, setShowWelcome] = useState(Boolean(data.welcomePending));
   const [earningMode, setEarningMode] = useState<"visits" | "spend">("visits");
   const [onboardingTierCount, setOnboardingTierCount] = useState(1);
   const [cardName, setCardName] = useState("Ma carte fidélité");
@@ -555,6 +565,17 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
   const [selectedColor, setSelectedColor] = useState(PROGRAM_COLORS[0].value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  async function dismissWelcome(openForm = false) {
+    setShowWelcome(false);
+    try {
+      const response = await fetch("/api/merchant/welcome-seen", { method: "POST" });
+      if (!response.ok) throw new Error();
+    } catch {
+      setError("La fermeture de la bienvenue n’a pas pu être enregistrée. Réessaie dans un instant.");
+    }
+    if (openForm) setShowForm(true);
+  }
 
   async function createProgram(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -597,7 +618,7 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
         </form> : <div className="program-setup-preview"><div className="setup-preview-card"><span>{data.merchant.businessName.slice(0, 1)}</span><small>VOTRE FUTURE CARTE</small><h2>{data.merchant.businessName}</h2><div>{Array.from({ length: 8 }, (_, index) => <i key={index}>{index + 1}</i>)}</div><p><Gift size={17} aria-hidden="true" />Votre récompense apparaîtra ici</p></div><p><Sparkles size={17} aria-hidden="true" />Après la création, votre QR code d’inscription sera immédiatement prêt à partager.</p></div>}
       </div>
     </section>
-    {showWelcome && <WelcomeModal onClose={() => { void fetch("/api/merchant/welcome-seen", { method: "POST" }); setShowWelcome(false); }} onContinue={() => { void fetch("/api/merchant/welcome-seen", { method: "POST" }); setShowWelcome(false); setShowForm(true); }} />}
+    {showWelcome && <WelcomeModal onClose={() => { void dismissWelcome(); }} onContinue={() => dismissWelcome(true)} />}
   </main>;
 }
 
@@ -620,7 +641,7 @@ function EmployeePinSetup({ data, busy, error, onSubmit, onLogout }: { data: Das
 }
 
 function PinChangeModal({ busy, error, onSubmit, onClose }: { busy: boolean; error: string; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="pin-change-modal" role="dialog" aria-modal="true" aria-labelledby="pin-change-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className="security-orb"><ShieldCheck size={23} aria-hidden="true" /></span><h2 id="pin-change-title">Modifier mon code PIN</h2><p>Ton nouveau code sera utilisé dès ta prochaine connexion.</p><form className="form-grid" onSubmit={onSubmit}><label>Code PIN actuel<input name="currentPin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required /></label><label>Nouveau code PIN<input name="newPin" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6}" maxLength={6} required /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Modifier mon PIN"}</button></form></section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="pin-change-modal" role="dialog" aria-modal="true" aria-labelledby="pin-change-title"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="security-orb"><ShieldCheck size={23} aria-hidden="true" /></span><h2 id="pin-change-title">Modifier mon code PIN</h2><p>Ton nouveau code sera utilisé dès ta prochaine connexion.</p><form className="form-grid" onSubmit={onSubmit}><label>Code PIN actuel<input name="currentPin" type="password" inputMode="numeric" autoComplete="current-password" pattern="[0-9]{6}" maxLength={6} required /></label><label>Nouveau code PIN<input name="newPin" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6}" maxLength={6} required /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Modifier mon PIN"}</button></form></section></div>;
 }
 
 function EmployeeAccessModal({ access, onClose }: { access: { displayName: string; loginCode: string; temporaryPin: string }; onClose: () => void }) {

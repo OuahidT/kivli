@@ -22,13 +22,18 @@ export function CustomerCard({ code }: { code: string }) {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [privacyMessage, setPrivacyMessage] = useState("");
+  const [saveCardOpen, setSaveCardOpen] = useState(false);
+  const [googleWalletEnabled, setGoogleWalletEnabled] = useState(false);
+  const [googleWalletBusy, setGoogleWalletBusy] = useState(false);
+  const [googleWalletError, setGoogleWalletError] = useState("");
 
   useEffect(() => {
     fetch(`/api/card/${encodeURIComponent(code)}`, { cache: "no-store" })
       .then(async (response) => {
-        const data = (await response.json()) as { card?: CardData; error?: string };
+        const data = (await response.json()) as { card?: CardData; googleWalletEnabled?: boolean; error?: string };
         if (!response.ok) throw new Error(data.error);
         setCard(data.card ?? null);
+        setGoogleWalletEnabled(Boolean(data.googleWalletEnabled));
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Carte introuvable."));
   }, [code]);
@@ -79,6 +84,20 @@ export function CustomerCard({ code }: { code: string }) {
     setInstallPrompt(null);
   }
 
+  async function addToGoogleWallet() {
+    setGoogleWalletBusy(true);
+    setGoogleWalletError("");
+    try {
+      const response = await fetch(`/api/card/${encodeURIComponent(code)}/google-wallet`, { method: "POST" });
+      const result = await response.json() as { url?: string; error?: string };
+      if (!response.ok || !result.url) throw new Error(result.error ?? "Google Wallet est momentanément indisponible.");
+      window.location.assign(result.url);
+    } catch (reason) {
+      setGoogleWalletError(reason instanceof Error ? reason.message : "Google Wallet est momentanément indisponible.");
+      setGoogleWalletBusy(false);
+    }
+  }
+
   async function withdrawMarketing() {
     setPrivacyBusy(true);
     setPrivacyMessage("");
@@ -126,17 +145,21 @@ export function CustomerCard({ code }: { code: string }) {
           </div>
 
           <div className="card-mobile-tools">
-            <details>
-              <summary><Home size={15} aria-hidden="true" /><span>Garder ma carte</span><ChevronDown size={15} aria-hidden="true" /></summary>
-              <div className="card-mobile-tools-content">
+            <div className={`card-mobile-save${saveCardOpen ? " is-open" : ""}`}>
+              <button type="button" className="card-mobile-save-trigger" aria-expanded={saveCardOpen} aria-controls="save-card-help" onClick={() => setSaveCardOpen((open) => !open)}><Home size={15} aria-hidden="true" /><span>Garder ma carte</span><ChevronDown size={15} aria-hidden="true" /></button>
+              <div id="save-card-help" className="card-mobile-tools-content">
                 <strong>Garde ta carte à portée de main</strong>
                 <p>{installCopy}</p>
                 {installEnvironment === "android" && installPrompt ? <button className="save-card-install" type="button" onClick={install}><Download size={16} aria-hidden="true" />Installer Kivli</button> : null}
                 <div><ShieldCheck size={17} aria-hidden="true" /><p><strong>Conditions du programme</strong>{terms}</p></div>
                 <div className="mobile-privacy-settings"><ShieldCheck size={17} aria-hidden="true" /><p><strong>Tes données</strong><a href="/confidentialite" target="_blank">Voir tes droits et la politique de confidentialité</a>{card.marketingConsent ? <button type="button" className="privacy-withdraw-link" onClick={withdrawMarketing} disabled={privacyBusy}>{privacyBusy ? "Modification…" : "Retirer mon accord aux offres SMS"}</button> : null}{privacyMessage && <small className="privacy-feedback" role="status">{privacyMessage}</small>}</p></div>
               </div>
-            </details>
-            <small><WalletCards size={14} aria-hidden="true" />Bientôt, ta carte pourra être ajoutée à Apple Wallet et Google Wallet.</small>
+            </div>
+            {googleWalletEnabled && installEnvironment !== "ios" ? <div className="google-wallet-action">
+              <button type="button" className="google-wallet-button" onClick={addToGoogleWallet} disabled={googleWalletBusy} aria-label="Ajouter à Google Wallet"><img src="/google-wallet-add-fr.svg" alt="Ajouter à Google Wallet" /></button>
+              {googleWalletBusy && <small className="google-wallet-status" role="status">Préparation de ta carte…</small>}
+              {googleWalletError && <small className="google-wallet-error" role="alert">{googleWalletError}</small>}
+            </div> : <small><WalletCards size={14} aria-hidden="true" />Apple Wallet sera bientôt disponible sur iPhone.</small>}
           </div>
         </div>
 
@@ -151,7 +174,11 @@ export function CustomerCard({ code }: { code: string }) {
             <strong>Garde ta carte à portée de main</strong>
             <p>{installCopy}</p>
             {installEnvironment === "android" && installPrompt ? <button className="save-card-install" type="button" onClick={install}><Download size={16} aria-hidden="true" />Installer Kivli</button> : null}
-            <small><WalletCards size={15} aria-hidden="true" />Bientôt, ta carte pourra aussi être ajoutée à Apple Wallet et Google Wallet.</small>
+            {googleWalletEnabled && installEnvironment !== "ios" ? <div className="google-wallet-action google-wallet-action-desktop">
+              <button type="button" className="google-wallet-button" onClick={addToGoogleWallet} disabled={googleWalletBusy} aria-label="Ajouter à Google Wallet"><img src="/google-wallet-add-fr.svg" alt="Ajouter à Google Wallet" /></button>
+              {googleWalletBusy && <small className="google-wallet-status" role="status">Préparation de ta carte…</small>}
+              {googleWalletError && <small className="google-wallet-error" role="alert">{googleWalletError}</small>}
+            </div> : <small><WalletCards size={15} aria-hidden="true" />Apple Wallet sera bientôt disponible sur iPhone.</small>}
           </div>
         </aside>
 

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import { PwaRegister } from "../components/PwaRegister";
+import { RouteScrollReset } from "../components/RouteScrollReset";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -27,8 +28,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#f3f0e8" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#f3f0e8" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="fr"><body className={`${geistSans.variable} ${geistMono.variable}`}><PwaRegister />{children}</body></html>;
+  return <html lang="fr"><body className={`${geistSans.variable} ${geistMono.variable}`}><RouteScrollReset /><PwaRegister />{children}</body></html>;
 }

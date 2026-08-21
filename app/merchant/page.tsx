@@ -6,3 +6,4 @@ export const metadata: Metadata = { title: "Connexion commerçant" };
 export default function MerchantPage() {
   return <MerchantLogin />;
 }
+

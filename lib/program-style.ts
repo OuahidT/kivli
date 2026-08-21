@@ -22,3 +22,4 @@ export function visibleProgramTerms(value?: string | null) {
   const normalized = value?.trim();
   return !normalized || normalized === LEGACY_PROGRAM_TERMS ? DEFAULT_PROGRAM_TERMS : normalized;
 }
+
