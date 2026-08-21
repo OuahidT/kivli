@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Footprints,
   Gift,
+  MessageSquareText,
   LayoutDashboard,
   LogOut,
   QrCode as QrCodeIcon,
@@ -26,6 +27,7 @@ import { QrCode } from "./QrCode";
 import { PROGRAM_COLORS, visibleProgramTerms } from "../lib/program-style";
 
 type DashboardData = {
+  welcomePending?: boolean;
   merchant: {
     id: string;
     firstName: string;
@@ -99,6 +101,9 @@ export function DashboardApp() {
   const [employeeAccess, setEmployeeAccess] = useState<{ displayName: string; loginCode: string; temporaryPin: string } | null>(null);
   const [showEmployeePin, setShowEmployeePin] = useState(false);
   const [customerDialog, setCustomerDialog] = useState<CustomerDialog | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
   const sessionInitialized = useRef(false);
 
   const load = useCallback(async () => {
@@ -110,6 +115,7 @@ export function DashboardApp() {
     const result = (await response.json()) as DashboardData & { error?: string };
     if (!response.ok) throw new Error(result.error ?? "Tableau de bord indisponible.");
     setData(result);
+    if (result.welcomePending) setShowWelcome(true);
     if (!sessionInitialized.current) {
       sessionInitialized.current = true;
       if (result.merchant.role === "employee") setTab("scan");
@@ -130,6 +136,17 @@ export function DashboardApp() {
     void initialize();
     return () => { active = false; };
   }, [load]);
+
+  async function submitFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true); setFeedbackError("");
+    const formData = new FormData(event.currentTarget);
+    const response = await fetch("/api/merchant/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(Object.fromEntries(formData)) });
+    const result = await response.json() as { error?: string };
+    if (!response.ok) setFeedbackError(result.error ?? "Le retour n’a pas pu être envoyé.");
+    else { setFeedbackOpen(false); setToast("Merci pour ton retour."); }
+    setBusy(false);
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -408,11 +425,11 @@ export function DashboardApp() {
         <Brand />
         <div className="merchant-pill"><span>{data.merchant.businessName.slice(0, 1)}</span><div><strong>{data.merchant.businessName}</strong><small>{data.merchant.role === "employee" ? `${data.merchant.employeeName} · Employé` : "Accès propriétaire"}</small></div></div>
         <nav>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><Icon className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" />{item.label}</button>; })}</nav>
-        <div className="sidebar-foot">{data.merchant.role === "employee" && <button onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" />Modifier mon PIN</button>}<button onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Kivli · version pilote</small></div>
+        <div className="sidebar-foot">{data.merchant.role === "owner" && <button onClick={() => { setFeedbackError(""); setFeedbackOpen(true); }}><MessageSquareText size={17} aria-hidden="true" />Faire un retour</button>}{data.merchant.role === "employee" && <button onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" />Modifier mon PIN</button>}<button onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Kivli · version pilote</small></div>
       </aside>
 
       <section className="dashboard-main">
-        <header className="dashboard-top"><div><small className="dashboard-date">{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><small className="dashboard-context">{data.merchant.role === "employee" ? `${data.merchant.businessName} · ${data.merchant.employeeName}` : data.merchant.businessName}</small><h1>{data.merchant.role === "employee" ? "Scanner" : visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <div className="dashboard-actions employee-top-actions"><button className="button button-ghost" onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" /><span>Mon PIN</span></button><button className="button button-ghost logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /><span>Déconnexion</span></button></div> : <div className="dashboard-actions"><button className="button button-ghost qr-quick" onClick={showEnrollmentQr}><QrCodeIcon size={18} aria-hidden="true" /><span>QR codes clients</span></button><button className="button scan-quick" onClick={() => setTab("scan")}><ScanLine size={18} aria-hidden="true" />Scanner</button><button className="button button-ghost owner-logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /></button></div>}</header>
+        <header className="dashboard-top"><div><small className="dashboard-date">{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><small className="dashboard-context">{data.merchant.role === "employee" ? `${data.merchant.businessName} · ${data.merchant.employeeName}` : data.merchant.businessName}</small><h1>{data.merchant.role === "employee" ? "Scanner" : visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <div className="dashboard-actions employee-top-actions"><button className="button button-ghost" onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" /><span>Mon PIN</span></button><button className="button button-ghost logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /><span>Déconnexion</span></button></div> : <div className="dashboard-actions"><button className="button button-ghost qr-quick" onClick={showEnrollmentQr}><QrCodeIcon size={18} aria-hidden="true" /><span>QR codes clients</span></button><button className="button scan-quick" onClick={() => setTab("scan")}><ScanLine size={18} aria-hidden="true" />Scanner</button><button className="button button-ghost feedback-quick" onClick={() => { setFeedbackError(""); setFeedbackOpen(true); }}><MessageSquareText size={17} aria-hidden="true" /><span>Faire un retour</span></button><button className="button button-ghost owner-logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /></button></div>}</header>
         {data.merchant.role === "owner" && <nav className="mobile-tabs" aria-label="Navigation principale" style={{ "--tab-count": visibleTabs.length } as React.CSSProperties}>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} aria-label={item.label} aria-current={tab === item.id ? "page" : undefined} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><span className="mobile-tab-icon"><Icon className="nav-icon" size={21} strokeWidth={2} aria-hidden="true" /></span><small>{item.shortLabel}</small></button>; })}</nav>}
         {error && <div className="dashboard-error" role="alert"><span>!</span>{error}<button onClick={() => setError("")}>×</button></div>}
 
@@ -481,6 +498,8 @@ export function DashboardApp() {
       {showEmployeePin && <PinChangeModal busy={busy} error={error} onSubmit={changeEmployeePin} onClose={() => { setShowEmployeePin(false); setError(""); }} />}
       {customerDialog && <CustomerActionModal dialog={customerDialog} busy={busy} error={error} spendAmountCents={data.program.spendAmountCents} onBonus={submitBonus} onSpend={submitSpend} onClose={() => { setCustomerDialog(null); setError(""); }} />}
       {employeeAccess && <EmployeeAccessModal access={employeeAccess} onClose={() => setEmployeeAccess(null)} />}
+      {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} onContinue={() => { setShowWelcome(false); setTab("program"); }} />}
+      {feedbackOpen && <FeedbackModal busy={busy} error={feedbackError} onSubmit={submitFeedback} onClose={() => { setFeedbackOpen(false); setFeedbackError(""); }} />}
       {toast && <div className="toast" role="status">✓ {toast}</div>}
     </main>
   );
@@ -491,8 +510,17 @@ function CustomerActionModal({ dialog, busy, error, spendAmountCents, onBonus, o
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="customer-action-modal" role="dialog" aria-modal="true" aria-labelledby="customer-action-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className={`customer-action-icon ${bonus ? "bonus" : "spend"}`}>{bonus ? <Coins size={23} aria-hidden="true" /> : <Footprints size={23} aria-hidden="true" />}</span><span className="eyebrow">{bonus ? "Geste commercial" : "Nouvel achat"}</span><h2 id="customer-action-title">{bonus ? `Ajouter un bonus à ${dialog.customer.firstName}` : `Enregistrer l’achat de ${dialog.customer.firstName}`}</h2><p>{bonus ? "Les points bonus sont clairement identifiés dans l’historique et restent réservés au propriétaire." : `Kivli calcule automatiquement les points : 1 point tous les ${(spendAmountCents / 100).toFixed(2).replace(".", ",")} €.`}</p><form className="form-grid" onSubmit={bonus ? onBonus : onSpend}>{bonus ? <><label>Nombre de points bonus<input name="quantity" type="number" min="1" max="100" defaultValue="1" required autoFocus /></label><label>Motif <small>Facultatif</small><input name="note" maxLength={120} placeholder="Geste commercial, anniversaire…" /></label></> : <label>Montant de l’achat<input name="amount" type="number" min="0.01" max="100000" step="0.01" inputMode="decimal" placeholder="0,00" required autoFocus /><small>Montant en euros, taxes comprises.</small></label>}{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : bonus ? "Ajouter le bonus" : "Continuer"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
 }
 
+function WelcomeModal({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className="welcome-modal-icon">👋</span><span className="eyebrow">Bienvenue chez Kivli</span><h2 id="welcome-title">Bienvenue chez Kivli 👋</h2><p>Toute l’équipe Kivli vous remercie pour votre confiance.</p><p>En rejoignant Kivli aujourd’hui, vous faites partie de nos premiers ambassadeurs. À ce titre, vous bénéficiez actuellement de la plateforme gratuitement, pendant que nous construisons Kivli avec nos premiers commerçants.</p><p>Votre expérience compte énormément pour nous. Une idée, une amélioration, quelque chose qui vous manque ou qui pourrait être plus simple ? N’hésitez pas à nous le dire. Vos retours participent directement à l’évolution de Kivli.</p><p className="welcome-thanks">Merci de faire partie de l’aventure 🧡</p><button className="button button-large button-full" onClick={onContinue}>Créer ma carte de fidélité<ArrowRight size={18} aria-hidden="true" /></button><button className="text-link" onClick={onClose}>Continuer vers mon espace</button></section></div>;
+}
+
+function FeedbackModal({ busy, error, onSubmit, onClose }: { busy: boolean; error: string; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title"><button className="modal-close" onClick={onClose} aria-label="Fermer">×</button><span className="feedback-modal-icon"><MessageSquareText size={23} aria-hidden="true" /></span><span className="eyebrow">Votre avis compte</span><h2 id="feedback-title">Faire un retour</h2><p>Une idée, une amélioration ou un problème ? Votre message est envoyé directement à l’équipe Kivli.</p><form className="form-grid" onSubmit={onSubmit}><label>Type de retour<select name="type" defaultValue="Idée" required><option>Idée</option><option>Amélioration</option><option>Problème</option><option>Autre</option></select></label><label>Message<textarea name="message" rows={6} minLength={5} maxLength={2000} placeholder="Dites-nous ce qui pourrait être plus simple…" required /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Envoi…" : "Envoyer mon retour"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
+}
+
 function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData; onCreated: () => Promise<void>; onLogout: () => Promise<void> }) {
   const [showForm, setShowForm] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(Boolean(data.welcomePending));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -539,6 +567,7 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
         </form> : <div className="program-setup-preview"><div className="setup-preview-card"><span>{data.merchant.businessName.slice(0, 1)}</span><small>VOTRE FUTURE CARTE</small><h2>{data.merchant.businessName}</h2><div>{Array.from({ length: 8 }, (_, index) => <i key={index}>{index + 1}</i>)}</div><p><Gift size={17} aria-hidden="true" />Votre récompense apparaîtra ici</p></div><p><Sparkles size={17} aria-hidden="true" />Après la création, votre QR code d’inscription sera immédiatement prêt à partager.</p></div>}
       </div>
     </section>
+    {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} onContinue={() => { setShowWelcome(false); setShowForm(true); }} />}
   </main>;
 }
 
