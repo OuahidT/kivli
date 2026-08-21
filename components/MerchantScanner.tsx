@@ -1,7 +1,7 @@
 "use client";
 
 import jsQR from "jsqr";
-import { Camera, Check, Keyboard, Minus, Plus, ScanLine, X } from "lucide-react";
+import { Camera, Check, Keyboard, ScanLine, X } from "lucide-react";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 function extractCode(value: string) {
@@ -15,7 +15,7 @@ function extractCode(value: string) {
   }
 }
 
-export function MerchantScanner({ onDetected, busy, earningMode, spendAmountCents }: { onDetected: (code: string, input: { quantity: number; amountCents?: number }) => void; busy: boolean; earningMode: "visits" | "spend"; spendAmountCents: number }) {
+export function MerchantScanner({ onDetected, busy }: { onDetected: (code: string) => void; busy: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -25,12 +25,6 @@ export function MerchantScanner({ onDetected, busy, earningMode, spendAmountCent
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [manual, setManual] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [amount, setAmount] = useState("");
-
-  function input() {
-    return earningMode === "spend" ? { quantity: 1, amountCents: Math.round(Number(amount.replace(",", ".")) * 100) } : { quantity };
-  }
 
   function releaseCamera() {
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
@@ -94,9 +88,7 @@ export function MerchantScanner({ onDetected, busy, earningMode, spendAmountCent
             if (result?.data) {
               const code = extractCode(result.data);
               stop();
-              const operation = input();
-              if (earningMode === "spend" && (!operation.amountCents || operation.amountCents < 1)) { stop(); setCameraError("Saisis d’abord le montant de l’achat."); return; }
-              onDetected(code, operation);
+              onDetected(code);
               return;
             }
           }
@@ -121,18 +113,13 @@ export function MerchantScanner({ onDetected, busy, earningMode, spendAmountCent
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!manual.trim()) return;
-    const operation = input();
-    if (earningMode === "spend" && (!operation.amountCents || operation.amountCents < 1)) { setCameraError("Saisis d’abord le montant de l’achat."); return; }
-    onDetected(extractCode(manual), operation);
+    onDetected(extractCode(manual));
     setManual("");
   }
 
   return (
     <div className="scanner-card">
-      {earningMode === "visits" ? <div className="quantity-picker">
-        <div><strong>Nombre de points</strong><small>Un point par visite ou achat éligible</small></div>
-        <div><button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={busy || cameraOpen || quantity === 1} aria-label="Retirer un point"><Minus size={19} aria-hidden="true" /></button><output>{quantity}</output><button type="button" onClick={() => setQuantity((value) => Math.min(10, value + 1))} disabled={busy || cameraOpen || quantity === 10} aria-label="Ajouter un point"><Plus size={19} aria-hidden="true" /></button></div>
-      </div> : <div className="amount-picker"><div><strong>Montant de l’achat</strong><small>1 point tous les {(spendAmountCents / 100).toFixed(2).replace(".", ",")} €</small></div><label><input value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" placeholder="0,00" aria-label="Montant en euros" /><span>€</span></label>{Number(amount.replace(",", ".")) > 0 && <output>{Math.floor(Number(amount.replace(",", ".")) * 100 / spendAmountCents)} point(s)</output>}</div>}
+      <div className="scanner-first-step"><span>1</span><div><strong>Identifie le client</strong><small>Le solde et les récompenses apparaîtront avant toute action.</small></div></div>
       <div className={`camera-frame ${cameraOpen ? "active" : ""}`}>
         <video ref={videoRef} playsInline muted />
         <canvas ref={canvasRef} hidden aria-hidden="true" />
