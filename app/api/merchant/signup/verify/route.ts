@@ -4,7 +4,7 @@ import { cleanText, jsonError, readJson, safeApiError } from "../../../../../lib
 import { makeCode, makeId, sha256, slugify } from "../../../../../lib/ids";
 
 type PendingSignup = { id: string; payloadJson: string; expiresAt: string; usedAt: string | null };
-type PendingData = { firstName: string; lastName: string; businessName: string; email: string; phone: string | null; passwordHash: string };
+type PendingData = { firstName: string; lastName: string; businessName: string; email: string; phone: string | null; passwordHash: string; termsAcceptedAt: string; termsVersion: string };
 
 export async function POST(request: Request) {
   try {
@@ -21,8 +21,8 @@ export async function POST(request: Request) {
     const slug = `${slugify(data.businessName)}-${makeCode(4).toLowerCase()}`;
     const db = getD1();
     await db.batch([
-      db.prepare(`INSERT INTO merchants (id, first_name, last_name, business_name, slug, email, phone, pin_hash, email_verified_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`)
-        .bind(merchantId, data.firstName, data.lastName, data.businessName, slug, data.email, data.phone, data.passwordHash),
+      db.prepare(`INSERT INTO merchants (id, first_name, last_name, business_name, slug, email, phone, pin_hash, email_verified_at, terms_accepted_at, terms_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)`)
+        .bind(merchantId, data.firstName, data.lastName, data.businessName, slug, data.email, data.phone, data.passwordHash, data.termsAcceptedAt, data.termsVersion),
       db.prepare("UPDATE merchant_email_verifications SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL").bind(pending.id),
     ]);
     const cookie = await createSession(merchantId, request.url);

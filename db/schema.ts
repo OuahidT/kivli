@@ -12,6 +12,8 @@ export const merchants = sqliteTable(
     email: text("email").notNull(),
     phone: text("phone"),
     emailVerifiedAt: text("email_verified_at"),
+    termsAcceptedAt: text("terms_accepted_at"),
+    termsVersion: text("terms_version"),
     pinHash: text("pin_hash").notNull(),
     employeePinHash: text("employee_pin_hash"),
     accentColor: text("accent_color").notNull().default("#f05b3c"),
@@ -87,6 +89,9 @@ export const customers = sqliteTable(
     phone: text("phone"),
     marketingConsent: integer("marketing_consent", { mode: "boolean" }).notNull().default(false),
     marketingConsentedAt: text("marketing_consented_at"),
+    marketingConsentVersion: text("marketing_consent_version"),
+    marketingConsentSource: text("marketing_consent_source"),
+    marketingWithdrawnAt: text("marketing_withdrawn_at"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [

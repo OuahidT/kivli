@@ -14,7 +14,7 @@ const schemaStatements = [
     business_name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE, phone TEXT, pin_hash TEXT NOT NULL, employee_pin_hash TEXT,
     accent_color TEXT NOT NULL DEFAULT '#f05b3c',
-    welcome_seen_at TEXT,
+    welcome_seen_at TEXT, terms_accepted_at TEXT, terms_version TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS programs (
@@ -157,6 +157,8 @@ export async function ensureSchema() {
         ["last_name", "ALTER TABLE merchants ADD COLUMN last_name TEXT NOT NULL DEFAULT ''"],
         ["phone", "ALTER TABLE merchants ADD COLUMN phone TEXT"],
         ["email_verified_at", "ALTER TABLE merchants ADD COLUMN email_verified_at TEXT"],
+        ["terms_accepted_at", "ALTER TABLE merchants ADD COLUMN terms_accepted_at TEXT"],
+        ["terms_version", "ALTER TABLE merchants ADD COLUMN terms_version TEXT"],
       ] as const;
       for (const [column, statement] of migrations) {
         if (existing.has(column)) continue;
@@ -188,6 +190,9 @@ export async function ensureSchema() {
         ["phone", "ALTER TABLE customers ADD COLUMN phone TEXT"],
         ["marketing_consent", "ALTER TABLE customers ADD COLUMN marketing_consent INTEGER NOT NULL DEFAULT 0"],
         ["marketing_consented_at", "ALTER TABLE customers ADD COLUMN marketing_consented_at TEXT"],
+        ["marketing_consent_version", "ALTER TABLE customers ADD COLUMN marketing_consent_version TEXT"],
+        ["marketing_consent_source", "ALTER TABLE customers ADD COLUMN marketing_consent_source TEXT"],
+        ["marketing_withdrawn_at", "ALTER TABLE customers ADD COLUMN marketing_withdrawn_at TEXT"],
       ] as const;
       for (const [column, statement] of customerMigrations) {
         if (!existingCustomerColumns.has(column)) {
@@ -242,6 +247,22 @@ export async function ensureSchema() {
           if (!String(error).toLowerCase().includes("duplicate column")) throw error;
         }
       }
+      await db.batch([
+        db.prepare("DELETE FROM merchant_sessions WHERE datetime(expires_at) <= CURRENT_TIMESTAMP"),
+        db.prepare("DELETE FROM merchant_email_verifications WHERE datetime(expires_at) < datetime('now', '-1 day')"),
+        db.prepare("DELETE FROM login_attempts WHERE datetime(updated_at) < datetime('now', '-30 days')"),
+        db.prepare("DELETE FROM stamp_requests WHERE datetime(created_at) < datetime('now', '-2 days')"),
+        db.prepare("DELETE FROM admin_sessions WHERE datetime(expires_at) <= CURRENT_TIMESTAMP"),
+        db.prepare("DELETE FROM admin_login_attempts WHERE datetime(updated_at) < datetime('now', '-30 days')"),
+        db.prepare("DELETE FROM admin_audit_log WHERE datetime(created_at) < datetime('now', '-12 months')"),
+        db.prepare("DELETE FROM merchant_feedback WHERE datetime(created_at) < datetime('now', '-24 months')"),
+        db.prepare(`DELETE FROM stamp_reward_links WHERE stamp_id IN (SELECT s.id FROM stamps s JOIN memberships mb ON mb.id = s.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years')) OR reward_id IN (SELECT r.id FROM rewards r JOIN memberships mb ON mb.id = r.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years'))`),
+        db.prepare(`DELETE FROM employee_actions WHERE stamp_id IN (SELECT s.id FROM stamps s JOIN memberships mb ON mb.id = s.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years'))`),
+        db.prepare(`DELETE FROM rewards WHERE membership_id IN (SELECT id FROM memberships WHERE datetime(updated_at) < datetime('now', '-3 years'))`),
+        db.prepare(`DELETE FROM stamps WHERE membership_id IN (SELECT id FROM memberships WHERE datetime(updated_at) < datetime('now', '-3 years'))`),
+        db.prepare(`DELETE FROM memberships WHERE datetime(updated_at) < datetime('now', '-3 years')`),
+        db.prepare(`DELETE FROM customers WHERE id NOT IN (SELECT customer_id FROM memberships) AND datetime(created_at) < datetime('now', '-3 years')`),
+      ]);
     })();
   }
   return schemaReady;

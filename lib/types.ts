@@ -22,5 +22,6 @@ export type CardData = Program & {
   totalPoints: number;
   availableRewards: number;
   joinedAt: string;
+  marketingConsent: number;
   availableRewardItems: Array<{ id: string; rewardText: string; threshold: number }>;
 };

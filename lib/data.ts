@@ -25,7 +25,7 @@ export async function getCardByCode(code: string) {
     `SELECT p.id, p.merchant_id AS merchantId, m.business_name AS businessName, m.slug,
       m.accent_color AS accentColor, p.name, p.goal, p.reward_text AS rewardText, p.terms,
       p.earning_mode AS earningMode, p.spend_amount_cents AS spendAmountCents,
-      mb.code, c.first_name AS firstName, mb.points, mb.total_points AS totalPoints,
+      mb.code, c.first_name AS firstName, c.marketing_consent AS marketingConsent, mb.points, mb.total_points AS totalPoints,
       mb.created_at AS joinedAt,
       (SELECT COUNT(*) FROM rewards r WHERE r.membership_id = mb.id AND r.status = 'available') AS availableRewards
      FROM memberships mb

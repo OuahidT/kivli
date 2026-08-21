@@ -20,6 +20,8 @@ export function CustomerCard({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   const [installEnvironment, setInstallEnvironment] = useState<InstallEnvironment>("other");
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  const [privacyBusy, setPrivacyBusy] = useState(false);
+  const [privacyMessage, setPrivacyMessage] = useState("");
 
   useEffect(() => {
     fetch(`/api/card/${encodeURIComponent(code)}`, { cache: "no-store" })
@@ -69,6 +71,22 @@ export function CustomerCard({ code }: { code: string }) {
     setInstallPrompt(null);
   }
 
+  async function withdrawMarketing() {
+    setPrivacyBusy(true);
+    setPrivacyMessage("");
+    try {
+      const response = await fetch(`/api/card/${encodeURIComponent(code)}/privacy`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "withdrawMarketing" }) });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Modification impossible.");
+      setCard((current) => current ? { ...current, marketingConsent: 0 } : current);
+      setPrivacyMessage("Ton accord SMS a bien été retiré. Ta carte reste active.");
+    } catch (reason) {
+      setPrivacyMessage(reason instanceof Error ? reason.message : "Modification impossible.");
+    } finally {
+      setPrivacyBusy(false);
+    }
+  }
+
   const installCopy = installEnvironment === "ios"
     ? <>Dans Safari, touche <strong>Partager</strong>, puis <strong>Sur l’écran d’accueil</strong>.</>
     : installEnvironment === "android"
@@ -102,6 +120,7 @@ export function CustomerCard({ code }: { code: string }) {
                 <p>{installCopy}</p>
                 {installEnvironment === "android" && installPrompt ? <button className="save-card-install" type="button" onClick={install}><Download size={16} aria-hidden="true" />Installer Kivli</button> : null}
                 <div><ShieldCheck size={17} aria-hidden="true" /><p><strong>Conditions du programme</strong>{terms}</p></div>
+                <div><ShieldCheck size={17} aria-hidden="true" /><p><strong>Tes données</strong><a href="/confidentialite" target="_blank">Voir tes droits et la politique de confidentialité</a></p></div>
               </div>
             </details>
             <small><WalletCards size={14} aria-hidden="true" />Bientôt, ta carte pourra être ajoutée à Apple Wallet et Google Wallet.</small>
@@ -124,6 +143,8 @@ export function CustomerCard({ code }: { code: string }) {
         </aside>
 
         <aside className="card-terms"><span><ShieldCheck size={21} aria-hidden="true" /></span><div><strong>Conditions du programme</strong><p>{terms}</p></div></aside>
+
+        <aside className="card-privacy-choice"><div><strong>Tes données et tes choix</strong><p>{card.marketingConsent ? `Tu as accepté les offres SMS de ${card.businessName}. Tu peux retirer cet accord sans désactiver ta carte.` : "Ton numéro sert uniquement au fonctionnement de cette carte. Tu n’as pas d’accord SMS actif."}</p><a href="/confidentialite" target="_blank">Confidentialité et exercice de tes droits</a>{privacyMessage && <p className="privacy-feedback" role="status">{privacyMessage}</p>}</div>{card.marketingConsent ? <button type="button" className="privacy-withdraw-button" onClick={withdrawMarketing} disabled={privacyBusy}>{privacyBusy ? "Modification…" : "Retirer mon accord SMS"}</button> : null}</aside>
 
         <div className="card-footnote"><span><RefreshCw size={14} aria-hidden="true" />Carte mise à jour automatiquement</span><span>{card.totalPoints} point{card.totalPoints !== 1 ? "s" : ""} au total</span></div>
       </section>

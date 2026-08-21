@@ -54,6 +54,7 @@ export function MerchantLogin() {
             <button className="button button-large button-full" disabled={busy}>{busy ? "Connexion…" : <>Ouvrir mon espace<ArrowRight size={18} aria-hidden="true" /></>}</button>
           </form>
           <div className="auth-foot">Pas encore de programme ? <Link href="/" prefetch={false}>Créer gratuitement</Link></div>
+          <div className="auth-legal-links"><Link href="/confidentialite">Confidentialité</Link><Link href="/conditions-pilote">Conditions du pilote</Link><Link href="/mentions-legales">Mentions légales</Link></div>
         </section>
       </div>
     </main>

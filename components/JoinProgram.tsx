@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { Gift, QrCode, ShieldCheck, Sparkles } from "lucide-react";
 import { Brand } from "./Brand";
 import type { Program } from "../lib/types";
@@ -66,12 +67,12 @@ export function JoinProgram({ slug }: { slug: string }) {
           <p>Présente ensuite ton QR code personnel à chaque passage.</p>
           <form onSubmit={submit} className="form-grid">
             <label>Ton prénom<input name="firstName" autoComplete="given-name" placeholder="Léa" required /></label>
-            <label>Ton numéro de téléphone<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12 34 56 78" required /><small>Il permet de retrouver ta carte si tu changes de téléphone.</small></label>
-            <label className="consent-check"><input name="marketingConsent" type="checkbox" /><span>J’accepte de recevoir, plus tard, les offres de {program.businessName} par SMS. <em>Facultatif</em></span></label>
+            <label>Ton numéro de téléphone<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12 34 56 78" required /><small>Obligatoire pour identifier et retrouver ta carte. Il ne sera pas utilisé pour des offres sans ton accord séparé.</small></label>
+            <small className="join-privacy-note">{program.businessName} est responsable de ton programme ; Kivli héberge la carte pour son compte. Prénom et téléphone sont nécessaires au service. <Link href="/confidentialite" target="_blank">Données et droits</Link>.</small>
+            <label className="consent-check"><input name="marketingConsent" type="checkbox" /><span>J’accepte que {program.businessName} m’envoie ses offres par SMS. Je pourrai retirer mon accord depuis ma carte. <em>Facultatif</em></span></label>
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="button button-large button-full merchant-button" disabled={busy}>{busy ? "Création…" : "Obtenir ma carte"}</button>
           </form>
-          <small>En t’inscrivant, tu acceptes que {program.businessName} conserve ta carte et son historique de passages.</small>
           <aside className="join-terms"><ShieldCheck size={17} aria-hidden="true" /><span><strong>Conditions</strong>{terms}</span></aside>
         </div>
       </section>
