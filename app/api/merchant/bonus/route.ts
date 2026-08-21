@@ -3,7 +3,7 @@ import { getMerchant, isOwner } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
 
-type Member = { id: string; firstName: string; points: number; goal: number; programId: string; availableRewards: number };
+type Member = { id: string; firstName: string; points: number; goal: number; programId: string; availableRewards: number; earningMode: "visits" | "spend" };
 type Tier = { id: string; threshold: number; rewardText: string };
 
 export async function POST(request: Request) {
@@ -16,18 +16,20 @@ export async function POST(request: Request) {
     const quantity = Math.round(Number(body?.quantity));
     const note = cleanText(body?.note, 160);
     if (!code || quantity < 1 || quantity > 100) return jsonError("Choisis un bonus entre 1 et 100 points.");
-    const member = await queryFirst<Member>(`SELECT mb.id, c.first_name AS firstName, mb.points, p.goal, p.id AS programId,
+    const member = await queryFirst<Member>(`SELECT mb.id, c.first_name AS firstName, mb.points, p.goal, p.id AS programId, p.earning_mode AS earningMode,
       (SELECT COUNT(*) FROM rewards r WHERE r.membership_id = mb.id AND r.status = 'available') AS availableRewards
       FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
       WHERE mb.code = ? AND mb.merchant_id = ?`, code, merchant.id);
     if (!member) return jsonError("Carte introuvable.", 404);
     const tiers = await queryAll<Tier>(`SELECT id, threshold, reward_text AS rewardText FROM program_reward_tiers WHERE program_id = ? AND active = 1 ORDER BY threshold`, member.programId);
+    const pointsAfter = member.earningMode === "spend" ? member.points + quantity : (member.points + quantity) % member.goal;
     const earned: Tier[] = [];
-    for (let step = 1; step <= quantity; step += 1) {
-      const progress = ((member.points + step - 1) % member.goal) + 1;
-      for (const tier of tiers) if (tier.threshold === progress) earned.push(tier);
+    if (member.earningMode === "visits") {
+      for (let step = 1; step <= quantity; step += 1) {
+        const progress = ((member.points + step - 1) % member.goal) + 1;
+        for (const tier of tiers) if (tier.threshold === progress) earned.push(tier);
+      }
     }
-    const pointsAfter = (member.points + quantity) % member.goal;
     const stampId = makeId("stp");
     const db = getD1();
     await ensureSchema();
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
       );
     }
     await db.batch(statements);
-    return Response.json({ ok: true, stampId, firstName: member.firstName, points: pointsAfter, quantity, rewardsEarned: earned.length, availableRewards: member.availableRewards + earned.length });
+    const availableRewards = member.earningMode === "spend" ? tiers.filter((tier) => tier.threshold <= pointsAfter).length : member.availableRewards + earned.length;
+    return Response.json({ ok: true, stampId, firstName: member.firstName, points: pointsAfter, quantity, rewardsEarned: earned.length, availableRewards });
   } catch (error) { return safeApiError(error); }
 }
