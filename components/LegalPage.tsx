@@ -5,7 +5,7 @@ import { Brand } from "./Brand";
 export function LegalPage({ eyebrow, title, intro, children }: { eyebrow: string; title: string; intro: string; children: ReactNode }) {
   return (
     <main className="legal-page">
-      <nav className="legal-nav"><Link href="/" aria-label="Kivli — accueil"><Brand /></Link><Link href="/" className="text-link">Retour à l’accueil</Link></nav>
+      <nav className="legal-nav"><Brand /><Link href="/" className="text-link">Retour à l’accueil</Link></nav>
       <article className="legal-document">
         <header><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{intro}</p><small>Version du 21 août 2026</small></header>
         <div className="legal-content">{children}</div>
