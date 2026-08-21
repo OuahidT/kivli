@@ -81,23 +81,32 @@ export async function POST(request: Request) {
     }
 
     const tiers = await queryAll<TierRow>(`SELECT id, threshold, reward_text AS rewardText FROM program_reward_tiers WHERE program_id = ? AND active = 1 ORDER BY threshold`, membership.programId);
-    const earnedTiers: TierRow[] = [];
-    for (let step = 1; step <= quantity; step += 1) {
-      const progress = ((membership.points + step - 1) % membership.goal) + 1;
-      for (const tier of tiers) if (tier.threshold === progress) earnedTiers.push(tier);
+    const pointsAfter = membership.earningMode === "spend"
+      ? membership.points + quantity
+      : (membership.points + quantity) % membership.goal;
+    const earnedTiers: TierRow[] = membership.earningMode === "spend"
+      ? tiers.filter((tier) => tier.threshold > membership.points && tier.threshold <= pointsAfter)
+      : [];
+    if (membership.earningMode === "visits") {
+      for (let step = 1; step <= quantity; step += 1) {
+        const progress = ((membership.points + step - 1) % membership.goal) + 1;
+        for (const tier of tiers) if (tier.threshold === progress) earnedTiers.push(tier);
+      }
     }
-    const pointsAfter = (membership.points + quantity) % membership.goal;
     const rewardsEarned = earnedTiers.length;
     const stampId = makeId("stp");
-    const rewardIds = earnedTiers.map(() => makeId("rwd"));
+    const rewardIds = membership.earningMode === "visits" ? earnedTiers.map(() => makeId("rwd")) : [];
+    const availableRewards = membership.earningMode === "spend"
+      ? tiers.filter((tier) => tier.threshold <= pointsAfter).length
+      : membership.availableRewards + rewardsEarned;
     const result = {
       customer: { firstName: membership.firstName, code, points: pointsAfter, goal: membership.goal },
       quantity,
       stampId,
       rewardEarned: rewardsEarned > 0,
       rewardsEarned,
-      availableRewards: membership.availableRewards + rewardsEarned,
-      rewards: earnedTiers.map((tier, index) => ({ id: rewardIds[index], rewardText: tier.rewardText, threshold: tier.threshold })),
+      availableRewards,
+      rewards: earnedTiers.map((tier, index) => ({ id: rewardIds[index] ?? tier.id, rewardText: tier.rewardText, threshold: tier.threshold })),
       earningMode: membership.earningMode,
       amountCents: membership.earningMode === "spend" ? amountCents : null,
     };
