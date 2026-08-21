@@ -14,6 +14,7 @@ const schemaStatements = [
     business_name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE, phone TEXT, pin_hash TEXT NOT NULL, employee_pin_hash TEXT,
     accent_color TEXT NOT NULL DEFAULT '#f05b3c',
+    welcome_seen_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS programs (
@@ -106,6 +107,12 @@ const schemaStatements = [
     window_started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, locked_until TEXT,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS merchant_feedback (
+    id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, business_name TEXT NOT NULL,
+    owner_name TEXT NOT NULL, email TEXT NOT NULL, feedback_type TEXT NOT NULL,
+    message TEXT NOT NULL, program_name TEXT, status TEXT NOT NULL DEFAULT 'pending',
+    error_message TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, sent_at TEXT
+  )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_slug ON merchants(slug)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_email ON merchants(email)`,
   `CREATE INDEX IF NOT EXISTS idx_employees_merchant ON employees(merchant_id)`,
@@ -132,6 +139,8 @@ const schemaStatements = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_sessions_token ON admin_sessions(token_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at)`,
   `CREATE INDEX IF NOT EXISTS idx_admin_login_updated ON admin_login_attempts(updated_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_merchant_feedback_merchant_created ON merchant_feedback(merchant_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_merchant_feedback_status_created ON merchant_feedback(status, created_at)`,
   `PRAGMA optimize`,
 ];
 
@@ -143,6 +152,7 @@ export async function ensureSchema() {
       const columns = await db.prepare("PRAGMA table_info(merchants)").all<{ name: string }>();
       const existing = new Set((columns.results ?? []).map((column) => column.name));
       const migrations = [
+        ["welcome_seen_at", "ALTER TABLE merchants ADD COLUMN welcome_seen_at TEXT"],
         ["first_name", "ALTER TABLE merchants ADD COLUMN first_name TEXT NOT NULL DEFAULT ''"],
         ["last_name", "ALTER TABLE merchants ADD COLUMN last_name TEXT NOT NULL DEFAULT ''"],
         ["phone", "ALTER TABLE merchants ADD COLUMN phone TEXT"],
