@@ -498,7 +498,7 @@ export function DashboardApp() {
       {showEmployeePin && <PinChangeModal busy={busy} error={error} onSubmit={changeEmployeePin} onClose={() => { setShowEmployeePin(false); setError(""); }} />}
       {customerDialog && <CustomerActionModal dialog={customerDialog} busy={busy} error={error} spendAmountCents={data.program.spendAmountCents} onBonus={submitBonus} onSpend={submitSpend} onClose={() => { setCustomerDialog(null); setError(""); }} />}
       {employeeAccess && <EmployeeAccessModal access={employeeAccess} onClose={() => setEmployeeAccess(null)} />}
-      {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} onContinue={() => { setShowWelcome(false); setTab("program"); }} />}
+      {showWelcome && <WelcomeModal onClose={() => { void fetch("/api/merchant/welcome-seen", { method: "POST" }); setShowWelcome(false); }} onContinue={() => { void fetch("/api/merchant/welcome-seen", { method: "POST" }); setShowWelcome(false); setTab("program"); }} />}
       {feedbackOpen && <FeedbackModal busy={busy} error={feedbackError} onSubmit={submitFeedback} onClose={() => { setFeedbackOpen(false); setFeedbackError(""); }} />}
       {toast && <div className="toast" role="status">✓ {toast}</div>}
     </main>
@@ -567,7 +567,7 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
         </form> : <div className="program-setup-preview"><div className="setup-preview-card"><span>{data.merchant.businessName.slice(0, 1)}</span><small>VOTRE FUTURE CARTE</small><h2>{data.merchant.businessName}</h2><div>{Array.from({ length: 8 }, (_, index) => <i key={index}>{index + 1}</i>)}</div><p><Gift size={17} aria-hidden="true" />Votre récompense apparaîtra ici</p></div><p><Sparkles size={17} aria-hidden="true" />Après la création, votre QR code d’inscription sera immédiatement prêt à partager.</p></div>}
       </div>
     </section>
-    {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} onContinue={() => { setShowWelcome(false); setShowForm(true); }} />}
+    {showWelcome && <WelcomeModal onClose={() => { void fetch("/api/merchant/welcome-seen", { method: "POST" }); setShowWelcome(false); }} onContinue={() => { void fetch("/api/merchant/welcome-seen", { method: "POST" }); setShowWelcome(false); setShowForm(true); }} />}
   </main>;
 }
 
