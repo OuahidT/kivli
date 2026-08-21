@@ -33,7 +33,6 @@ export async function GET(request: Request) {
         merchant.id,
       );
       if (!marker?.welcomeSeenAt) {
-        await queryFirst("UPDATE merchants SET welcome_seen_at = CURRENT_TIMESTAMP WHERE id = ? AND welcome_seen_at IS NULL RETURNING id", merchant.id);
         welcomePending = true;
       }
     }
