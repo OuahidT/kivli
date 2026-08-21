@@ -493,6 +493,28 @@ async function sendMerchantVerification(request: Request, env: Env): Promise<Res
   return json({ ok: true });
 }
 
+async function sendMerchantFeedback(request: Request, env: Env): Promise<Response> {
+  if (new URL(request.url).hostname !== "kivli-admin.internal") return json({ error: "Route introuvable." }, 404);
+  const body = await readBody(request);
+  const type = cleanText(body.type, 40);
+  const message = cleanText(body.message, 2000);
+  const email = cleanText(body.email, 160).toLowerCase();
+  const ownerName = cleanText(body.ownerName, 120);
+  const businessName = cleanText(body.businessName, 120);
+  const merchantId = cleanText(body.merchantId, 120);
+  const programName = cleanText(body.programName, 120);
+  if (!new Set(["Idée", "Amélioration", "Problème", "Autre"]).has(type) || message.length < 5 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return json({ error: "Demande d’envoi invalide." }, 400);
+  }
+  const bodyText = [
+    "Nouveau retour commerçant Kivli", "", `Type : ${type}`, `Commerce : ${businessName || "—"}`,
+    `Propriétaire : ${ownerName || "—"}`, `E-mail : ${email}`, `Identifiant commerce : ${merchantId || "—"}`,
+    `Programme : ${programName || "—"}`, "", "Message :", message, "", "Kivli — La fidélité, simplement.",
+  ].join("\r\n");
+  await sendSmtpEmail(env, "contact@kivli.fr", `[Kivli] Retour commerçant — ${type}`, bodyText);
+  return json({ ok: true });
+}
+
 function generateResetCode(): string {
   const random = crypto.getRandomValues(new Uint32Array(1))[0];
   return String(random % 1_000_000).padStart(6, "0");
@@ -1003,6 +1025,9 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "POST" && path === "/internal/merchant-verification") {
     return sendMerchantVerification(request, env);
+  }
+  if (request.method === "POST" && path === "/internal/merchant-feedback") {
+    return sendMerchantFeedback(request, env);
   }
 
   if (request.method === "POST" && path === "/api/login") return loginAdmin(request, env);
