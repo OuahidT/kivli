@@ -183,13 +183,16 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   assert.match(wallet, /kivli_rewards_count/);
   assert.match(wallet, /kivli_next_tier/);
   assert.match(wallet, /kivli_rewards_hint/);
-  assert.match(wallet, /Détails des récompenses · •••/);
+  assert.match(wallet, /Détails des récompenses •••/);
+  assert.match(wallet, /kivli_rewards_hint", header: "Détails des récompenses •••" }/);
+  assert.match(wallet, /google-wallet-transparent-logo\.png/);
+  assert.doesNotMatch(wallet, /google-wallet-program-logo\.png/);
   assert.match(wallet, /kivli_all_tiers/);
   assert.match(wallet, /kivli_available_tiers/);
   assert.match(wallet, /kivli_locked_tiers/);
   assert.match(wallet, /kivli_conditions/);
   assert.match(wallet, /Carte de fidélité propulsée par Kivli 🧡/);
-  assert.match(walletContent, /voir les détails/);
+  assert.doesNotMatch(walletContent, /voir les détails/);
   assert.match(wallet, /Prochain palier/);
   assert.match(wallet, /await upsertClass\(card, config\.issuerId\)/);
 
@@ -210,9 +213,9 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
     [snapshotAt(0).availableCount, snapshotAt(15).availableCount, snapshotAt(35).availableCount],
     [0, 1, 2],
   );
-  assert.equal(snapshotAt(0).availableLabel, "0 disponible · voir les détails");
-  assert.equal(snapshotAt(15).availableLabel, "1 disponible · voir les détails");
-  assert.equal(snapshotAt(35).availableLabel, "2 disponibles · voir les détails");
+  assert.equal(snapshotAt(0).availableLabel, "Indisponible");
+  assert.equal(snapshotAt(15).availableLabel, "1 disponible");
+  assert.equal(snapshotAt(35).availableLabel, "2 disponibles");
   assert.equal(snapshotAt(35).nextTier, "Encore 15 pts");
   assert.equal(snapshotAt(50).nextTier, "Tous atteints");
   assert.doesNotMatch(snapshotAt(35).nextTier, /menu complet/i);

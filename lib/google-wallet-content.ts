@@ -9,7 +9,9 @@ export function walletRewardSnapshot(card: CardData) {
   const next = locked[0];
   const missing = next ? Math.max(0, next.threshold - card.points) : 0;
   const availableCount = available.length;
-  const availableLabel = `${availableCount} disponible${availableCount > 1 ? "s" : ""} · voir les détails`;
+  const availableLabel = availableCount === 0
+    ? "Indisponible"
+    : `${availableCount} disponible${availableCount > 1 ? "s" : ""}`;
 
   return {
     availableCount,
