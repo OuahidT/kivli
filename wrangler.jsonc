@@ -27,6 +27,12 @@
       "service": "kivli-admin"
     }
   ],
+  "mtls_certificates": [
+    {
+      "binding": "APPLE_WALLET_APNS",
+      "certificate_id": "77ad4b62-75f6-4611-a7c2-df7e8c57be29"
+    }
+  ],
   "observability": {
     "enabled": true
   },
