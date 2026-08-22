@@ -194,7 +194,7 @@ function loyaltyObject(card: CardData, issuerId: string) {
       { id: "kivli_rewards_count", header: "Récompenses", body: rewardSnapshot.availableLabel },
       { id: "kivli_next_tier", header: "Prochain palier", body: rewardSnapshot.nextTier },
       { id: "kivli_member_name", header: "Bonjour", body: truncate(card.firstName, 20) },
-      { id: "kivli_rewards_hint", body: "Détails des récompenses ⋮" },
+      { id: "kivli_rewards_hint", body: "Détails des récompenses ︙" },
       { id: "kivli_all_tiers", header: "Tous les paliers", body: rewardSnapshot.allTiers },
       { id: "kivli_available_tiers", header: "Récompenses accessibles", body: rewardSnapshot.availableTiers },
       { id: "kivli_locked_tiers", header: "À débloquer", body: rewardSnapshot.lockedTiers },
