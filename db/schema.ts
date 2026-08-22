@@ -236,6 +236,45 @@ export const stampRewardLinks = sqliteTable(
   ],
 );
 
+export const appleWalletPasses = sqliteTable(
+  "apple_wallet_passes",
+  {
+    membershipId: text("membership_id").primaryKey(),
+    serialNumber: text("serial_number").notNull(),
+    passTypeIdentifier: text("pass_type_identifier").notNull(),
+    authenticationTokenHash: text("authentication_token_hash").notNull(),
+    lastUpdatedTag: integer("last_updated_tag").notNull(),
+    pushPending: integer("push_pending", { mode: "boolean" }).notNull().default(false),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_apple_wallet_pass_serial_unique").on(table.serialNumber),
+    index("idx_apple_wallet_pass_serial").on(table.passTypeIdentifier, table.serialNumber),
+  ],
+);
+
+export const appleWalletDevices = sqliteTable("apple_wallet_devices", {
+  deviceLibraryIdentifier: text("device_library_identifier").primaryKey(),
+  pushToken: text("push_token").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const appleWalletRegistrations = sqliteTable(
+  "apple_wallet_registrations",
+  {
+    deviceLibraryIdentifier: text("device_library_identifier").notNull(),
+    passTypeIdentifier: text("pass_type_identifier").notNull(),
+    serialNumber: text("serial_number").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_apple_wallet_registration_unique").on(table.deviceLibraryIdentifier, table.passTypeIdentifier, table.serialNumber),
+    index("idx_apple_wallet_registration_pass").on(table.passTypeIdentifier, table.serialNumber),
+  ],
+);
+
 export const loginAttempts = sqliteTable(
   "login_attempts",
   {
