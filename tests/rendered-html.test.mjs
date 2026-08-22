@@ -155,7 +155,12 @@ test("keeps the premium iPhone mockup tightly fitted to its screen", async () =>
 });
 
 test("keeps Google Wallet rewards visible on the card face", async () => {
-  const wallet = await readFile(new URL("../lib/google-wallet.ts", import.meta.url), "utf8");
+  const contentUrl = new URL("../lib/google-wallet-content.ts", import.meta.url);
+  const [wallet, walletContent, { walletRewardSnapshot }] = await Promise.all([
+    readFile(new URL("../lib/google-wallet.ts", import.meta.url), "utf8"),
+    readFile(contentUrl, "utf8"),
+    import(contentUrl),
+  ]);
 
   assert.match(wallet, /cardTemplateOverride/);
   assert.match(wallet, /detailsTemplateOverride/);
@@ -167,7 +172,31 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   assert.match(wallet, /kivli_locked_tiers/);
   assert.match(wallet, /kivli_conditions/);
   assert.match(wallet, /Carte de fidélité propulsée par Kivli 🧡/);
-  assert.match(wallet, /voir les détails/);
+  assert.match(walletContent, /voir les détails/);
   assert.match(wallet, /Prochain palier/);
   assert.match(wallet, /await upsertClass\(card, config\.issuerId\)/);
+
+  const tiers = [
+    { id: "tier-15", threshold: 15, rewardText: "Un café", sortOrder: 0 },
+    { id: "tier-35", threshold: 35, rewardText: "Une pâtisserie premium", sortOrder: 1 },
+    { id: "tier-50", threshold: 50, rewardText: "Un menu complet (sucré / salé)", sortOrder: 2 },
+  ];
+  const snapshotAt = (points) => walletRewardSnapshot({
+    points,
+    goal: 50,
+    rewardText: "Un menu complet",
+    rewardTiers: tiers,
+    availableRewardItems: tiers.filter((tier) => tier.threshold <= points),
+  });
+
+  assert.deepEqual(
+    [snapshotAt(0).availableCount, snapshotAt(15).availableCount, snapshotAt(35).availableCount],
+    [0, 1, 2],
+  );
+  assert.equal(snapshotAt(0).availableLabel, "Aucune disponible · voir les détails");
+  assert.equal(snapshotAt(15).availableLabel, "1 disponible · voir les détails");
+  assert.equal(snapshotAt(35).availableLabel, "2 disponibles · voir les détails");
+  assert.equal(snapshotAt(35).nextTier, "Un menu complet · encore 15 pts");
+  assert.equal(snapshotAt(50).nextTier, "Dernier palier atteint");
+  assert.equal(snapshotAt(50).lockedTiers, "Tous les paliers sont atteints.");
 });
