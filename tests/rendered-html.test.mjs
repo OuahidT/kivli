@@ -226,9 +226,10 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   assert.equal(snapshotAt(50).lockedTiers, "Tous les paliers sont atteints.");
 });
 
-test("prepares Apple Wallet without enabling an unsigned pass", async () => {
-  const [appleWallet, walletSync, cardRoute, customerCard, migration, documentation] = await Promise.all([
+test("prepares signed Apple Wallet passes without exposing private keys", async () => {
+  const [appleWallet, appleSigning, walletSync, cardRoute, customerCard, migration, documentation] = await Promise.all([
     readFile(new URL("../lib/apple-wallet.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/apple-pass-signing.ts", import.meta.url), "utf8"),
     readFile(new URL("../lib/wallet-sync.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/card/[code]/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/CustomerCard.tsx", import.meta.url), "utf8"),
@@ -243,7 +244,13 @@ test("prepares Apple Wallet without enabling an unsigned pass", async () => {
   assert.match(appleWallet, /webServiceURL: APPLE_WEB_SERVICE_URL/);
   assert.match(appleWallet, /authenticationTokenHash|authentication_token_hash/);
   assert.match(appleWallet, /push_pending = 1/);
-  assert.match(appleWallet, /La signature du pass sera activée après création du certificat Pass Type ID/);
+  assert.match(appleWallet, /buildSignedPkpass/);
+  assert.match(appleWallet, /api\.push\.apple\.com/);
+  assert.match(appleSigning, /manifest\.json/);
+  assert.match(appleSigning, /SignedData/);
+  assert.match(appleSigning, /SIGNING_TIME_ATTRIBUTE/);
+  assert.match(appleSigning, /SHA-1/);
+  assert.match(appleSigning, /SHA-256/);
   assert.match(walletSync, /syncGoogleWalletSafely/);
   assert.match(walletSync, /syncAppleWalletSafely/);
   assert.match(cardRoute, /appleWalletEnabled: appleWalletConfigured\(\)/);
@@ -254,5 +261,5 @@ test("prepares Apple Wallet without enabling an unsigned pass", async () => {
   assert.match(migration, /apple_wallet_devices/);
   assert.match(migration, /apple_wallet_registrations/);
   assert.match(documentation, /APPLE_WALLET_SIGNING_PRIVATE_KEY_PEM/);
-  assert.doesNotMatch(appleWallet + documentation, /BEGIN PRIVATE KEY/);
+  assert.doesNotMatch(appleWallet + appleSigning + documentation, /BEGIN PRIVATE KEY/);
 });

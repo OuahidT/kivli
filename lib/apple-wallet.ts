@@ -2,12 +2,15 @@ import { env } from "cloudflare:workers";
 import { ensureSchema, getD1, queryAll, queryFirst } from "../db";
 import { getCardByCode } from "./data";
 import { walletRewardSnapshot } from "./google-wallet-content";
+import { buildSignedPkpass } from "./apple-pass-signing";
 import type { CardData } from "./types";
 
 const KIVLI_ORIGIN = "https://kivli.fr";
 const APPLE_WEB_SERVICE_URL = `${KIVLI_ORIGIN}/api/apple-wallet`;
 
 type AppleWalletEnv = {
+  ASSETS?: { fetch(request: Request): Promise<Response> };
+  APPLE_WALLET_APNS?: { fetch(request: Request): Promise<Response> };
   APPLE_WALLET_ENABLED?: string;
   APPLE_WALLET_PASS_TYPE_ID?: string;
   APPLE_WALLET_TEAM_ID?: string;
@@ -295,13 +298,61 @@ export async function touchAppleWalletPassByCode(code: string) {
 
 export async function syncAppleWalletSafely(code: string) {
   try {
-    await touchAppleWalletPassByCode(code);
+    const changed = await touchAppleWalletPassByCode(code);
+    if (!changed) return;
+    const card = await getCardByCode(code.toUpperCase());
+    if (!card) return;
+    const serialNumber = safeSerial(card.membershipId);
+    const targets = await pendingAppleWalletPushTargets(serialNumber);
+    const current = runtimeEnv();
+    const config = coreConfig();
+    if (!targets.length || !current.APPLE_WALLET_APNS || !config) return;
+    await Promise.allSettled(targets.map(async ({ pushToken }) => {
+      if (!/^[a-f0-9]{32,256}$/i.test(pushToken)) return;
+      const response = await current.APPLE_WALLET_APNS!.fetch(new Request(`https://api.push.apple.com/3/device/${pushToken}`, {
+        method: "POST",
+        headers: {
+          "apns-priority": "10",
+          "apns-topic": config.passTypeIdentifier,
+          "content-type": "application/json",
+        },
+        body: "{}",
+      }));
+      if (!response.ok) console.error("Notification Apple Wallet refusée.", response.status, await response.text());
+    }));
   } catch (error) {
     console.error("Synchronisation Apple Wallet différée.", error instanceof Error ? error.message : "Erreur inconnue");
   }
 }
 
-export async function createSignedAppleWalletPass(_card: CardData): Promise<Uint8Array> {
-  throw new Error("La signature du pass sera activée après création du certificat Pass Type ID.");
+async function applePassAssets() {
+  const assets = runtimeEnv().ASSETS;
+  if (!assets) throw new Error("Les ressources visuelles Apple Wallet sont indisponibles.");
+  const files: Record<string, Uint8Array> = {};
+  for (const name of ["icon.png", "icon@2x.png", "icon@3x.png"]) {
+    const response = await assets.fetch(new Request(`https://assets.kivli.local/apple-pass/${name}`));
+    if (!response.ok) throw new Error(`La ressource Apple Wallet ${name} est introuvable.`);
+    files[name] = new Uint8Array(await response.arrayBuffer());
+  }
+  return files;
 }
 
+export async function createSignedAppleWalletPass(card: CardData): Promise<Uint8Array> {
+  const current = runtimeEnv();
+  if (!appleWalletConfigured()
+    || !current.APPLE_WALLET_SIGNING_CERTIFICATE_PEM
+    || !current.APPLE_WALLET_SIGNING_PRIVATE_KEY_PEM
+    || !current.APPLE_WALLET_WWDR_CERTIFICATE_PEM) {
+    throw new Error("La signature Apple Wallet n’est pas encore configurée.");
+  }
+  const source = await createAppleStoreCardSource(card);
+  const sourceFiles = {
+    "pass.json": new TextEncoder().encode(JSON.stringify(source)),
+    ...await applePassAssets(),
+  };
+  return buildSignedPkpass(sourceFiles, {
+    signingCertificatePem: current.APPLE_WALLET_SIGNING_CERTIFICATE_PEM,
+    signingPrivateKeyPem: current.APPLE_WALLET_SIGNING_PRIVATE_KEY_PEM,
+    wwdrCertificatePem: current.APPLE_WALLET_WWDR_CERTIFICATE_PEM,
+  });
+}
