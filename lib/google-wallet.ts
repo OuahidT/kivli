@@ -236,7 +236,12 @@ async function upsertClass(card: CardData, issuerId: string) {
   if (!patched.ok) throw new Error(`Mise à jour de la classe Google Wallet impossible (${patched.status}).`);
 }
 
-async function upsertObject(card: CardData, issuerId: string, createWhenMissing: boolean) {
+async function upsertObject(
+  card: CardData,
+  issuerId: string,
+  createWhenMissing: boolean,
+  notifyOnUpdate = false,
+) {
   const body = loyaltyObject(card, issuerId);
   const existing = await walletRequest(`/loyaltyObject/${encodeURIComponent(body.id)}`);
   if (existing.status === 404) {
@@ -249,6 +254,7 @@ async function upsertObject(card: CardData, issuerId: string, createWhenMissing:
   const updates: Record<string, unknown> = { ...body };
   delete updates.id;
   delete updates.classId;
+  if (notifyOnUpdate) updates.notifyPreference = "notifyOnUpdate";
   const patched = await walletRequest(`/loyaltyObject/${encodeURIComponent(body.id)}`, {
     method: "PATCH",
     body: JSON.stringify(updates),
@@ -286,7 +292,7 @@ export async function syncGoogleWalletByCode(code: string) {
   const card = await getCardByCode(code.toUpperCase());
   if (!card) return false;
   await upsertClass(card, config.issuerId);
-  return upsertObject(card, config.issuerId, false);
+  return upsertObject(card, config.issuerId, false, true);
 }
 
 export async function syncGoogleWalletSafely(code: string) {

@@ -198,6 +198,8 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   assert.doesNotMatch(walletContent, /voir les détails/);
   assert.match(wallet, /Prochain palier/);
   assert.match(wallet, /await upsertClass\(card, config\.issuerId\)/);
+  assert.match(wallet, /updates\.notifyPreference = "notifyOnUpdate"/);
+  assert.match(wallet, /upsertObject\(card, config\.issuerId, false, true\)/);
 
   const tiers = [
     { id: "tier-15", threshold: 15, rewardText: "Un café", sortOrder: 0 },
