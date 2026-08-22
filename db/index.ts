@@ -114,6 +114,21 @@ const schemaStatements = [
     message TEXT NOT NULL, program_name TEXT, status TEXT NOT NULL DEFAULT 'pending',
     error_message TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, sent_at TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS apple_wallet_passes (
+    membership_id TEXT PRIMARY KEY, serial_number TEXT NOT NULL UNIQUE,
+    pass_type_identifier TEXT NOT NULL, authentication_token_hash TEXT NOT NULL,
+    last_updated_tag INTEGER NOT NULL, push_pending INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS apple_wallet_devices (
+    device_library_identifier TEXT PRIMARY KEY, push_token TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS apple_wallet_registrations (
+    device_library_identifier TEXT NOT NULL, pass_type_identifier TEXT NOT NULL,
+    serial_number TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (device_library_identifier, pass_type_identifier, serial_number)
+  )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_slug ON merchants(slug)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_email ON merchants(email)`,
   `CREATE INDEX IF NOT EXISTS idx_employees_merchant ON employees(merchant_id)`,
@@ -142,6 +157,8 @@ const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_admin_login_updated ON admin_login_attempts(updated_at)`,
   `CREATE INDEX IF NOT EXISTS idx_merchant_feedback_merchant_created ON merchant_feedback(merchant_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_merchant_feedback_status_created ON merchant_feedback(status, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_apple_wallet_pass_serial ON apple_wallet_passes(pass_type_identifier, serial_number)`,
+  `CREATE INDEX IF NOT EXISTS idx_apple_wallet_registration_pass ON apple_wallet_registrations(pass_type_identifier, serial_number)`,
   `PRAGMA optimize`,
 ];
 
@@ -274,6 +291,9 @@ export async function ensureSchema() {
         db.prepare("DELETE FROM admin_login_attempts WHERE datetime(updated_at) < datetime('now', '-30 days')"),
         db.prepare("DELETE FROM admin_audit_log WHERE datetime(created_at) < datetime('now', '-12 months')"),
         db.prepare("DELETE FROM merchant_feedback WHERE datetime(created_at) < datetime('now', '-24 months')"),
+        db.prepare(`DELETE FROM apple_wallet_registrations WHERE serial_number IN (SELECT ap.serial_number FROM apple_wallet_passes ap JOIN memberships mb ON mb.id = ap.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years'))`),
+        db.prepare(`DELETE FROM apple_wallet_passes WHERE membership_id IN (SELECT id FROM memberships WHERE datetime(updated_at) < datetime('now', '-3 years'))`),
+        db.prepare(`DELETE FROM apple_wallet_devices WHERE NOT EXISTS (SELECT 1 FROM apple_wallet_registrations r WHERE r.device_library_identifier = apple_wallet_devices.device_library_identifier)`),
         db.prepare(`DELETE FROM stamp_reward_links WHERE stamp_id IN (SELECT s.id FROM stamps s JOIN memberships mb ON mb.id = s.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years')) OR reward_id IN (SELECT r.id FROM rewards r JOIN memberships mb ON mb.id = r.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years'))`),
         db.prepare(`DELETE FROM employee_actions WHERE stamp_id IN (SELECT s.id FROM stamps s JOIN memberships mb ON mb.id = s.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years'))`),
         db.prepare(`DELETE FROM rewards WHERE membership_id IN (SELECT id FROM memberships WHERE datetime(updated_at) < datetime('now', '-3 years'))`),
