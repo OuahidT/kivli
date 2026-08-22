@@ -2,7 +2,7 @@ import { ensureSchema, getD1, queryFirst } from "../../../../../db";
 import { getMerchant } from "../../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../../lib/http";
 import { makeId } from "../../../../../lib/ids";
-import { syncGoogleWalletSafely } from "../../../../../lib/google-wallet";
+import { syncWalletsSafely } from "../../../../../lib/wallet-sync";
 
 type UndoPayload = { stampId?: string };
 type RedemptionRow = {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       statements.push(db.prepare("INSERT INTO employee_actions (stamp_id, employee_id) VALUES (?, ?)").bind(undoId, merchant.employeeId));
     }
     await db.batch(statements);
-    await syncGoogleWalletSafely(redemption.code);
+    await syncWalletsSafely(redemption.code);
     return Response.json({ ok: true, firstName: redemption.firstName, rewardText: redemption.rewardText, pointsRestored: redemption.pointsCost, pointsAfter });
   } catch (error) {
     return safeApiError(error);
