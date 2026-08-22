@@ -123,17 +123,25 @@ test("uses a cumulative wallet for spend programs", async () => {
 });
 
 test("keeps first-visit and navigation polish deterministic", async () => {
-  const [dashboard, dashboardRoute, customerCard, scrollReset] = await Promise.all([
+  const [dashboard, dashboardRoute, customerCard, scrollReset, { detectWalletEnvironment }] = await Promise.all([
     readFile(new URL("../components/DashboardApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/merchant/dashboard/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/CustomerCard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/RouteScrollReset.tsx", import.meta.url), "utf8"),
+    import(new URL("../lib/wallet-environment.ts", import.meta.url)),
   ]);
   assert.doesNotMatch(dashboard, /welcome=preview/);
   assert.doesNotMatch(dashboardRoute, /previewWelcome/);
   assert.match(dashboard, /welcomePending: false/);
-  assert.match(customerCard, /card-mobile-save/);
-  assert.match(customerCard, /aria-expanded=\{saveCardOpen\}/);
+  assert.doesNotMatch(customerCard, /Garder ma carte|saveCardOpen|installPrompt/);
+  assert.match(customerCard, /googleWalletEnabled && installEnvironment === "android"/);
+  assert.doesNotMatch(customerCard, /installEnvironment !== "ios"/);
+  assert.match(customerCard, /Bientôt, votre carte pourra être ajoutée à Apple Wallet 🧡/);
+  assert.equal(detectWalletEnvironment("Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X)"), "ios");
+  assert.equal(detectWalletEnvironment("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "MacIntel", 5), "ios");
+  assert.equal(detectWalletEnvironment("Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro)"), "android");
+  assert.equal(detectWalletEnvironment("Mozilla/5.0 (Linux; Android 15; SM-X920)"), "android");
+  assert.equal(detectWalletEnvironment("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "MacIntel", 0), "other");
   assert.match(scrollReset, /window\.scrollTo\(0, 0\)/);
 });
 
