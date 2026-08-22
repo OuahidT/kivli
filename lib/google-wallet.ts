@@ -127,8 +127,8 @@ function loyaltyClass(card: CardData, issuerId: string) {
     issuerName: truncate(card.businessName, 20),
     programName: truncate(card.name, 20),
     programLogo: {
-      sourceUri: { uri: `${KIVLI_ORIGIN}/google-wallet-program-logo.png` },
-      contentDescription: { defaultValue: { language: "fr-FR", value: `Logo ${truncate(card.businessName, 40)}` } },
+      sourceUri: { uri: `${KIVLI_ORIGIN}/google-wallet-transparent-logo.png` },
+      contentDescription: { defaultValue: { language: "fr-FR", value: "Élément visuel temporaire" } },
     },
     accountNameLabel: "Client",
     accountIdLabel: "Code client",
@@ -192,7 +192,7 @@ function loyaltyObject(card: CardData, issuerId: string) {
     textModulesData: [
       { id: "kivli_rewards_count", header: "Récompenses", body: rewardSnapshot.availableLabel },
       { id: "kivli_next_tier", header: "Prochain palier", body: rewardSnapshot.nextTier },
-      { id: "kivli_rewards_hint", header: "Détails", body: "Détails des récompenses · •••" },
+      { id: "kivli_rewards_hint", header: "Détails des récompenses •••" },
       { id: "kivli_all_tiers", header: "Tous les paliers", body: rewardSnapshot.allTiers },
       { id: "kivli_available_tiers", header: "Récompenses accessibles", body: rewardSnapshot.availableTiers },
       { id: "kivli_locked_tiers", header: "À débloquer", body: rewardSnapshot.lockedTiers },
