@@ -186,7 +186,8 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   assert.match(wallet, /header: "Bonjour", body: truncate\(card\.firstName, 20\)/);
   assert.match(wallet, /kivli_rewards_hint/);
   assert.match(wallet, /Détails des récompenses ︙/);
-  assert.match(wallet, /kivli_rewards_hint", body: "Détails des récompenses ︙" }/);\n  assert.doesNotMatch(wallet, /kivli_rewards_hint", header:/);
+  assert.match(wallet, /kivli_rewards_hint", body: "Détails des récompenses ︙" }/);
+  assert.doesNotMatch(wallet, /kivli_rewards_hint", header:/);
   assert.match(wallet, /google-wallet-transparent-logo\.png/);
   assert.doesNotMatch(wallet, /google-wallet-program-logo\.png/);
   assert.match(wallet, /kivli_all_tiers/);
@@ -223,4 +224,35 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   assert.doesNotMatch(snapshotAt(35).nextTier, /menu complet/i);
   assert.match(snapshotAt(35).allTiers, /Un menu complet \(sucré \/ salé\)/);
   assert.equal(snapshotAt(50).lockedTiers, "Tous les paliers sont atteints.");
+});
+
+test("prepares Apple Wallet without enabling an unsigned pass", async () => {
+  const [appleWallet, walletSync, cardRoute, customerCard, migration, documentation] = await Promise.all([
+    readFile(new URL("../lib/apple-wallet.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/wallet-sync.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/card/[code]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/CustomerCard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0004_apple_wallet.sql", import.meta.url), "utf8"),
+    readFile(new URL("../docs/apple-wallet.md", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(appleWallet, /storeCard: appleStoreCardPreview\(card\)/);
+  assert.match(appleWallet, /PKBarcodeFormatQR/);
+  assert.match(appleWallet, /Détails des récompenses disponibles/);
+  assert.match(appleWallet, /Carte de fidélité propulsée par Kivli 🧡/);
+  assert.match(appleWallet, /webServiceURL: APPLE_WEB_SERVICE_URL/);
+  assert.match(appleWallet, /authenticationTokenHash|authentication_token_hash/);
+  assert.match(appleWallet, /push_pending = 1/);
+  assert.match(appleWallet, /La signature du pass sera activée après création du certificat Pass Type ID/);
+  assert.match(walletSync, /syncGoogleWalletSafely/);
+  assert.match(walletSync, /syncAppleWalletSafely/);
+  assert.match(cardRoute, /appleWalletEnabled: appleWalletConfigured\(\)/);
+  assert.match(customerCard, /installEnvironment === "ios"/);
+  assert.match(customerCard, /appleWalletEnabled/);
+  assert.match(customerCard, /apple-wallet-add-fr\.svg/);
+  assert.match(migration, /apple_wallet_passes/);
+  assert.match(migration, /apple_wallet_devices/);
+  assert.match(migration, /apple_wallet_registrations/);
+  assert.match(documentation, /APPLE_WALLET_SIGNING_PRIVATE_KEY_PEM/);
+  assert.doesNotMatch(appleWallet + documentation, /BEGIN PRIVATE KEY/);
 });

@@ -22,6 +22,4 @@ export function toWalletPassPayload(card: CardData): WalletPassPayload {
   };
 }
 
-// The Apple and Google signing adapters intentionally live beyond this shared payload.
-// They can be connected later without changing customer, membership or reward data.
-
+// This neutral payload remains the bridge between Kivli/D1 and external Wallet renderers.
