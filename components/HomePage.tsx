@@ -4,16 +4,28 @@ import { FormEvent, useEffect, useState } from "react";
 import {
   ArrowRight,
   Check,
-  Gift,
+  Dumbbell,
+  Handshake,
   MailCheck,
-  QrCode,
-  ScanLine,
+  MapPin,
   Sparkles,
-  UserPlus,
+  Store,
+  UtensilsCrossed,
   X,
 } from "lucide-react";
+import { motion, MotionConfig } from "motion/react";
 import { Brand } from "./Brand";
-import { QrCode as KivliQrCode } from "./QrCode";
+import { KivliCardScreen, LaptopFrame, OrangeThread, PhoneFrame } from "./DeviceFrames";
+import { ProductShowcase } from "./ProductShowcase";
+
+const SECTORS = [
+  { icon: Store, label: "Boutiques" },
+  { icon: Sparkles, label: "Beauté" },
+  { icon: UtensilsCrossed, label: "Restauration" },
+  { icon: Dumbbell, label: "Sport" },
+  { icon: Handshake, label: "Services" },
+  { icon: MapPin, label: "Commerces locaux" },
+];
 
 export function HomePage() {
   const [step, setStep] = useState<"intro" | "form" | "pending">("intro");
@@ -72,7 +84,10 @@ export function HomePage() {
     setBusy(false);
   }
 
+  const fadeUp = { initial: { opacity: 0, y: 16 }, whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-12%" }, transition: { duration: 0.55, ease: "easeOut" as const } };
+
   return (
+    <MotionConfig reducedMotion="user">
     <main>
       <nav className={`nav${navScrolled ? " nav-scrolled" : ""}`}>
         <div className="nav-inner shell">
@@ -85,7 +100,12 @@ export function HomePage() {
       </nav>
 
       <section className="hero shell">
-        <div className="hero-copy">
+        <motion.div
+          className="hero-copy"
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
           <span className="eyebrow">La fidélité digitale pour tous les commerces</span>
           <h1>Créez une habitude, pas juste une carte.</h1>
           <p className="hero-lead">Kivli réunit carte digitale, scan, récompenses et suivi client dans un outil simple pour les commerces et professionnels du quotidien.</p>
@@ -98,90 +118,100 @@ export function HomePage() {
             <span><b>1 min</b> pour ouvrir son espace</span>
             <span><b>Sans app</b> à télécharger</span>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="hero-visual" aria-label="Aperçu de la carte digitale et du suivi Kivli">
-          <div className="orbit orbit-one" /><div className="orbit orbit-two" />
-          <div className="phone-card iphone-mockup">
-            <img className="iphone-frame-image" src="/kivli-iphone-premium.png" alt="" aria-hidden="true" draggable="false" />
-            <div className="iphone-screen">
-              <div className="phone-top"><span>9:41</span><span className="phone-status" aria-label="Réseau, Wi-Fi et batterie pleine"><svg className="phone-signal" viewBox="0 0 21 15" fill="none"><rect x=".4" y="10.8" width="3.6" height="3.8" rx="1.25" fill="currentColor" /><rect x="5.9" y="7.5" width="3.6" height="7.1" rx="1.25" fill="currentColor" /><rect x="11.4" y="4.15" width="3.6" height="10.45" rx="1.25" fill="currentColor" /><rect x="16.9" y=".4" width="3.6" height="14.2" rx="1.25" fill="currentColor" /></svg><svg className="phone-wifi" viewBox="0 0 25 18" fill="none"><path d="M1 5.65C7.32-.18 17.68-.18 24 5.65l-3.02 3C16.35 4.5 8.65 4.5 4.02 8.65L1 5.65Z" fill="currentColor" /><path d="M6.25 10.88c3.45-3.25 9.05-3.25 12.5 0l-3.03 3.02a4.66 4.66 0 0 0-6.44 0l-3.03-3.02Z" fill="currentColor" /><path d="M10.56 15.14a2.76 2.76 0 0 1 3.88 0L12.5 17.1l-1.94-1.96Z" fill="currentColor" /></svg><svg className="phone-battery" viewBox="0 0 30 15" fill="none"><rect x=".7" y=".85" width="24.3" height="13.3" rx="4.25" stroke="currentColor" strokeWidth="1.4" /><rect x="2.45" y="2.6" width="20.8" height="9.8" rx="2.65" fill="currentColor" /><path d="M26.35 4.8c1.55.58 2.55 1.64 2.55 2.7s-1 2.12-2.55 2.7V4.8Z" fill="currentColor" /></svg></span></div>
-              <div className="kivli-app">
-                <div className="kivli-app-head">
-                  <span className="kivli-app-brand"><i className="kivli-app-mark" aria-hidden="true"><i /><i /><i /></i><b>Kivli</b></span>
-                  <span className="kivli-app-avatar">L</span>
-                </div>
-                <div className="kivli-app-greeting"><small>BONJOUR ANAÏS</small><h3>Ta fidélité prend forme.</h3></div>
-                <section className="kivli-app-card">
-                  <div className="kivli-app-merchant"><span>A</span><div><small>CARTE FIDÉLITÉ</small><strong>Atelier Nova</strong></div><i><Sparkles size={10} aria-hidden="true" />Active</i></div>
-                  <div className="kivli-app-progress"><span><b>6</b> / 8 passages</span><strong>75%</strong></div>
-                  <div className="kivli-app-progressbar"><i /></div>
-                  <div className="kivli-app-stamps" aria-label="6 passages sur 8">
-                    {Array.from({ length: 8 }, (_, index) => <span key={index} className={index < 6 ? "filled" : ""}>{index < 6 ? "✓" : index + 1}</span>)}
-                  </div>
-                  <div className="kivli-app-reward"><span><Gift size={15} aria-hidden="true" /></span><div><small>PROCHAINE RÉCOMPENSE</small><strong>Un avantage au choix</strong></div></div>
-                  <div className="kivli-app-qr"><small>À PRÉSENTER À L’ÉQUIPE</small><div><KivliQrCode value="https://kivli.fr/c/DEMO-KIVLI" size={96} label="Aperçu du QR code personnel Kivli" /></div><code>DEMO-KIVLI</code></div>
-                  <p className="kivli-app-wallet">Disponible dans Google Wallet. Apple Wallet arrive bientôt.</p>
-                </section>
-              </div>
-              <div className="home-indicator" aria-hidden="true" />
-            </div>
-          </div>
-        </div>
+        <motion.div
+          className="land-hero-scene"
+          aria-label="Aperçu de la carte digitale et du suivi Kivli"
+          initial={{ opacity: 0, y: 22 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
+        >
+          <div className="land-alcove" aria-hidden="true" />
+          <div className="land-floor" aria-hidden="true" />
+          <OrangeThread className="land-thread-hero" />
+          <PhoneFrame width={320} tilt className="land-hero-phone">
+            <KivliCardScreen />
+          </PhoneFrame>
+        </motion.div>
       </section>
 
-      <section className="steps-section" id="comment-ca-marche">
-        <div className="shell">
-          <div className="section-heading"><span className="eyebrow">Simple à chaque étape</span><h2>Du premier scan à la prochaine récompense.</h2></div>
-          <div className="steps-grid">
-            <article><span className="step-number">01</span><div className="step-icon"><QrCode size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Vous partagez votre QR code</h3><p>Sur place, sur une affiche, dans un message ou directement depuis votre écran.</p></article>
-            <article><span className="step-number">02</span><div className="step-icon"><UserPlus size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Le client crée sa carte</h3><p>Quelques secondes suffisent. Sa carte digitale et son QR code personnel sont prêts.</p></article>
-            <article><span className="step-number">03</span><div className="step-icon"><ScanLine size={30} strokeWidth={1.8} aria-hidden="true" /></div><h3>Votre équipe suit les passages</h3><p>Un scan met à jour la progression, l’historique et les récompenses disponibles.</p></article>
-          </div>
+      <section className="land-journey shell" id="comment-ca-marche">
+        <div className="section-heading"><span className="eyebrow">Simple à chaque étape</span><h2>Du premier scan à la prochaine récompense.</h2></div>
+        <div className="land-journey-scene">
+          <div className="land-journey-plinth" aria-hidden="true" />
+          <ol className="land-journey-devices">
+            <motion.li className="land-journey-item land-journey-item-side" {...fadeUp}>
+              <LaptopFrame src="/product-real/dashboard.jpg" alt="Tableau de bord Kivli avec les actions Créer une carte et Scanner un client" />
+              <div className="land-journey-caption"><span className="land-step-number">01</span><h3>Vous partagez votre QR code</h3><p>Sur place, sur une affiche, dans un message ou directement depuis votre écran.</p></div>
+            </motion.li>
+            <motion.li className="land-journey-item land-journey-item-center" {...fadeUp} transition={{ ...(fadeUp.transition ?? {}), delay: 0.1 }}>
+              <PhoneFrame width={220}>
+                <img className="land-phone-shot" src="/product-real/client-card-full.jpg" alt="Véritable carte fidélité Kivli créée par un client" loading="lazy" decoding="async" />
+              </PhoneFrame>
+              <div className="land-journey-caption"><span className="land-step-number">02</span><h3>Le client crée sa carte</h3><p>Quelques secondes suffisent. Sa carte digitale et son QR code personnel sont prêts.</p></div>
+            </motion.li>
+            <motion.li className="land-journey-item land-journey-item-side" {...fadeUp} transition={{ ...(fadeUp.transition ?? {}), delay: 0.2 }}>
+              <LaptopFrame src="/product-real/scanner.jpg" alt="Écran du scanner Kivli prêt à valider un passage" />
+              <div className="land-journey-caption"><span className="land-step-number">03</span><h3>Votre équipe suit les passages</h3><p>Un scan met à jour la progression, l’historique et les récompenses disponibles.</p></div>
+            </motion.li>
+          </ol>
         </div>
+        <OrangeThread className="land-thread-journey" />
       </section>
 
-      <section className="product-section shell" id="produit">
-        <div className="section-heading product-heading">
-          <span className="eyebrow">Le produit, sans détour</span>
-          <h2>Chaque écran a un rôle clair.</h2>
-          <p>Le client garde sa carte. L’équipe scanne. Le responsable pilote. Tout le monde voit uniquement ce dont il a besoin.</p>
-        </div>
-        <div className="real-product-grid">
-          <article className="real-product-card real-product-card-wide">
-            <div className="real-product-copy"><span>TABLEAU DE BORD COMMERÇANT</span><h3>Le pilotage utile, dès l’ouverture.</h3><p>Les indicateurs, les accès rapides et l’activité récente réunis sur le véritable écran d’accueil Kivli.</p></div>
-            <div className="real-product-window"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>kivli.fr/dashboard</small></div><img src="/product-real/dashboard.jpg" alt="Véritable tableau de bord commerçant Kivli pour Studio Nova" loading="lazy" /></div>
-          </article>
-          <article className="real-product-card">
-            <div className="real-product-copy"><span>CARTE CLIENT</span><h3>La progression et le QR code, au même endroit.</h3><p>Une vraie carte créée dans Kivli, avec ses paliers et sa prochaine récompense.</p></div>
-            <div className="real-product-window real-product-window-card"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>Carte d’Anaïs</small></div><img src="/product-real/client-card.jpg" alt="Véritable carte client Kivli de Studio Nova avec six points" loading="lazy" /></div>
-          </article>
-          <article className="real-product-card">
-            <div className="real-product-copy"><span>SCANNER</span><h3>Un passage validé sans détour.</h3><p>Caméra, saisie manuelle et quantité de points depuis le véritable espace de scan.</p></div>
-            <div className="real-product-window"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>Espace équipe</small></div><img src="/product-real/scanner.jpg" alt="Véritable écran du scanner Kivli" loading="lazy" /></div>
-          </article>
-          <article className="real-product-card">
-            <div className="real-product-copy"><span>PROGRAMME</span><h3>Une carte fidèle à chaque commerce.</h3><p>Couleur, récompenses et conditions restent modifiables depuis l’interface réelle.</p></div>
-            <div className="real-product-window"><div className="real-product-bar" aria-hidden="true"><i /><i /><i /><small>Mon programme</small></div><img src="/product-real/program.jpg" alt="Véritable écran de gestion du programme Kivli" loading="lazy" /></div>
-          </article>
-        </div>
-      </section>
+      <ProductShowcase />
 
       <section className="sector-section">
         <div className="shell">
           <span className="eyebrow">Une fidélité qui s’adapte à votre activité</span>
-          <div className="sector-list" aria-label="Activités compatibles avec Kivli">
-            <span>Boutiques</span><span>Beauté</span><span>Restauration</span><span>Sport</span><span>Services</span><span>Commerces locaux</span>
+          <div className="sector-list land-sector-list" aria-label="Activités compatibles avec Kivli">
+            {SECTORS.map(({ icon: Icon, label }) => (
+              <span key={label}><Icon size={16} strokeWidth={1.8} aria-hidden="true" />{label}</span>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="feature-band shell">
-        <div><span className="eyebrow">Kivli — La fidélité, simplement.</span><h2>Vous gardez le lien. Kivli garde le rythme.</h2><p>Cartes, passages, récompenses, historique et accès équipe restent réunis dans un outil lisible sur mobile comme sur ordinateur.</p></div>
-        <div className="feature-list"><span><Check size={17} aria-hidden="true" />QR code unique par client</span><span><Check size={17} aria-hidden="true" />Progression en temps réel</span><span><Check size={17} aria-hidden="true" />Récompenses automatiques</span><span><Check size={17} aria-hidden="true" />Accès équipe limité</span></div>
+      <section className="land-cta shell">
+        <motion.div className="land-cta-copy" {...fadeUp}>
+          <span className="eyebrow">Kivli — La fidélité, simplement.</span>
+          <h2>Vous gardez le lien. Kivli garde le rythme.</h2>
+          <p>Cartes, passages, récompenses, historique et accès équipe restent réunis dans un outil lisible sur mobile comme sur ordinateur.</p>
+          <div className="feature-list">
+            <span><Check size={17} aria-hidden="true" />QR code unique par client</span>
+            <span><Check size={17} aria-hidden="true" />Progression en temps réel</span>
+            <span><Check size={17} aria-hidden="true" />Récompenses automatiques</span>
+            <span><Check size={17} aria-hidden="true" />Accès équipe limité</span>
+          </div>
+          <div className="land-cta-actions">
+            <button className="button button-large button-light" onClick={() => setStep("form")}>Créer mon compte <ArrowRight size={18} aria-hidden="true" /></button>
+            <div className="trust-row land-cta-trust">
+              <span><b>0 €</b> pour commencer</span>
+              <span><b>1 min</b> pour ouvrir son espace</span>
+              <span><b>Sans app</b> à télécharger</span>
+            </div>
+          </div>
+        </motion.div>
+        <div className="land-cta-scene" aria-hidden="true">
+          <div className="land-alcove land-alcove-cta" />
+          <div className="land-floor land-floor-cta" />
+          <div className="land-cta-devices">
+            <LaptopFrame src="/product-real/program.jpg" alt="" className="land-cta-laptop" />
+            <PhoneFrame width={190} tilt className="land-cta-phone">
+              <img className="land-phone-shot" src="/product-real/client-card-full.jpg" alt="" loading="lazy" decoding="async" />
+            </PhoneFrame>
+          </div>
+        </div>
       </section>
 
-      <footer className="footer"><div className="shell"><div><Brand light /><p>La fidélité, simplement.</p></div><nav className="footer-links" aria-label="Informations et accès"><a href="/merchant">Espace commerçant →</a><a href="/mentions-legales">Mentions légales</a><a href="/confidentialite">Confidentialité</a><a href="/conditions-pilote">Pilote gratuit</a><a href="/accord-traitement-donnees">Annexe RGPD</a></nav></div></footer>
+      <footer className="footer">
+        <div className="shell">
+          <div><Brand light /><p>La fidélité, simplement.</p></div>
+          <nav className="footer-links" aria-label="Informations et accès"><a href="/merchant">Espace commerçant →</a><a href="/mentions-legales">Mentions légales</a><a href="/confidentialite">Confidentialité</a><a href="/conditions-pilote">Pilote gratuit</a><a href="/accord-traitement-donnees">Annexe RGPD</a></nav>
+        </div>
+        <p className="land-footer-signature" aria-hidden="true">Kivli</p>
+      </footer>
 
       {step !== "intro" && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStep("intro"); }}>
@@ -205,5 +235,6 @@ export function HomePage() {
         </div>
       )}
     </main>
+    </MotionConfig>
   );
 }
