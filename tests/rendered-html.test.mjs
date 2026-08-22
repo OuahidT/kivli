@@ -154,7 +154,7 @@ test("keeps first-visit and navigation polish deterministic", async () => {
 
 test("keeps the premium iPhone mockup tightly fitted to its screen", async () => {
   const [homePage, styles] = await Promise.all([
-    readFile(new URL("../components/DeviceFrames.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/HomePage.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
