@@ -18,14 +18,16 @@ export function CustomerCard({ code }: { code: string }) {
   const [googleWalletEnabled, setGoogleWalletEnabled] = useState(false);
   const [googleWalletBusy, setGoogleWalletBusy] = useState(false);
   const [googleWalletError, setGoogleWalletError] = useState("");
+  const [appleWalletEnabled, setAppleWalletEnabled] = useState(false);
 
   useEffect(() => {
     fetch(`/api/card/${encodeURIComponent(code)}`, { cache: "no-store" })
       .then(async (response) => {
-        const data = (await response.json()) as { card?: CardData; googleWalletEnabled?: boolean; error?: string };
+        const data = (await response.json()) as { card?: CardData; googleWalletEnabled?: boolean; appleWalletEnabled?: boolean; error?: string };
         if (!response.ok) throw new Error(data.error);
         setCard(data.card ?? null);
         setGoogleWalletEnabled(Boolean(data.googleWalletEnabled));
+        setAppleWalletEnabled(Boolean(data.appleWalletEnabled));
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Carte introuvable."));
   }, [code]);
@@ -120,7 +122,10 @@ export function CustomerCard({ code }: { code: string }) {
               {googleWalletBusy && <small className="google-wallet-status" role="status">Préparation de ta carte…</small>}
               {googleWalletError && <small className="google-wallet-error" role="alert">{googleWalletError}</small>}
             </div>
-          </div> : installEnvironment === "ios" ? <div className="card-wallet-slot"><p className="apple-wallet-coming-soon"><WalletCards size={14} aria-hidden="true" />Bientôt, votre carte pourra être ajoutée à Apple Wallet 🧡</p></div> : null}
+          </div> : installEnvironment === "ios" ? <div className="card-wallet-slot">{appleWalletEnabled
+            ? <a className="apple-wallet-button" href={`/api/card/${encodeURIComponent(card.code)}/apple-wallet`} aria-label="Ajouter à Apple Wallet"><img src="/apple-wallet-add-fr.svg" alt="Ajouter à Apple Wallet" /></a>
+            : <p className="apple-wallet-coming-soon"><WalletCards size={14} aria-hidden="true" />Bientôt, votre carte pourra être ajoutée à Apple Wallet 🧡</p>}
+          </div> : null}
 
           <details className="card-mobile-privacy-control">
             <summary aria-label="Confidentialité et conditions"><ShieldCheck size={15} aria-hidden="true" /></summary>
