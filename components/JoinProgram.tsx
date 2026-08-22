@@ -67,7 +67,13 @@ export function JoinProgram({ slug }: { slug: string }) {
             <label>Ton prénom<input name="firstName" autoComplete="given-name" placeholder="Anaïs" required /></label>
             <label>Ton numéro de téléphone<input name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="06 12 34 56 78" required /><small>Obligatoire pour identifier et retrouver ta carte. Il ne sera pas utilisé pour des offres sans ton accord séparé.</small></label>
             <small className="join-privacy-note">{program.businessName} est responsable de ton programme ; Kivli héberge la carte pour son compte. Prénom et téléphone sont nécessaires au service. <a href="/confidentialite" target="_blank" rel="noreferrer">Données et droits</a>.</small>
-            <label className="consent-check"><input name="marketingConsent" type="checkbox" /><span>J’accepte que {program.businessName} m’envoie ses offres par SMS. Je pourrai retirer mon accord depuis ma carte. <em>Facultatif</em></span></label>
+            <label className="consent-check join-sms-consent">
+              <input name="marketingConsent" type="checkbox" />
+              <span className="join-sms-consent-copy">
+                <span>J’accepte que {program.businessName} m’envoie ses offres par SMS. Je pourrai retirer mon accord depuis ma carte.</span>
+                <em>Facultatif</em>
+              </span>
+            </label>
             {error && <p className="form-error" role="alert">{error}</p>}
             <button className="button button-large button-full merchant-button" disabled={busy}>{busy ? "Création…" : "Obtenir ma carte"}</button>
           </form>
