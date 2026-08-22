@@ -1945,6 +1945,13 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 .form-legal-consent span { color: #57534c; font-size: 11px; font-weight: 600; line-height: 1.55; }
 .form-legal-consent a, .form-privacy-note a, .join-privacy-note a, .card-privacy-menu a, .mobile-privacy-settings a { color: var(--orange-dark); font-weight: 780; text-underline-offset: 2px; }
 .form-privacy-note, .join-privacy-note { display: block; color: #7b766e; font-size: 10px; line-height: 1.55; }
+.join-sms-consent { min-width: 0; grid-template-columns: 20px minmax(0, 1fr)!important; gap: 11px!important; align-items: start!important; padding: 13px 14px!important; border: 1px solid #ded9cf; border-radius: 14px; background: linear-gradient(135deg, #faf8f3, #f6f2ea); color: #4f4b44; cursor: pointer; transition: border-color .16s ease, background-color .16s ease, box-shadow .16s ease; }
+.join-sms-consent:hover { border-color: #d3ccc0; background: #fbfaf6; }
+.join-sms-consent:focus-within { border-color: color-mix(in srgb, var(--merchant) 58%, #d3ccc0); box-shadow: 0 0 0 3px color-mix(in srgb, var(--merchant) 12%, transparent); }
+.join-sms-consent > input { width: 18px!important; height: 18px; min-height: 0; margin: 1px 0 0!important; padding: 0; border-radius: 5px; accent-color: var(--merchant); cursor: pointer; }
+.join-sms-consent-copy { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; font-size: 11px; font-weight: 620; line-height: 1.48; }
+.join-sms-consent-copy > span { min-width: 0; overflow-wrap: anywhere; }
+.join-sms-consent-copy > em { align-self: start; padding: 3px 7px; border: 1px solid color-mix(in srgb, var(--merchant) 18%, #ded9cf); border-radius: 999px; background: color-mix(in srgb, var(--merchant) 7%, #fff); color: #777168; font-size: 8px; font-weight: 800; line-height: 1.2; letter-spacing: .04em; white-space: nowrap; }
 .auth-legal-links { margin-top: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 7px 14px; }
 .auth-legal-links a { color: #817c73; font-size: 10px; text-decoration: none; }
 .auth-legal-links a:hover { color: var(--orange-dark); text-decoration: underline; }
@@ -2264,4 +2271,10 @@ html[data-route-reset="true"] { scroll-behavior: auto; }
   .customer-wrap .loyalty-card:has(.card-mobile-tools details[open]),
   .customer-wrap .loyalty-card:has(.reward-ready-details[open]) { overflow-y: auto; align-content: start; }
   .legal-nav.legal-nav-scrolled { min-height: 64px; }
+}
+
+@media (max-width: 390px) {
+  .join-sms-consent { gap: 10px!important; padding: 12px!important; }
+  .join-sms-consent-copy { grid-template-columns: minmax(0, 1fr); gap: 6px; font-size: 10.5px; line-height: 1.46; }
+  .join-sms-consent-copy > em { justify-self: start; }
 }

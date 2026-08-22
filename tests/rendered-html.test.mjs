@@ -123,10 +123,11 @@ test("uses a cumulative wallet for spend programs", async () => {
 });
 
 test("keeps first-visit and navigation polish deterministic", async () => {
-  const [dashboard, dashboardRoute, customerCard, scrollReset, { detectWalletEnvironment }] = await Promise.all([
+  const [dashboard, dashboardRoute, customerCard, joinProgram, scrollReset, { detectWalletEnvironment }] = await Promise.all([
     readFile(new URL("../components/DashboardApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/merchant/dashboard/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/CustomerCard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/JoinProgram.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/RouteScrollReset.tsx", import.meta.url), "utf8"),
     import(new URL("../lib/wallet-environment.ts", import.meta.url)),
   ]);
@@ -139,6 +140,10 @@ test("keeps first-visit and navigation polish deterministic", async () => {
   assert.match(customerCard, /Bientôt, votre carte pourra être ajoutée à Apple Wallet 🧡/);
   assert.match(customerCard, /card-mobile-privacy-control/);
   assert.match(customerCard, /Retirer mon accord aux offres SMS/);
+  assert.match(joinProgram, /className="consent-check join-sms-consent"/);
+  assert.match(joinProgram, /className="join-sms-consent-copy"/);
+  assert.match(joinProgram, /name="marketingConsent" type="checkbox"/);
+  assert.doesNotMatch(joinProgram, /name="marketingConsent"[^>]*(?:checked|defaultChecked)/);
   assert.equal(detectWalletEnvironment("Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X)"), "ios");
   assert.equal(detectWalletEnvironment("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "MacIntel", 5), "ios");
   assert.equal(detectWalletEnvironment("Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro)"), "android");
