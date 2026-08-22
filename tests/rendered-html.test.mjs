@@ -182,6 +182,8 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   assert.match(wallet, /object\.loyaltyPoints\.balance/);
   assert.match(wallet, /kivli_rewards_count/);
   assert.match(wallet, /kivli_next_tier/);
+  assert.match(wallet, /kivli_rewards_hint/);
+  assert.match(wallet, /Détails des récompenses · •••/);
   assert.match(wallet, /kivli_all_tiers/);
   assert.match(wallet, /kivli_available_tiers/);
   assert.match(wallet, /kivli_locked_tiers/);
