@@ -50,6 +50,7 @@ export type AppleStoreCardSource = {
   barcode: { format: "PKBarcodeFormatQR"; message: string; messageEncoding: "iso-8859-1"; altText: string };
   barcodes: Array<{ format: "PKBarcodeFormatQR"; message: string; messageEncoding: "iso-8859-1"; altText: string }>;
   storeCard: {
+    headerFields: ApplePassField[];
     primaryFields: ApplePassField[];
     secondaryFields: ApplePassField[];
     auxiliaryFields: ApplePassField[];
@@ -149,16 +150,26 @@ function appleRewardDetails(card: CardData) {
 
 export function appleStoreCardPreview(card: CardData) {
   const details = appleRewardDetails(card);
-  const balanceUnit = card.earningMode === "spend" ? "points" : "passages";
+  const balanceLabel = card.earningMode === "spend" ? "POINTS" : "PASSAGES";
   return {
-    primaryFields: [{ key: "balance", label: "SOLDE", value: `${card.points} ${balanceUnit}` }],
+    headerFields: [
+      {
+        key: "balance",
+        label: balanceLabel,
+        value: card.points,
+        changeMessage: card.earningMode === "spend"
+          ? "Votre solde est maintenant de %@ points."
+          : "Votre progression est maintenant de %@ passages.",
+        textAlignment: "PKTextAlignmentRight",
+      },
+    ],
+    primaryFields: [],
     secondaryFields: [
       { key: "rewards", label: "RÉCOMPENSES", value: details.snapshot.availableLabel },
       { key: "next-tier", label: "PROCHAIN PALIER", value: details.snapshot.nextTier },
     ],
     auxiliaryFields: [
-      { key: "customer", label: "BONJOUR", value: card.firstName },
-      { key: "reward-details", value: "Détails des récompenses disponibles" },
+      { key: "customer", label: "CARTE DE", value: card.firstName },
     ],
     backFields: [
       { key: "all-tiers", label: "Tous les paliers", value: details.allTiers },
