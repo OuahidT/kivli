@@ -242,8 +242,9 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
   assert.match(appleWallet, /headerFields/);
   assert.match(appleWallet, /label: balanceLabel/);
   assert.match(appleWallet, /textAlignment: "PKTextAlignmentCenter"/);
-  assert.match(appleWallet, /Détails des récompenses au dos •••/);
-  assert.match(appleWallet, /label: "CARTE DE"/);
+  assert.match(appleWallet, /DÉTAILS DES RÉCOMPENSES/);
+  assert.match(appleWallet, /value: "Au dos •••"/);
+  assert.match(appleWallet, /label: "Carte de fidélité de"/);
   assert.doesNotMatch(appleWallet, /Détails des récompenses disponibles/);
   assert.match(appleWallet, /Carte de fidélité propulsée par Kivli 🧡/);
   assert.match(appleWallet, /webServiceURL: APPLE_WEB_SERVICE_URL/);
