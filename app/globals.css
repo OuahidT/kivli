@@ -1376,6 +1376,7 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   line-height: 1.35;
 }
 .apple-wallet-coming-soon svg { flex: 0 0 auto; opacity: .82; }
+.card-mobile-privacy-control { display: none; }
 .save-card-install {
   min-height: 39px;
   margin-top: 12px;
@@ -1618,6 +1619,45 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .card-wallet-slot .google-wallet-error { color: rgba(255,255,255,.86)!important; font-size: 7px!important; }
   .card-wallet-slot .google-wallet-error { color: #fff!important; }
   .apple-wallet-coming-soon { max-width: 285px; font-size: 8px; }
+  .card-mobile-privacy-control {
+    position: absolute!important;
+    z-index: 4!important;
+    right: 13px;
+    bottom: 13px;
+    display: block;
+  }
+  .card-mobile-privacy-control summary {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 10px;
+    background: rgba(255,255,255,.12);
+    color: rgba(255,255,255,.82);
+    list-style: none;
+    cursor: pointer;
+  }
+  .card-mobile-privacy-control summary::-webkit-details-marker { display: none; }
+  .card-mobile-privacy-popover {
+    position: absolute;
+    right: 0;
+    bottom: 39px;
+    width: min(300px, calc(100vw - 42px));
+    padding: 13px;
+    display: grid;
+    gap: 10px;
+    border-radius: 14px;
+    background: #fff;
+    color: var(--muted);
+    box-shadow: 0 18px 45px rgba(20,16,12,.24);
+  }
+  .card-mobile-privacy-popover > div { display: flex; align-items: flex-start; gap: 8px; }
+  .card-mobile-privacy-popover > div + div { padding-top: 10px; border-top: 1px solid #ece8df; }
+  .card-mobile-privacy-popover svg { flex: 0 0 auto; color: var(--merchant); }
+  .card-mobile-privacy-popover p { margin: 0; font-size: 8px; line-height: 1.45; }
+  .card-mobile-privacy-popover strong { display: block; margin-bottom: 3px; color: var(--ink); font-size: 9px; }
+  .card-mobile-privacy-popover a { color: var(--orange-dark); font-weight: 780; text-underline-offset: 2px; }
   .customer-wrap .loyalty-card:has(.card-mobile-tools details[open]),
   .customer-wrap .loyalty-card:has(.reward-ready-details[open]) { overflow-y: auto; align-content: start; }
 
