@@ -1345,6 +1345,37 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
 .google-wallet-status,
 .google-wallet-error { margin: 0 8px!important; padding: 0!important; border: 0!important; font-size: 9px!important; }
 .google-wallet-error { color: #a62d20!important; }
+.card-wallet-slot {
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  align-self: end;
+  padding-top: 4px;
+  text-align: center;
+}
+.card-wallet-action {
+  width: 100%;
+  justify-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.card-wallet-slot .google-wallet-button { min-height: 52px; padding: 0; }
+.card-wallet-slot .google-wallet-button img { height: 48px; }
+.card-wallet-slot .google-wallet-status,
+.card-wallet-slot .google-wallet-error { margin-inline: auto!important; text-align: center; }
+.apple-wallet-coming-soon {
+  max-width: 360px;
+  margin: 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: rgba(255,255,255,.72);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.apple-wallet-coming-soon svg { flex: 0 0 auto; opacity: .82; }
 .save-card-install {
   min-height: 39px;
   margin-top: 12px;
@@ -1582,6 +1613,11 @@ select:focus-visible { outline: 3px solid color-mix(in srgb, var(--orange) 35%, 
   .card-mobile-tools .google-wallet-status,
   .card-mobile-tools .google-wallet-error { color: rgba(255,255,255,.82)!important; font-size: 7px!important; }
   .card-mobile-tools .google-wallet-error { color: #fff!important; }
+  .card-wallet-slot { min-height: 48px; padding-top: 0; }
+  .card-wallet-slot .google-wallet-status,
+  .card-wallet-slot .google-wallet-error { color: rgba(255,255,255,.86)!important; font-size: 7px!important; }
+  .card-wallet-slot .google-wallet-error { color: #fff!important; }
+  .apple-wallet-coming-soon { max-width: 285px; font-size: 8px; }
   .customer-wrap .loyalty-card:has(.card-mobile-tools details[open]),
   .customer-wrap .loyalty-card:has(.reward-ready-details[open]) { overflow-y: auto; align-content: start; }
 

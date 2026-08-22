@@ -1,28 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Download, Gift, Home, QrCode as QrCodeIcon, RefreshCw, Share2, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
+import { Check, ChevronDown, Gift, QrCode as QrCodeIcon, RefreshCw, Share2, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 import { Brand } from "./Brand";
 import { QrCode } from "./QrCode";
 import type { CardData } from "../lib/types";
 import { visibleProgramTerms } from "../lib/program-style";
-
-type InstallEnvironment = "ios" | "android" | "other";
-
-type InstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
+import { detectWalletEnvironment, type WalletEnvironment } from "../lib/wallet-environment";
 
 export function CustomerCard({ code }: { code: string }) {
   const [card, setCard] = useState<CardData | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const [installEnvironment, setInstallEnvironment] = useState<InstallEnvironment>("other");
-  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  const [installEnvironment, setInstallEnvironment] = useState<WalletEnvironment>("other");
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [privacyMessage, setPrivacyMessage] = useState("");
-  const [saveCardOpen, setSaveCardOpen] = useState(false);
   const [googleWalletEnabled, setGoogleWalletEnabled] = useState(false);
   const [googleWalletBusy, setGoogleWalletBusy] = useState(false);
   const [googleWalletError, setGoogleWalletError] = useState("");
@@ -39,16 +31,7 @@ export function CustomerCard({ code }: { code: string }) {
   }, [code]);
 
   useEffect(() => {
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isIPad = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
-    setInstallEnvironment(/iphone|ipad|ipod/.test(userAgent) || isIPad ? "ios" : /android/.test(userAgent) ? "android" : "other");
-
-    const captureInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as InstallPromptEvent);
-    };
-    window.addEventListener("beforeinstallprompt", captureInstallPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
+    setInstallEnvironment(detectWalletEnvironment(navigator.userAgent, navigator.platform, navigator.maxTouchPoints));
   }, []);
 
   if (!card && !error) return <main className="public-card-page"><div className="loading-card public-state"><Brand /><span className="public-state-icon public-state-loading"><RefreshCw size={23} aria-hidden="true" /></span><p>Chargement de ta carte…</p></div></main>;
@@ -75,13 +58,6 @@ export function CustomerCard({ code }: { code: string }) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     }
-  }
-
-  async function install() {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    await installPrompt.userChoice;
-    setInstallPrompt(null);
   }
 
   async function addToGoogleWallet() {
@@ -114,12 +90,6 @@ export function CustomerCard({ code }: { code: string }) {
     }
   }
 
-  const installCopy = installEnvironment === "ios"
-    ? <>Dans Safari, touche <strong>Partager</strong>, puis <strong>Sur l’écran d’accueil</strong>.</>
-    : installEnvironment === "android"
-      ? <>Ouvre le menu du navigateur, puis choisis <strong>Ajouter à l’écran d’accueil</strong> ou <strong>Installer l’application</strong>.</>
-      : <>Enregistre ce lien dans tes favoris. Sur ton téléphone, tu pourras aussi ajouter cette carte à l’écran d’accueil depuis le menu du navigateur.</>;
-
   return (
     <main className="customer-page" style={{ "--merchant": card.accentColor } as React.CSSProperties}>
       <nav className="customer-nav"><Brand /><button className="icon-button" onClick={share} aria-label="Partager la carte">{copied ? <Check size={20} aria-hidden="true" /> : <Share2 size={19} aria-hidden="true" />}</button></nav>
@@ -144,43 +114,19 @@ export function CustomerCard({ code }: { code: string }) {
             <code className="card-qr-mobile-code">{card.code}</code>
           </div>
 
-          <div className="card-mobile-tools">
-            <div className={`card-mobile-save${saveCardOpen ? " is-open" : ""}`}>
-              <button type="button" className="card-mobile-save-trigger" aria-expanded={saveCardOpen} aria-controls="save-card-help" onClick={() => setSaveCardOpen((open) => !open)}><Home size={15} aria-hidden="true" /><span>Garder ma carte</span><ChevronDown size={15} aria-hidden="true" /></button>
-              <div id="save-card-help" className="card-mobile-tools-content">
-                <strong>Garde ta carte à portée de main</strong>
-                <p>{installCopy}</p>
-                {installEnvironment === "android" && installPrompt ? <button className="save-card-install" type="button" onClick={install}><Download size={16} aria-hidden="true" />Installer Kivli</button> : null}
-                <div><ShieldCheck size={17} aria-hidden="true" /><p><strong>Conditions du programme</strong>{terms}</p></div>
-                <div className="mobile-privacy-settings"><ShieldCheck size={17} aria-hidden="true" /><p><strong>Tes données</strong><a href="/confidentialite" target="_blank">Voir tes droits et la politique de confidentialité</a>{card.marketingConsent ? <button type="button" className="privacy-withdraw-link" onClick={withdrawMarketing} disabled={privacyBusy}>{privacyBusy ? "Modification…" : "Retirer mon accord aux offres SMS"}</button> : null}{privacyMessage && <small className="privacy-feedback" role="status">{privacyMessage}</small>}</p></div>
-              </div>
-            </div>
-            {googleWalletEnabled && installEnvironment !== "ios" ? <div className="google-wallet-action">
+          {googleWalletEnabled && installEnvironment === "android" ? <div className="card-wallet-slot">
+            <div className="google-wallet-action card-wallet-action">
               <button type="button" className="google-wallet-button" onClick={addToGoogleWallet} disabled={googleWalletBusy} aria-label="Ajouter à Google Wallet"><img src="/google-wallet-add-fr.svg" alt="Ajouter à Google Wallet" /></button>
               {googleWalletBusy && <small className="google-wallet-status" role="status">Préparation de ta carte…</small>}
               {googleWalletError && <small className="google-wallet-error" role="alert">{googleWalletError}</small>}
-            </div> : <small><WalletCards size={14} aria-hidden="true" />Apple Wallet sera bientôt disponible sur iPhone.</small>}
-          </div>
+            </div>
+          </div> : installEnvironment === "ios" ? <div className="card-wallet-slot"><p className="apple-wallet-coming-soon"><WalletCards size={14} aria-hidden="true" />Bientôt, votre carte pourra être ajoutée à Apple Wallet 🧡</p></div> : null}
         </div>
 
         <div className="qr-panel">
           <div><span className="eyebrow"><QrCodeIcon size={15} aria-hidden="true" />À présenter sur place</span><h2>Ton QR code personnel</h2><p>Présente cet écran au professionnel. Le scan ajoute ton passage ou permet de remettre ta récompense.</p><div className="qr-instruction"><span>1</span>Ouvre cette carte lors de ta visite<i /><span>2</span>Présente le QR code à l’équipe</div></div>
           <div className="qr-box"><QrCode value={`${appOrigin}/c/${card.code}`} size={210} label={`QR code personnel de ${card.firstName}`} /><code>{card.code}</code></div>
         </div>
-
-        <aside className="save-card-panel">
-          <span className="save-card-icon"><Home size={20} aria-hidden="true" /></span>
-          <div>
-            <strong>Garde ta carte à portée de main</strong>
-            <p>{installCopy}</p>
-            {installEnvironment === "android" && installPrompt ? <button className="save-card-install" type="button" onClick={install}><Download size={16} aria-hidden="true" />Installer Kivli</button> : null}
-            {googleWalletEnabled && installEnvironment !== "ios" ? <div className="google-wallet-action google-wallet-action-desktop">
-              <button type="button" className="google-wallet-button" onClick={addToGoogleWallet} disabled={googleWalletBusy} aria-label="Ajouter à Google Wallet"><img src="/google-wallet-add-fr.svg" alt="Ajouter à Google Wallet" /></button>
-              {googleWalletBusy && <small className="google-wallet-status" role="status">Préparation de ta carte…</small>}
-              {googleWalletError && <small className="google-wallet-error" role="alert">{googleWalletError}</small>}
-            </div> : <small><WalletCards size={15} aria-hidden="true" />Apple Wallet sera bientôt disponible sur iPhone.</small>}
-          </div>
-        </aside>
 
         <aside className="card-terms"><span><ShieldCheck size={21} aria-hidden="true" /></span><div><strong>Conditions du programme</strong><p>{terms}</p></div></aside>
 
