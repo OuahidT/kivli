@@ -2,7 +2,7 @@ import { ensureSchema, getD1, queryAll, queryFirst } from "../../../../db";
 import { getMerchant, isOwner } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
-import { syncGoogleWalletSafely } from "../../../../lib/google-wallet";
+import { syncWalletsSafely } from "../../../../lib/wallet-sync";
 
 type Member = { id: string; firstName: string; points: number; goal: number; programId: string; availableRewards: number; earningMode: "visits" | "spend" };
 type Tier = { id: string; threshold: number; rewardText: string };
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       );
     }
     await db.batch(statements);
-    await syncGoogleWalletSafely(code);
+    await syncWalletsSafely(code);
     const availableRewards = member.earningMode === "spend" ? tiers.filter((tier) => tier.threshold <= pointsAfter).length : member.availableRewards + earned.length;
     return Response.json({ ok: true, stampId, firstName: member.firstName, points: pointsAfter, quantity, rewardsEarned: earned.length, availableRewards });
   } catch (error) { return safeApiError(error); }
