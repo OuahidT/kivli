@@ -241,7 +241,8 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   });
   assert.equal(visitSnapshot.nextTier, "Encore 6 passages");
   assert.match(visitSnapshot.allTiers, /10 passages · Une boisson offerte/);
-  assert.match(wallet, /string: `\$\{card\.points\} \/ \$\{card\.goal\}`/);
+  assert.match(wallet, /kivli_progress/);
+  assert.match(wallet, /header: "Progression", body: `\$\{card\.points\} \/ \$\{card\.goal\}`/);
 });
 
 test("prepares signed Apple Wallet passes without exposing private keys", async () => {

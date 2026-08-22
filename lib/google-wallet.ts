@@ -146,7 +146,9 @@ function loyaltyClass(card: CardData, issuerId: string) {
         cardRowTemplateInfos: [
           {
             twoItems: {
-              startItem: field("object.loyaltyPoints.balance"),
+              startItem: field(card.earningMode === "spend"
+                ? "object.loyaltyPoints.balance"
+                : "object.textModulesData['kivli_progress']"),
               endItem: field("object.textModulesData['kivli_rewards_count']"),
             },
           },
@@ -187,15 +189,11 @@ function loyaltyObject(card: CardData, issuerId: string) {
     state: "ACTIVE",
     accountName: truncate(card.firstName, 20),
     accountId: card.code,
-    loyaltyPoints: {
-      label: card.earningMode === "spend" ? "Points" : "Progression",
-      balance: card.earningMode === "spend"
-        ? { int: card.points }
-        : { string: `${card.points} / ${card.goal}` },
-    },
+    loyaltyPoints: { label: card.earningMode === "spend" ? "Points" : "Passages", balance: { int: card.points } },
     secondaryLoyaltyPoints: { label: "Récomp.", balance: { int: rewardSnapshot.availableCount } },
     barcode: { type: "QR_CODE", value: cardUrl, alternateText: card.code },
     textModulesData: [
+      { id: "kivli_progress", header: "Progression", body: `${card.points} / ${card.goal}` },
       { id: "kivli_rewards_count", header: "Récompenses", body: rewardSnapshot.availableLabel },
       { id: "kivli_next_tier", header: "Prochain palier", body: rewardSnapshot.nextTier },
       { id: "kivli_member_name", header: "Bonjour", body: truncate(card.firstName, 20) },
