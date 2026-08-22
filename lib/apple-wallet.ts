@@ -100,6 +100,14 @@ function safeSerial(value: string) {
   return `kivli-${value.replace(/[^a-zA-Z0-9.-]/g, "-").slice(0, 80)}`;
 }
 
+async function serialNumberForMembership(membershipId: string) {
+  const existing = await queryFirst<{ serialNumber: string }>(
+    "SELECT serial_number AS serialNumber FROM apple_wallet_passes WHERE membership_id = ?",
+    membershipId,
+  );
+  return existing?.serialNumber ?? safeSerial(membershipId);
+}
+
 function hexToRgb(value: string) {
   const safe = /^#[0-9a-f]{6}$/i.test(value) ? value.slice(1) : "f05b3c";
   return `rgb(${Number.parseInt(safe.slice(0, 2), 16)}, ${Number.parseInt(safe.slice(2, 4), 16)}, ${Number.parseInt(safe.slice(4, 6), 16)})`;
@@ -195,7 +203,7 @@ export function appleStoreCardPreview(card: CardData) {
 export async function createAppleStoreCardSource(card: CardData): Promise<AppleStoreCardSource> {
   const config = coreConfig();
   if (!config) throw new Error("La configuration Apple Wallet sera finalisée après l’inscription Apple Developer.");
-  const serialNumber = safeSerial(card.membershipId);
+  const serialNumber = await serialNumberForMembership(card.membershipId);
   const authenticationToken = await hmac(`${config.passTypeIdentifier}:${card.membershipId}`, config.authenticationSecret);
   const cardUrl = `${KIVLI_ORIGIN}/c/${encodeURIComponent(card.code)}`;
   return {
@@ -327,7 +335,7 @@ export async function syncAppleWalletSafely(code: string) {
     if (!changed) return;
     const card = await getCardByCode(code.toUpperCase());
     if (!card) return;
-    const serialNumber = safeSerial(card.membershipId);
+    const serialNumber = await serialNumberForMembership(card.membershipId);
     const targets = await pendingAppleWalletPushTargets(serialNumber);
     const current = runtimeEnv();
     const config = coreConfig();
