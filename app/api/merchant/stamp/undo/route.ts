@@ -2,7 +2,7 @@ import { ensureSchema, getD1, queryAll, queryFirst } from "../../../../../db";
 import { getMerchant } from "../../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../../lib/http";
 import { makeId } from "../../../../../lib/ids";
-import { syncGoogleWalletSafely } from "../../../../../lib/google-wallet";
+import { syncWalletsSafely } from "../../../../../lib/wallet-sync";
 
 type UndoPayload = { stampId?: string };
 type UndoableStamp = {
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
       );
     }
     await db.batch(statements);
-    await syncGoogleWalletSafely(stamp.code);
+    await syncWalletsSafely(stamp.code);
     return Response.json({ ok: true, firstName: stamp.firstName, code: stamp.code, points: stamp.pointsBefore });
   } catch (error) {
     return safeApiError(error);
