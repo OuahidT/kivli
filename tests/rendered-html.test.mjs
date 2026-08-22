@@ -254,6 +254,7 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
   assert.doesNotMatch(appleWallet, /Détails des récompenses disponibles/);
   assert.match(appleWallet, /Carte de fidélité propulsée par Kivli 🧡/);
   assert.match(appleWallet, /webServiceURL: APPLE_WEB_SERVICE_URL/);
+  assert.match(appleWallet, /serialNumberForMembership/);
   assert.match(appleWallet, /authenticationTokenHash|authentication_token_hash/);
   assert.match(appleWallet, /push_pending = 1/);
   assert.match(appleWallet, /buildSignedPkpass/);
