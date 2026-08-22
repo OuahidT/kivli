@@ -163,14 +163,19 @@ export function appleStoreCardPreview(card: CardData) {
         textAlignment: "PKTextAlignmentRight",
       },
     ],
-    primaryFields: [],
-    secondaryFields: [
-      { key: "rewards", label: "RÉCOMPENSES", value: details.snapshot.availableLabel },
-      { key: "next-tier", label: "PROCHAIN PALIER", value: details.snapshot.nextTier },
+    primaryFields: [
+      {
+        key: "rewards",
+        label: "RÉCOMPENSES",
+        value: details.snapshot.availableLabel,
+        textAlignment: "PKTextAlignmentCenter",
+      },
     ],
-    auxiliaryFields: [
+    secondaryFields: [
+      { key: "next-tier", label: "PROCHAIN PALIER", value: details.snapshot.nextTier },
       { key: "customer", label: "CARTE DE", value: card.firstName },
     ],
+    auxiliaryFields: [],
     backFields: [
       { key: "all-tiers", label: "Tous les paliers", value: details.allTiers },
       { key: "available-tiers", label: "Récompenses accessibles", value: details.available },
