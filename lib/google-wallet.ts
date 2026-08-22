@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getCardByCode } from "./data";
+import { walletRewardSnapshot } from "./google-wallet-content";
 import type { CardData } from "./types";
 
 const API_BASE = "https://walletobjects.googleapis.com/walletobjects/v1";
@@ -113,38 +114,6 @@ function normalizedColor(color: string) {
 
 function truncate(value: string, length: number) {
   return value.length <= length ? value : `${value.slice(0, Math.max(1, length - 1)).trim()}…`;
-}
-
-function walletRewardSnapshot(card: CardData) {
-  const tiers = card.rewardTiers.length
-    ? card.rewardTiers
-    : [{ id: "default", threshold: card.goal, rewardText: card.rewardText, sortOrder: 0 }];
-  const available = [...card.availableRewardItems].sort((left, right) => left.threshold - right.threshold);
-  const locked = tiers.filter((tier) => tier.threshold > card.points);
-  const next = locked[0];
-  const missing = next ? Math.max(0, next.threshold - card.points) : 0;
-  const availableCount = available.length;
-  const availableLabel = availableCount === 0
-    ? "Aucune disponible · voir les détails"
-    : `${availableCount} disponible${availableCount > 1 ? "s" : ""} · voir les détails`;
-
-  return {
-    availableCount,
-    availableLabel,
-    nextTier: next
-      ? truncate(`${next.rewardText} · encore ${missing} pt${missing > 1 ? "s" : ""}`, 42)
-      : "Dernier palier atteint",
-    allTiers: tiers.map((tier) => `${tier.threshold} pts · ${tier.rewardText}`).join("\n"),
-    availableTiers: availableCount
-      ? available.map((tier) => `${tier.threshold} pts · ${tier.rewardText}`).join("\n")
-      : "Aucune récompense accessible pour le moment.",
-    lockedTiers: locked.length
-      ? locked.map((tier) => {
-        const tierMissing = Math.max(0, tier.threshold - card.points);
-        return `${tier.threshold} pts · ${tier.rewardText} · encore ${tierMissing} pt${tierMissing > 1 ? "s" : ""}`;
-      }).join("\n")
-      : "Tous les paliers sont atteints.",
-  };
 }
 
 function field(path: string) {
