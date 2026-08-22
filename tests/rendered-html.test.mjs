@@ -137,6 +137,8 @@ test("keeps first-visit and navigation polish deterministic", async () => {
   assert.match(customerCard, /googleWalletEnabled && installEnvironment === "android"/);
   assert.doesNotMatch(customerCard, /installEnvironment !== "ios"/);
   assert.match(customerCard, /Bientôt, votre carte pourra être ajoutée à Apple Wallet 🧡/);
+  assert.match(customerCard, /card-mobile-privacy-control/);
+  assert.match(customerCard, /Retirer mon accord aux offres SMS/);
   assert.equal(detectWalletEnvironment("Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X)"), "ios");
   assert.equal(detectWalletEnvironment("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "MacIntel", 5), "ios");
   assert.equal(detectWalletEnvironment("Mozilla/5.0 (Linux; Android 16; Pixel 9 Pro)"), "android");

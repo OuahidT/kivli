@@ -121,6 +121,14 @@ export function CustomerCard({ code }: { code: string }) {
               {googleWalletError && <small className="google-wallet-error" role="alert">{googleWalletError}</small>}
             </div>
           </div> : installEnvironment === "ios" ? <div className="card-wallet-slot"><p className="apple-wallet-coming-soon"><WalletCards size={14} aria-hidden="true" />Bientôt, votre carte pourra être ajoutée à Apple Wallet 🧡</p></div> : null}
+
+          <details className="card-mobile-privacy-control">
+            <summary aria-label="Confidentialité et conditions"><ShieldCheck size={15} aria-hidden="true" /></summary>
+            <div className="card-mobile-privacy-popover">
+              <div><ShieldCheck size={17} aria-hidden="true" /><p><strong>Conditions du programme</strong>{terms}</p></div>
+              <div><ShieldCheck size={17} aria-hidden="true" /><p><strong>Tes données</strong><a href="/confidentialite" target="_blank">Voir tes droits et la politique de confidentialité</a>{card.marketingConsent ? <button type="button" className="privacy-withdraw-link" onClick={withdrawMarketing} disabled={privacyBusy}>{privacyBusy ? "Modification…" : "Retirer mon accord aux offres SMS"}</button> : null}{privacyMessage && <small className="privacy-feedback" role="status">{privacyMessage}</small>}</p></div>
+            </div>
+          </details>
         </div>
 
         <div className="qr-panel">
