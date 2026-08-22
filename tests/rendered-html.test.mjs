@@ -246,7 +246,8 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
   assert.match(appleWallet, /label: balanceLabel/);
   assert.match(appleWallet, /textAlignment: "PKTextAlignmentCenter"/);
   assert.match(appleWallet, /value: details\.snapshot\.availableCount/);
-  assert.match(appleWallet, /RÉCOMPENSES DISPONIBLES/);
+  assert.match(appleWallet, /SOLDE DE POINTS/);
+  assert.match(appleWallet, /label: "RÉCOMPENSES"/);
   assert.match(appleWallet, /DÉTAILS DES RÉCOMPENSES/);
   assert.match(appleWallet, /value: "Au dos •••"/);
   assert.match(appleWallet, /label: "Carte de fidélité de"/);
