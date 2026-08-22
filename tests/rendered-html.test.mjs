@@ -208,6 +208,7 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   ];
   const snapshotAt = (points) => walletRewardSnapshot({
     points,
+    earningMode: "spend",
     goal: 50,
     rewardText: "Un menu complet",
     rewardTiers: tiers,
@@ -229,6 +230,18 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
   assert.doesNotMatch(snapshotAt(35).nextTier, /menu complet/i);
   assert.match(snapshotAt(35).allTiers, /Un menu complet \(sucré \/ salé\)/);
   assert.equal(snapshotAt(50).lockedTiers, "Tous les paliers sont atteints.");
+
+  const visitSnapshot = walletRewardSnapshot({
+    points: 4,
+    earningMode: "visits",
+    goal: 10,
+    rewardText: "Une boisson offerte",
+    rewardTiers: [{ id: "tier-10", threshold: 10, rewardText: "Une boisson offerte", sortOrder: 0 }],
+    availableRewardItems: [],
+  });
+  assert.equal(visitSnapshot.nextTier, "Encore 6 passages");
+  assert.match(visitSnapshot.allTiers, /10 passages · Une boisson offerte/);
+  assert.match(wallet, /string: `\$\{card\.points\} \/ \$\{card\.goal\}`/);
 });
 
 test("prepares signed Apple Wallet passes without exposing private keys", async () => {

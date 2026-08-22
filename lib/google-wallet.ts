@@ -187,7 +187,12 @@ function loyaltyObject(card: CardData, issuerId: string) {
     state: "ACTIVE",
     accountName: truncate(card.firstName, 20),
     accountId: card.code,
-    loyaltyPoints: { label: card.earningMode === "spend" ? "Points" : "Passages", balance: { int: card.points } },
+    loyaltyPoints: {
+      label: card.earningMode === "spend" ? "Points" : "Progression",
+      balance: card.earningMode === "spend"
+        ? { int: card.points }
+        : { string: `${card.points} / ${card.goal}` },
+    },
     secondaryLoyaltyPoints: { label: "Récomp.", balance: { int: rewardSnapshot.availableCount } },
     barcode: { type: "QR_CODE", value: cardUrl, alternateText: card.code },
     textModulesData: [
