@@ -151,6 +151,9 @@ function appleRewardDetails(card: CardData) {
 export function appleStoreCardPreview(card: CardData) {
   const details = appleRewardDetails(card);
   const balanceLabel = card.earningMode === "spend" ? "POINTS" : "PASSAGES";
+  const rewardCountLabel = details.snapshot.availableCount > 1
+    ? "RÉCOMPENSES DISPONIBLES"
+    : "RÉCOMPENSE DISPONIBLE";
   return {
     headerFields: [
       {
@@ -166,8 +169,8 @@ export function appleStoreCardPreview(card: CardData) {
     primaryFields: [
       {
         key: "rewards",
-        label: "RÉCOMPENSES",
-        value: details.snapshot.availableLabel,
+        label: rewardCountLabel,
+        value: details.snapshot.availableCount,
         textAlignment: "PKTextAlignmentCenter",
       },
     ],
