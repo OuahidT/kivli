@@ -155,6 +155,11 @@ function loyaltyClass(card: CardData, issuerId: string) {
               item: field("object.textModulesData['kivli_next_tier']"),
             },
           },
+          {
+            oneItem: {
+              item: field("object.textModulesData['kivli_rewards_hint']"),
+            },
+          },
         ],
       },
       detailsTemplateOverride: {
@@ -187,6 +192,7 @@ function loyaltyObject(card: CardData, issuerId: string) {
     textModulesData: [
       { id: "kivli_rewards_count", header: "Récompenses", body: rewardSnapshot.availableLabel },
       { id: "kivli_next_tier", header: "Prochain palier", body: rewardSnapshot.nextTier },
+      { id: "kivli_rewards_hint", header: "Détails", body: "Détails des récompenses · •••" },
       { id: "kivli_all_tiers", header: "Tous les paliers", body: rewardSnapshot.allTiers },
       { id: "kivli_available_tiers", header: "Récompenses accessibles", body: rewardSnapshot.availableTiers },
       { id: "kivli_locked_tiers", header: "À débloquer", body: rewardSnapshot.lockedTiers },
