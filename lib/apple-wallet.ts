@@ -150,27 +150,25 @@ function appleRewardDetails(card: CardData) {
 
 export function appleStoreCardPreview(card: CardData) {
   const details = appleRewardDetails(card);
-  const balanceLabel = card.earningMode === "spend" ? "POINTS" : "PASSAGES";
-  const rewardCountLabel = details.snapshot.availableCount > 1
-    ? "RÉCOMPENSES DISPONIBLES"
-    : "RÉCOMPENSE DISPONIBLE";
+  const balanceLabel = card.earningMode === "spend" ? "SOLDE DE POINTS" : "PROGRESSION";
+  const balanceValue = card.earningMode === "spend" ? card.points : `${card.points} / ${card.goal}`;
   return {
     headerFields: [
       {
-        key: "balance",
-        label: balanceLabel,
-        value: card.points,
-        changeMessage: card.earningMode === "spend"
-          ? "Votre solde est maintenant de %@ points."
-          : "Votre progression est maintenant de %@ passages.",
+        key: "rewards",
+        label: "RÉCOMPENSES",
+        value: details.snapshot.availableCount,
         textAlignment: "PKTextAlignmentRight",
       },
     ],
     primaryFields: [
       {
-        key: "rewards",
-        label: rewardCountLabel,
-        value: details.snapshot.availableCount,
+        key: "balance",
+        label: balanceLabel,
+        value: balanceValue,
+        changeMessage: card.earningMode === "spend"
+          ? "Votre solde est maintenant de %@ points."
+          : "Votre progression est maintenant de %@.",
         textAlignment: "PKTextAlignmentCenter",
       },
     ],
