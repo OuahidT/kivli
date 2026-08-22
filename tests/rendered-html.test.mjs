@@ -208,10 +208,12 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
     [snapshotAt(0).availableCount, snapshotAt(15).availableCount, snapshotAt(35).availableCount],
     [0, 1, 2],
   );
-  assert.equal(snapshotAt(0).availableLabel, "Aucune disponible · voir les détails");
+  assert.equal(snapshotAt(0).availableLabel, "0 disponible · voir les détails");
   assert.equal(snapshotAt(15).availableLabel, "1 disponible · voir les détails");
   assert.equal(snapshotAt(35).availableLabel, "2 disponibles · voir les détails");
-  assert.equal(snapshotAt(35).nextTier, "Un menu complet · encore 15 pts");
-  assert.equal(snapshotAt(50).nextTier, "Dernier palier atteint");
+  assert.equal(snapshotAt(35).nextTier, "Encore 15 pts");
+  assert.equal(snapshotAt(50).nextTier, "Tous atteints");
+  assert.doesNotMatch(snapshotAt(35).nextTier, /menu complet/i);
+  assert.match(snapshotAt(35).allTiers, /Un menu complet \(sucré \/ salé\)/);
   assert.equal(snapshotAt(50).lockedTiers, "Tous les paliers sont atteints.");
 });
