@@ -261,8 +261,11 @@ export async function updatedAppleWalletSerials(deviceId: string, passTypeId: st
     FROM apple_wallet_registrations r JOIN apple_wallet_passes p ON p.serial_number = r.serial_number
     WHERE r.device_library_identifier = ? AND r.pass_type_identifier = ? AND (? IS NULL OR p.last_updated_tag > ?)
     ORDER BY p.last_updated_tag`, deviceId, passTypeId, since, since);
-  if (!rows.length) return { serialNumbers: [] as string[], lastUpdated: since ?? 0 };
-  return { serialNumbers: rows.map((row) => row.serialNumber), lastUpdated: Math.max(...rows.map((row) => row.updatedTag)) };
+  if (!rows.length) return { serialNumbers: [] as string[], lastUpdated: String(since ?? 0) };
+  return {
+    serialNumbers: rows.map((row) => row.serialNumber),
+    lastUpdated: String(Math.max(...rows.map((row) => row.updatedTag))),
+  };
 }
 
 export async function cardForAppleWalletSerial(passTypeId: string, serialNumber: string) {
