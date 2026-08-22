@@ -159,7 +159,7 @@ function appleRewardDetails(card: CardData) {
 export function appleStoreCardPreview(card: CardData) {
   const details = appleRewardDetails(card);
   const balanceLabel = card.earningMode === "spend" ? "SOLDE DE POINTS" : "PROGRESSION";
-  const balanceValue = card.earningMode === "spend" ? card.points : `${card.points} / ${card.goal}`;
+  const balanceValue = card.earningMode === "spend" ? card.points : `${card.points} sur ${card.goal}`;
   return {
     headerFields: [
       {

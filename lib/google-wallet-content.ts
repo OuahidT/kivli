@@ -12,7 +12,7 @@ export function walletRewardSnapshot(card: CardData) {
   const unit = card.earningMode === "spend" ? "pt" : "passage";
   const formatUnit = (value: number) => `${unit}${value > 1 ? "s" : ""}`;
   const availableLabel = availableCount === 0
-    ? "Indisponible"
+    ? "0"
     : `${availableCount} disponible${availableCount > 1 ? "s" : ""}`;
 
   return {

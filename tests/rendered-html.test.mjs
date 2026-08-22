@@ -219,7 +219,7 @@ test("keeps Google Wallet rewards visible on the card face", async () => {
     [snapshotAt(0).availableCount, snapshotAt(15).availableCount, snapshotAt(35).availableCount],
     [0, 1, 2],
   );
-  assert.equal(snapshotAt(0).availableLabel, "Indisponible");
+  assert.equal(snapshotAt(0).availableLabel, "0");
   assert.equal(snapshotAt(0).availableCount, 0);
   assert.equal(snapshotAt(15).availableLabel, "1 disponible");
   assert.equal(snapshotAt(15).availableCount, 1);
@@ -263,6 +263,7 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
   assert.match(appleWallet, /textAlignment: "PKTextAlignmentCenter"/);
   assert.match(appleWallet, /value: details\.snapshot\.availableCount/);
   assert.match(appleWallet, /SOLDE DE POINTS/);
+  assert.match(appleWallet, /`\$\{card\.points\} sur \$\{card\.goal\}`/);
   assert.match(appleWallet, /label: "RÉCOMPENSES"/);
   assert.match(appleWallet, /DÉTAILS DES RÉCOMPENSES/);
   assert.match(appleWallet, /value: "Au dos •••"/);
