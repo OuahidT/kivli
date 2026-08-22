@@ -175,7 +175,13 @@ export function appleStoreCardPreview(card: CardData) {
       { key: "next-tier", label: "PROCHAIN PALIER", value: details.snapshot.nextTier },
       { key: "customer", label: "CARTE DE", value: card.firstName },
     ],
-    auxiliaryFields: [],
+    auxiliaryFields: [
+      {
+        key: "reward-details-hint",
+        value: "Détails des récompenses au dos •••",
+        textAlignment: "PKTextAlignmentCenter",
+      },
+    ],
     backFields: [
       { key: "all-tiers", label: "Tous les paliers", value: details.allTiers },
       { key: "available-tiers", label: "Récompenses accessibles", value: details.available },
