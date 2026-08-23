@@ -60,7 +60,7 @@ async function detachedSignature(
   const privateKey = await engine.importKey(
     "pkcs8",
     exactBuffer(pemBytes(signingPrivateKeyPem, "PRIVATE KEY")),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" } as RsaHashedImportParams,
     false,
     ["sign"],
   );

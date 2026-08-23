@@ -1,6 +1,6 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
 import { createPasswordHash } from "../../../../lib/auth";
-import { cleanText, jsonError, normalizePhone, readJson, safeApiError, validEmail } from "../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, normalizePhone, readJson, safeApiError, validEmail } from "../../../../lib/http";
 import { makeId, sha256 } from "../../../../lib/ids";
 import { sendMerchantVerificationEmail } from "../../../../lib/mailer";
 import { acceptedCheckbox, LEGAL_VERSION } from "../../../../lib/legal";
@@ -10,6 +10,7 @@ type RecentVerification = { lastSentAt: string };
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const payload = await readJson<SignupPayload>(request);
     if (!payload) return jsonError("Les informations envoyées sont invalides.");
     const firstName = cleanText(payload.firstName, 60);

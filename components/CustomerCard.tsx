@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { Check, ChevronDown, Gift, QrCode as QrCodeIcon, RefreshCw, Share2, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 import { Brand } from "./Brand";
 import { QrCode } from "./QrCode";
-import type { CardData } from "../lib/types";
+import type { PublicCardData } from "../lib/types";
 import { visibleProgramTerms } from "../lib/program-style";
 import { detectWalletEnvironment, type WalletEnvironment } from "../lib/wallet-environment";
 
 export function CustomerCard({ code }: { code: string }) {
-  const [card, setCard] = useState<CardData | null>(null);
+  const [card, setCard] = useState<PublicCardData | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [installEnvironment, setInstallEnvironment] = useState<WalletEnvironment>("other");
@@ -23,7 +23,7 @@ export function CustomerCard({ code }: { code: string }) {
   useEffect(() => {
     fetch(`/api/card/${encodeURIComponent(code)}`, { cache: "no-store" })
       .then(async (response) => {
-        const data = (await response.json()) as { card?: CardData; googleWalletEnabled?: boolean; appleWalletEnabled?: boolean; error?: string };
+        const data = (await response.json()) as { card?: PublicCardData; googleWalletEnabled?: boolean; appleWalletEnabled?: boolean; error?: string };
         if (!response.ok) throw new Error(data.error);
         setCard(data.card ?? null);
         setGoogleWalletEnabled(Boolean(data.googleWalletEnabled));
@@ -46,7 +46,7 @@ export function CustomerCard({ code }: { code: string }) {
   const progress = Math.min(100, Math.round(card.points / card.goal * 100));
   const affordableTiers = isWallet ? card.rewardTiers.filter((tier) => tier.threshold <= card.points) : [];
   const terms = visibleProgramTerms(card.terms);
-  const availableRewardGroups = card.availableRewardItems.reduce<Array<{ id: string; rewardText: string; threshold: number; count: number }>>((groups, reward) => {
+  const availableRewardGroups = card.availableRewardItems.reduce<Array<{ rewardText: string; threshold: number; count: number }>>((groups, reward) => {
     const existing = groups.find((group) => group.rewardText === reward.rewardText && group.threshold === reward.threshold);
     if (existing) existing.count += 1;
     else groups.push({ ...reward, count: 1 });
@@ -102,10 +102,10 @@ export function CustomerCard({ code }: { code: string }) {
           <div className="loyalty-title"><span>Bonjour {card.firstName}</span><h1>{isWallet ? "Ton solde, tes choix." : card.availableRewards > 0 ? "Ta récompense est prête." : remaining === 0 ? "Objectif atteint." : card.points === 0 && card.totalPoints === 0 ? "Ta carte est prête." : card.points === 0 ? "Un nouveau tour commence." : "Ta fidélité prend forme."}</h1></div>
           {isWallet ? <div className="wallet-program-view">
             <div className="wallet-balance"><span>Solde disponible</span><strong>{card.points.toLocaleString("fr-FR")}</strong><small>points</small><p>{affordableTiers.length ? `${affordableTiers.length} récompense${affordableTiers.length > 1 ? "s" : ""} accessible${affordableTiers.length > 1 ? "s" : ""}` : nextTier ? `Encore ${nextTier.threshold - card.points} points avant ta première récompense` : "Continue à cumuler tes points"}</p></div>
-            <section className="wallet-tiers" aria-label="Paliers de récompenses"><header><span>Mes récompenses</span><small>Tu choisis avec l’équipe au moment du scan</small></header><div className="wallet-tier-list">{card.rewardTiers.map((tier) => { const accessible = tier.threshold <= card.points; const missing = Math.max(0, tier.threshold - card.points); return <article key={tier.id} className={accessible ? "accessible" : tier.id === nextTier?.id ? "next" : "locked"}><span className="wallet-tier-cost"><b>{tier.threshold}</b><small>pts</small></span><div><strong>{tier.rewardText}</strong><small>{accessible ? <><Check size={12} aria-hidden="true" />Disponible</> : `Encore ${missing} pt${missing > 1 ? "s" : ""}`}</small></div></article>; })}</div></section>
+            <section className="wallet-tiers" aria-label="Paliers de récompenses"><header><span>Mes récompenses</span><small>Tu choisis avec l’équipe au moment du scan</small></header><div className="wallet-tier-list">{card.rewardTiers.map((tier) => { const accessible = tier.threshold <= card.points; const missing = Math.max(0, tier.threshold - card.points); return <article key={`${tier.threshold}-${tier.sortOrder}`} className={accessible ? "accessible" : tier === nextTier ? "next" : "locked"}><span className="wallet-tier-cost"><b>{tier.threshold}</b><small>pts</small></span><div><strong>{tier.rewardText}</strong><small>{accessible ? <><Check size={12} aria-hidden="true" />Disponible</> : `Encore ${missing} pt${missing > 1 ? "s" : ""}`}</small></div></article>; })}</div></section>
           </div> : <>
             <div className="loyalty-progress"><span><b>{card.points}</b> sur {card.goal} points</span><i><i style={{ width: `${progress}%` }} /></i><strong>{progress}%</strong></div>
-            {card.goal <= 12 ? <div className="customer-stamps" aria-label={`${card.points} points sur ${card.goal}`}>{Array.from({ length: card.goal }, (_, index) => <span key={index} className={index < card.points ? "filled" : ""}>{index < card.points ? "✓" : index + 1}</span>)}</div> : <div className="customer-milestones">{card.rewardTiers.map((tier) => <span key={tier.id} className={card.points >= tier.threshold ? "reached" : ""}><b>{tier.threshold}</b><small>{tier.rewardText}</small></span>)}</div>}
+            {card.goal <= 12 ? <div className="customer-stamps" aria-label={`${card.points} points sur ${card.goal}`}>{Array.from({ length: card.goal }, (_, index) => <span key={index} className={index < card.points ? "filled" : ""}>{index < card.points ? "✓" : index + 1}</span>)}</div> : <div className="customer-milestones">{card.rewardTiers.map((tier) => <span key={`${tier.threshold}-${tier.sortOrder}`} className={card.points >= tier.threshold ? "reached" : ""}><b>{tier.threshold}</b><small>{tier.rewardText}</small></span>)}</div>}
             <div className="reward-line"><span className="reward-symbol"><Gift size={20} aria-hidden="true" /></span><span>Prochaine récompense · {nextTier?.threshold ?? card.goal} points</span><strong>{nextTier?.rewardText ?? card.rewardText}</strong></div>
             {card.availableRewards > 0 && <div className="reward-ready"><Sparkles size={17} aria-hidden="true" /><span className="reward-ready-copy"><b>{card.availableRewards} récompense{card.availableRewards > 1 ? "s" : ""} disponible{card.availableRewards > 1 ? "s" : ""}</b><strong>{availableRewardGroups[0]?.rewardText ?? card.rewardText}</strong></span>{availableRewardGroups.length > 1 && <details className="reward-ready-details"><summary>Voir les {availableRewardGroups.length} types</summary><div>{availableRewardGroups.map((reward) => <span key={`${reward.rewardText}-${reward.threshold}`}><Gift size={13} aria-hidden="true" />{reward.rewardText}{reward.count > 1 ? ` · ×${reward.count}` : ""}</span>)}</div></details>}</div>}
           </>}

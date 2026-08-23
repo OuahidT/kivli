@@ -1,6 +1,6 @@
 import { ensureSchema, getD1, queryAll, queryFirst } from "../../../../../db";
 import { getMerchant } from "../../../../../lib/auth";
-import { cleanText, jsonError, readJson, safeApiError } from "../../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../../lib/http";
 import { makeId } from "../../../../../lib/ids";
 import { syncWalletsSafely } from "../../../../../lib/wallet-sync";
 
@@ -17,6 +17,7 @@ type RewardRow = { id: string; status: string };
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     const payload = await readJson<UndoPayload>(request);

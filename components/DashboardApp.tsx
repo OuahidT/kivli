@@ -387,9 +387,13 @@ export function DashboardApp() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...Object.fromEntries(new FormData(form)), action: "change_employee_pin" }),
     });
-    const result = (await response.json()) as { error?: string };
+    const result = (await response.json()) as { error?: string; reauthenticate?: boolean };
     if (!response.ok) setError(result.error ?? "Code PIN non modifié.");
-    else {
+    else if (result.reauthenticate) {
+      window.alert("Ton code PIN a été modifié. Reconnecte-toi avec le nouveau code.");
+      window.location.href = "/merchant";
+      return;
+    } else {
       form.reset();
       setShowEmployeePin(false);
       setToast("Ton nouveau code PIN est enregistré.");
@@ -460,7 +464,7 @@ export function DashboardApp() {
             <div className="segment-filters">{([['all','Tous',data.customers.length],['new','Nouveaux',data.segmentCounts.new],['active','Actifs',data.segmentCounts.active],['loyal','Fidèles',data.segmentCounts.loyal],['reactivate','À réactiver',data.segmentCounts.reactivate],['reward','Récompense',data.segmentCounts.reward]] as const).map(([id,label,count]) => <button key={id} className={segment === id ? "active" : ""} onClick={() => setSegment(id)}>{label}<b>{count}</b></button>)}</div>
             <div className="customer-table">
               <div className="table-head"><span>Client</span><span>Progression</span><span>Total</span><span>Récompense</span><span /></div>
-              {filteredCustomers.map((customer) => <div className="table-row" key={customer.code}><span className="customer-name"><i>{customer.firstName.slice(0, 1)}</i><span><b>{customer.firstName}</b><small>{customer.phone || "Ancienne fiche sans téléphone"}{customer.marketingConsent ? " · SMS accepté" : ""}</small></span></span><span data-label={data.program.earningMode === "spend" ? "Solde" : "Progression"}><b>{data.program.earningMode === "spend" ? `${customer.points} points` : `${customer.points}/${data.program.goal}`}</b>{data.program.earningMode === "visits" && <i className="mini-progress"><i style={{ width: `${customer.points / data.program.goal * 100}%` }} /></i>}</span><span data-label="Total">{customer.totalPoints} points cumulés</span><span data-label="Récompense">{customer.availableRewards ? <b className="reward-badge">{customer.availableRewards} {data.program.earningMode === "spend" ? `palier${customer.availableRewards > 1 ? "s" : ""} accessible${customer.availableRewards > 1 ? "s" : ""}` : `disponible${customer.availableRewards > 1 ? "s" : ""}`}</b> : <small className="muted">Aucune</small>}</span><span className="row-actions"><button onClick={() => customerAction(customer)} disabled={busy}><Footprints size={16} aria-hidden="true" />Action</button><button onClick={() => addBonus(customer)} disabled={busy}><Coins size={15} aria-hidden="true" />Bonus</button>{customer.undoableStampId && <button className="undo-button" onClick={() => undoStamp(customer.undoableStampId!, customer.firstName)} disabled={busy}><RotateCcw size={15} aria-hidden="true" />Annuler</button>}{customer.availableRewards > 0 && <button className="redeem-button" onClick={() => recognize(customer.code)} disabled={busy}><Gift size={15} aria-hidden="true" />Remettre</button>}</span></div>)}
+              {filteredCustomers.map((customer) => <div className="table-row" key={customer.code}><span className="customer-name"><i>{customer.firstName.slice(0, 1)}</i><span><b>{customer.firstName}</b><small>{customer.phone || "Ancienne fiche sans téléphone"}{customer.marketingConsent ? " · SMS accepté" : ""}</small></span></span><span data-label={data.program!.earningMode === "spend" ? "Solde" : "Progression"}><b>{data.program!.earningMode === "spend" ? `${customer.points} points` : `${customer.points}/${data.program!.goal}`}</b>{data.program!.earningMode === "visits" && <i className="mini-progress"><i style={{ width: `${customer.points / data.program!.goal * 100}%` }} /></i>}</span><span data-label="Total">{customer.totalPoints} points cumulés</span><span data-label="Récompense">{customer.availableRewards ? <b className="reward-badge">{customer.availableRewards} {data.program!.earningMode === "spend" ? `palier${customer.availableRewards > 1 ? "s" : ""} accessible${customer.availableRewards > 1 ? "s" : ""}` : `disponible${customer.availableRewards > 1 ? "s" : ""}`}</b> : <small className="muted">Aucune</small>}</span><span className="row-actions"><button onClick={() => customerAction(customer)} disabled={busy}><Footprints size={16} aria-hidden="true" />Action</button><button onClick={() => addBonus(customer)} disabled={busy}><Coins size={15} aria-hidden="true" />Bonus</button>{customer.undoableStampId && <button className="undo-button" onClick={() => undoStamp(customer.undoableStampId!, customer.firstName)} disabled={busy}><RotateCcw size={15} aria-hidden="true" />Annuler</button>}{customer.availableRewards > 0 && <button className="redeem-button" onClick={() => recognize(customer.code)} disabled={busy}><Gift size={15} aria-hidden="true" />Remettre</button>}</span></div>)}
               {!filteredCustomers.length && (data.customers.length ? <div className="table-empty">Aucun client ne correspond à cette recherche.</div> : <div className="table-empty table-empty-onboarding"><span><QrCodeIcon size={22} aria-hidden="true" /></span><strong>Ta liste de clients est prête.</strong><p>Partage le QR code d’inscription pour créer la première carte.</p><button className="button button-small" onClick={showEnrollmentQr}>Afficher le QR code</button></div>)}
             </div>
           </div>
@@ -670,7 +674,7 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
   const [cardName, setCardName] = useState("Ma carte fidélité");
   const [firstReward, setFirstReward] = useState("");
   const [firstThreshold, setFirstThreshold] = useState("8");
-  const [selectedColor, setSelectedColor] = useState(PROGRAM_COLORS[0].value);
+  const [selectedColor, setSelectedColor] = useState<string>(PROGRAM_COLORS[0].value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 

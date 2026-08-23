@@ -1,6 +1,6 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
 import { createPinHash, getMerchant, isOwner } from "../../../../lib/auth";
-import { cleanText, jsonError, readJson, safeApiError, validEmail } from "../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError, validEmail } from "../../../../lib/http";
 import { makeCode, makeId, slugify } from "../../../../lib/ids";
 
 type EmployeePayload = {
@@ -56,6 +56,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Accès réservé au propriétaire.", 403);
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Accès réservé au propriétaire.", 403);

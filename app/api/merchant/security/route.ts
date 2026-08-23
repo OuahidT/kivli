@@ -9,7 +9,8 @@ import {
   verifyPassword,
   verifyPin,
 } from "../../../../lib/auth";
-import { jsonError, readJson, safeApiError } from "../../../../lib/http";
+import { clearCredentialFailures, credentialThrottle, recordCredentialFailure } from "../../../../lib/credential-throttle";
+import { isSameOrigin, jsonError, readJson, safeApiError } from "../../../../lib/http";
 
 type SecurityPayload = {
   action?: "change_owner_password" | "change_employee_pin";
@@ -23,6 +24,7 @@ type SecurityRow = { pinHash: string };
 
 export async function PATCH(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
 
@@ -45,16 +47,35 @@ export async function PATCH(request: Request) {
         merchant.employeeId,
         merchant.id,
       );
+      const throttle = await credentialThrottle(request, `${merchant.id}:employee:${merchant.employeeId}`);
+      if (throttle.lockedUntil) {
+        const seconds = Math.max(1, Math.ceil((throttle.lockedUntil.getTime() - Date.now()) / 1000));
+        return Response.json(
+          { error: "Trop de tentatives. Réessaie dans quelques minutes." },
+          { status: 429, headers: { "Retry-After": String(seconds) } },
+        );
+      }
       if (!employee || !(await verifyPin(currentPin, employee.pinHash))) {
+        await recordCredentialFailure(throttle.keys);
         return jsonError("Le code PIN actuel est incorrect.", 401);
       }
       if (await verifyPin(newPin, employee.pinHash)) {
         return jsonError("Choisis un code PIN différent de l’ancien.");
       }
-      await db.prepare(
-        "UPDATE employees SET pin_hash = ?, must_change_pin = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND merchant_id = ?",
-      ).bind(await createPinHash(newPin), merchant.employeeId, merchant.id).run();
-      return Response.json({ ok: true });
+      await clearCredentialFailures(throttle.keys);
+      await db.batch([
+        db.prepare(
+          "UPDATE employees SET pin_hash = ?, must_change_pin = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND merchant_id = ?",
+        ).bind(await createPinHash(newPin), merchant.employeeId, merchant.id),
+        db.prepare(
+          "DELETE FROM merchant_sessions WHERE id IN (SELECT session_id FROM employee_sessions WHERE employee_id = ?)",
+        ).bind(merchant.employeeId),
+        db.prepare("DELETE FROM employee_sessions WHERE employee_id = ?").bind(merchant.employeeId),
+      ]);
+      return Response.json(
+        { ok: true, reauthenticate: true },
+        { headers: { "Set-Cookie": clearSessionCookie(request.url) } },
+      );
     }
 
     if (!isOwner(merchant)) return jsonError("Seul le propriétaire peut modifier ce mot de passe.", 403);
@@ -66,7 +87,16 @@ export async function PATCH(request: Request) {
       `SELECT pin_hash AS pinHash FROM merchants WHERE id = ?`,
       merchant.id,
     );
+    const throttle = await credentialThrottle(request, `${merchant.id}:owner`);
+    if (throttle.lockedUntil) {
+      const seconds = Math.max(1, Math.ceil((throttle.lockedUntil.getTime() - Date.now()) / 1000));
+      return Response.json(
+        { error: "Trop de tentatives. Réessaie dans quelques minutes." },
+        { status: 429, headers: { "Retry-After": String(seconds) } },
+      );
+    }
     if (!security || !(await verifyPassword(currentPassword, security.pinHash))) {
+      await recordCredentialFailure(throttle.keys);
       return jsonError("Le code confidentiel actuel est incorrect.", 401);
     }
 
@@ -77,6 +107,7 @@ export async function PATCH(request: Request) {
       if (await verifyPassword(newPassword, security.pinHash)) {
         return jsonError("Choisis un nouveau code différent de l’ancien.");
       }
+      await clearCredentialFailures(throttle.keys);
       await db.batch([
         db.prepare("UPDATE merchants SET pin_hash = ? WHERE id = ?").bind(await createPasswordHash(newPassword), merchant.id),
         db.prepare(

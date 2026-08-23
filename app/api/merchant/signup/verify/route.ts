@@ -1,6 +1,6 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../../db";
 import { createSession } from "../../../../../lib/auth";
-import { cleanText, jsonError, readJson, safeApiError } from "../../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../../lib/http";
 import { makeCode, makeId, sha256, slugify } from "../../../../../lib/ids";
 
 type PendingSignup = { id: string; payloadJson: string; expiresAt: string; usedAt: string | null };
@@ -8,6 +8,7 @@ type PendingData = { firstName: string; lastName: string; businessName: string; 
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const body = await readJson<{ token?: string }>(request);
     const token = cleanText(body?.token, 240);
     if (!token) return jsonError("Lien de confirmation invalide.");

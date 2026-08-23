@@ -26,3 +26,11 @@ export type CardData = Program & {
   marketingConsent: number;
   availableRewardItems: Array<{ id: string; rewardText: string; threshold: number }>;
 };
+
+export type PublicCardData = Omit<
+  CardData,
+  "id" | "merchantId" | "membershipId" | "slug" | "joinedAt" | "rewardTiers" | "availableRewardItems"
+> & {
+  rewardTiers: Array<Omit<RewardTier, "id">>;
+  availableRewardItems: Array<{ rewardText: string; threshold: number }>;
+};

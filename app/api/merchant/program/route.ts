@@ -1,6 +1,6 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
 import { getMerchant, isOwner } from "../../../../lib/auth";
-import { cleanText, isHexColor, jsonError, readJson, safeApiError } from "../../../../lib/http";
+import { cleanText, isHexColor, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { DEFAULT_PROGRAM_TERMS } from "../../../../lib/program-style";
 import { makeId } from "../../../../lib/ids";
 
@@ -27,6 +27,7 @@ function readProgram(payload: ProgramPayload | null, fallbackColor: string) {
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Seul le propriétaire peut créer la carte.", 403);
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Seul le propriétaire peut modifier le programme.", 403);

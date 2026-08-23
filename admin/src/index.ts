@@ -70,6 +70,7 @@ function securityHeaders(nonce: string): Headers {
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   });
   return headers;
 }
@@ -1074,7 +1075,13 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
-      return await handleRequest(request, env);
+      const response = await handleRequest(request, env);
+      const headers = new Headers(response.headers);
+      headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+      headers.set("X-Content-Type-Options", "nosniff");
+      headers.set("X-Frame-Options", "DENY");
+      headers.set("Referrer-Policy", headers.get("Referrer-Policy") ?? "no-referrer");
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
     } catch (error) {
       if (error instanceof Response) return error;
       console.error("Kivli Admin error", error);

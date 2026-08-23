@@ -1,6 +1,6 @@
 import { waitUntil } from "cloudflare:workers";
 import { getMerchant, isOwner } from "../../../../lib/auth";
-import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import {
   createMarketingCampaign,
   notificationSettingsForMerchant,
@@ -31,6 +31,7 @@ export async function GET(request: Request) {
 }
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Cet espace est réservé au propriétaire.", 403);

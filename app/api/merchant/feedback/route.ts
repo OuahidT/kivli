@@ -1,6 +1,6 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
 import { getMerchant, isOwner } from "../../../../lib/auth";
-import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
 import { sendMerchantFeedbackEmail } from "../../../../lib/mailer";
 
@@ -8,6 +8,7 @@ const FEEDBACK_TYPES = new Set(["Idée", "Amélioration", "Problème", "Autre"])
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Connecte-toi pour envoyer un retour.", 401);
     if (!isOwner(merchant)) return jsonError("Seul le propriétaire peut envoyer un retour.", 403);

@@ -1,6 +1,6 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
 import { getProgramBySlug } from "../../../../lib/data";
-import { cleanText, jsonError, normalizePhone, readJson, safeApiError } from "../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, normalizePhone, readJson, safeApiError } from "../../../../lib/http";
 import { makeCode, makeId } from "../../../../lib/ids";
 import { MARKETING_CONSENT_VERSION } from "../../../../lib/legal";
 
@@ -9,6 +9,7 @@ type ExistingRow = { code: string; customerId: string; marketingConsent: number 
 
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const { slug } = await context.params;
     const program = await getProgramBySlug(slug);
     if (!program) return jsonError("Programme introuvable.", 404);

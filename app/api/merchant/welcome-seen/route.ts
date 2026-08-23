@@ -1,9 +1,10 @@
 import { getD1, ensureSchema } from "../../../../db";
 import { getMerchant, isOwner } from "../../../../lib/auth";
-import { jsonError, safeApiError } from "../../../../lib/http";
+import { isSameOrigin, jsonError, safeApiError } from "../../../../lib/http";
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Connecte-toi pour continuer.", 401);
     if (!isOwner(merchant)) return jsonError("Action réservée au propriétaire.", 403);

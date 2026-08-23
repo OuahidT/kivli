@@ -1,6 +1,6 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
 import { createSession, verifyPassword, verifyPin } from "../../../../lib/auth";
-import { cleanText, jsonError, readJson, safeApiError, validEmail } from "../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError, validEmail } from "../../../../lib/http";
 import { sha256 } from "../../../../lib/ids";
 
 type LoginPayload = { identifier?: string; email?: string; password?: string; pin?: string };
@@ -67,6 +67,7 @@ async function recordFailure(key: string, limit: number) {
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const payload = await readJson<LoginPayload>(request);
     const identifier = cleanText(payload?.identifier ?? payload?.email, 160);
     const normalizedIdentifier = identifier.toLowerCase();

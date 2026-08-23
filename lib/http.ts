@@ -31,6 +31,16 @@ export function isHexColor(value: string) {
   return /^#[0-9a-f]{6}$/i.test(value);
 }
 
+export function isSameOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
 export function safeApiError(error: unknown) {
   const message = error instanceof Error ? error.message : "Une erreur inattendue est survenue.";
   if (message.includes("UNIQUE constraint failed: merchants.email")) return jsonError("Un compte existe déjà avec cet e-mail.", 409);

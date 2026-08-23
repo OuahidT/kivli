@@ -1,11 +1,12 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../../db";
-import { cleanText, jsonError, readJson, safeApiError } from "../../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../../lib/http";
 import { MARKETING_CONSENT_VERSION } from "../../../../../lib/legal";
 
 type CardOwner = { customerId: string; marketingConsent: number };
 
 export async function PATCH(request: Request, context: { params: Promise<{ code: string }> }) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const { code } = await context.params;
     const body = await readJson<{ action?: string }>(request);
     const action = cleanText(body?.action, 40);

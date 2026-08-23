@@ -1,5 +1,5 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../../db";
-import { cleanText, jsonError, readJson, safeApiError, validEmail } from "../../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError, validEmail } from "../../../../../lib/http";
 import { makeId, sha256 } from "../../../../../lib/ids";
 import { sendMerchantVerificationEmail } from "../../../../../lib/mailer";
 
@@ -8,6 +8,7 @@ type PendingData = { firstName: string; businessName: string };
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const body = await readJson<{ email?: string }>(request);
     const email = cleanText(body?.email, 160).toLowerCase();
     if (!validEmail(email)) return jsonError("Indique un e-mail valide.");
