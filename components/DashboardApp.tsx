@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  BellRing,
   Check,
   Copy,
   ExternalLink,
@@ -85,6 +86,7 @@ const tabs = [
   { id: "scan", label: "Scanner un client", shortLabel: "Scanner", icon: ScanLine },
   { id: "customers", label: "Clients", shortLabel: "Clients", icon: UsersRound },
   { id: "program", label: "Mon programme", shortLabel: "Programme", icon: Gift },
+  { id: "notifications", label: "Alertes Wallet", shortLabel: "Alertes", icon: BellRing },
   { id: "team", label: "Mon équipe", shortLabel: "Équipe", icon: UserRoundCog },
 ] as const;
 
@@ -437,7 +439,7 @@ export function DashboardApp() {
         <Brand />
         <div className="merchant-pill"><span>{data.merchant.businessName.slice(0, 1)}</span><div><strong>{data.merchant.businessName}</strong><small>{data.merchant.role === "employee" ? `${data.merchant.employeeName} · Employé` : "Accès propriétaire"}</small></div></div>
         <nav>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><Icon className="nav-icon" size={20} strokeWidth={2} aria-hidden="true" />{item.label}</button>; })}</nav>
-        <div className="sidebar-foot">{data.merchant.role === "owner" && <button onClick={() => { setFeedbackError(""); setFeedbackOpen(true); }}><MessageSquareText size={17} aria-hidden="true" />Faire un retour</button>}{data.merchant.role === "employee" && <button onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" />Modifier mon PIN</button>}<button onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Kivli · version pilote</small></div>
+        <div className="sidebar-foot">{data.merchant.role === "owner" && <button className="sidebar-feedback" onClick={() => { setFeedbackError(""); setFeedbackOpen(true); }}><MessageSquareText size={16} aria-hidden="true" />Faire un retour</button>}{data.merchant.role === "employee" && <button onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" />Modifier mon PIN</button>}<button className="sidebar-logout" onClick={logout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button><small>Kivli · version pilote</small></div>
       </aside>
 
       <section className="dashboard-main">
@@ -464,7 +466,7 @@ export function DashboardApp() {
           </div>
         )}
         {tab === "program" && data.merchant.role === "owner" && (
-          <div className="program-layout">
+          <div className="program-layout program-layout-single">
             <div className="settings-stack">
               <form className="panel settings-form program-config-form" onSubmit={saveProgram}><div className="config-form-head"><div><span className="eyebrow">Votre programme</span><h2>Personnaliser la carte</h2></div><p>Les changements s’appliquent immédiatement aux cartes existantes.</p></div><div className="config-divider" /><label className="config-field">Nom de la carte<input name="name" defaultValue={data.program.name} required /></label><div className="config-group"><h3>Gain des points</h3><fieldset className="earning-mode premium-mode-picker compact"><legend className="sr-only">Comment gagner des points ?</legend><label className={settingsEarningMode === "visits" ? "selected" : ""}><input type="radio" name="earningMode" value="visits" checked={settingsEarningMode === "visits"} onChange={() => setSettingsEarningMode("visits")} /><span className="mode-icon"><Footprints size={20} aria-hidden="true" /></span><span><strong>Par passage</strong><small>1 passage = 1 point</small></span><Check className="mode-check" size={17} aria-hidden="true" /></label><label className={settingsEarningMode === "spend" ? "selected" : ""}><input type="radio" name="earningMode" value="spend" checked={settingsEarningMode === "spend"} onChange={() => setSettingsEarningMode("spend")} /><span className="mode-icon"><Coins size={20} aria-hidden="true" /></span><span><strong>Selon le montant</strong><small>1 € dépensé = 1 point</small></span><Check className="mode-check" size={17} aria-hidden="true" /></label></fieldset>{settingsEarningMode === "spend" && <div className="spend-rule-inline"><Coins size={17} aria-hidden="true" /><span><strong>1 point par euro dépensé</strong><small>Le calcul est automatique au moment du passage.</small></span></div>}<input type="hidden" name="spendAmountEuros" value="1" /></div><div className="config-group"><div className="config-group-title"><h3>Récompenses</h3><span>{settingsTierCount}/6</span></div><div className="dynamic-reward-list">{Array.from({ length: settingsTierCount }, (_, index) => { const tier = data.rewardTiers[index]; return <div className="dynamic-reward-row" key={tier?.id ?? `settings-${index}`}><span className="reward-index">{index + 1}</span><label>Points nécessaires<input name="tierThreshold" type="number" min="1" max="1000" defaultValue={tier?.threshold ?? ""} required /></label><label>Récompense<input name="tierRewardText" defaultValue={tier?.rewardText ?? ""} placeholder="Ex. Un café offert" required /></label>{settingsTierCount > 1 && <button type="button" className="remove-reward" onClick={() => setSettingsTierCount((count) => Math.max(1, count - 1))} aria-label="Supprimer la dernière récompense"><Trash2 size={16} aria-hidden="true" /></button>}</div>; })}</div>{settingsTierCount < 6 && <button type="button" className="add-reward-button" onClick={() => setSettingsTierCount((count) => Math.min(6, count + 1))}><Plus size={17} aria-hidden="true" />Ajouter une récompense</button>}<input type="hidden" name="rewardText" value={data.rewardTiers[0]?.rewardText ?? data.program.rewardText} /></div><div className="config-group"><h3>Couleur de la carte</h3><fieldset className="color-fieldset program-colors premium-colors"><legend className="sr-only">Couleur de la carte</legend><div className="color-options">{PROGRAM_COLORS.map((color) => <label key={color.value} className="color-choice" style={{ backgroundColor: color.value }} title={color.name}><input type="radio" name="accentColor" value={color.value} defaultChecked={data.merchant.accentColor.toLowerCase() === color.value} aria-label={color.name} /><span>{color.name}</span></label>)}</div></fieldset></div><label className="config-field">Conditions affichées au client <small>Facultatif</small><textarea name="terms" defaultValue={visibleProgramTerms(data.program.terms)} rows={3} maxLength={200} placeholder="Ex. Offre non cumulable avec une promotion." /></label><button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Enregistrer les modifications"}</button></form>
               <section className="panel security-panel">
@@ -476,8 +478,10 @@ export function DashboardApp() {
                 </form>
               </section>
             </div>
-            <ProgramPreview data={data} />
           </div>
+        )}
+        {tab === "notifications" && data.merchant.role === "owner" && (
+          <WalletNotifications program={data.program} businessName={data.merchant.businessName} />
         )}
         {tab === "team" && data.merchant.role === "owner" && (
           <div className="team-layout">
@@ -517,6 +521,115 @@ export function DashboardApp() {
   );
 }
 
+type WalletNotificationSettingsData = {
+  nearRewardEnabled: number;
+  nearRewardThreshold: number;
+  reactivationEnabled: number;
+  reactivationDays: number;
+  nextMarketingAt: string | null;
+};
+
+function WalletNotifications({ program, businessName }: { program: ReadyDashboardData["program"]; businessName: string }) {
+  const [settings, setSettings] = useState<WalletNotificationSettingsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [title, setTitle] = useState(businessName);
+  const [message, setMessage] = useState("");
+
+  const refresh = useCallback(async () => {
+    const response = await fetch("/api/merchant/wallet-notifications", { cache: "no-store" });
+    const result = await response.json() as WalletNotificationSettingsData & { error?: string };
+    if (!response.ok) throw new Error(result.error ?? "Notifications indisponibles.");
+    setSettings(result);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void refresh().catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "Notifications indisponibles."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [refresh]);
+
+  async function saveSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!settings) return;
+    setSaving(true); setError(""); setSuccess("");
+    const response = await fetch("/api/merchant/wallet-notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "settings", ...settings,
+        nearRewardEnabled: Boolean(settings.nearRewardEnabled),
+        reactivationEnabled: Boolean(settings.reactivationEnabled) }),
+    });
+    const result = await response.json() as WalletNotificationSettingsData & { error?: string };
+    if (!response.ok) setError(result.error ?? "Réglages non enregistrés.");
+    else { setSettings(result); setSuccess("Automatisations enregistrées."); }
+    setSaving(false);
+  }
+
+  async function sendCampaign(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSending(true); setError(""); setSuccess("");
+    const response = await fetch("/api/merchant/wallet-notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send", title, message }),
+    });
+    const result = await response.json() as { error?: string; nextAllowedAt?: string };
+    if (!response.ok) {
+      setError(result.error ?? "La notification n’a pas pu être envoyée.");
+      if (result.nextAllowedAt && settings) setSettings({ ...settings, nextMarketingAt: result.nextAllowedAt });
+    } else {
+      setMessage("");
+      setSuccess("Envoi lancé. Kivli contacte automatiquement les cartes Wallet actives.");
+      if (settings) setSettings({ ...settings, nextMarketingAt: result.nextAllowedAt ?? settings.nextMarketingAt });
+    }
+    setSending(false);
+  }
+
+  const nextDate = settings?.nextMarketingAt ? new Date(settings.nextMarketingAt.includes("T") ? settings.nextMarketingAt : `${settings.nextMarketingAt.replace(" ", "T")}Z`) : null;
+  const campaignAllowed = !nextDate || nextDate.getTime() <= Date.now();
+  if (loading) return <section className="panel wallet-notifications-loading"><span className="loading-dot" />Préparation des notifications…</section>;
+  if (!settings) return <section className="panel"><p className="form-error">{error || "Notifications indisponibles."}</p></section>;
+
+  return <div className="wallet-notifications-page">
+    <header className="wallet-notifications-intro">
+      <span className="wallet-notifications-icon"><BellRing size={24} aria-hidden="true" /></span>
+      <div><span className="eyebrow">Simple côté commerce</span><h2>Kivli s’occupe du Wallet.</h2><p>Configurez vos messages une fois. Apple Wallet et Google Wallet sont contactés automatiquement, sans choix technique à faire.</p></div>
+    </header>
+    {(error || success) && <p className={error ? "wallet-notification-feedback error" : "wallet-notification-feedback success"} role="status">{error || success}</p>}
+    <form className="wallet-automation-grid" onSubmit={saveSettings}>
+      <article className="panel wallet-setting-card">
+        <div className="wallet-setting-head"><span><Gift size={20} aria-hidden="true" /></span><div><h3>Proche d’une récompense</h3><p>Prévenir au moment où l’objectif devient concret.</p></div><button type="button" role="switch" aria-checked={Boolean(settings.nearRewardEnabled)} className={`premium-switch ${settings.nearRewardEnabled ? "active" : ""}`} onClick={() => setSettings({ ...settings, nearRewardEnabled: settings.nearRewardEnabled ? 0 : 1 })}><i /></button></div>
+        <label className="wallet-threshold-field">Prévenir lorsqu’il reste<div><input type="number" min="1" max="1000" value={settings.nearRewardThreshold} onChange={(event) => setSettings({ ...settings, nearRewardThreshold: Number(event.target.value) })} disabled={!settings.nearRewardEnabled} /><span>{program.earningMode === "visits" ? "passage(s)" : "point(s)"}</span></div></label>
+        <small>Une seule alerte par palier et par cycle, même si le contrôle automatique se répète.</small>
+      </article>
+      <article className="panel wallet-setting-card">
+        <div className="wallet-setting-head"><span><RotateCcw size={20} aria-hidden="true" /></span><div><h3>Clients à réactiver</h3><p>Un rappel discret après une vraie période d’absence.</p></div><button type="button" role="switch" aria-checked={Boolean(settings.reactivationEnabled)} className={`premium-switch ${settings.reactivationEnabled ? "active" : ""}`} onClick={() => setSettings({ ...settings, reactivationEnabled: settings.reactivationEnabled ? 0 : 1 })}><i /></button></div>
+        <label className="wallet-threshold-field">Après<div><input list="reactivation-days" type="number" min="7" max="365" value={settings.reactivationDays} onChange={(event) => setSettings({ ...settings, reactivationDays: Number(event.target.value) })} disabled={!settings.reactivationEnabled} /><span>jours sans activité</span></div></label>
+        <datalist id="reactivation-days"><option value="30" /><option value="45" /><option value="60" /></datalist>
+        <small>Un nouveau passage ou achat remet automatiquement ce délai à zéro.</small>
+      </article>
+      <button className="button wallet-settings-save" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer les automatisations"}</button>
+    </form>
+    <section className="wallet-campaign-layout">
+      <form className="panel wallet-campaign-form" onSubmit={sendCampaign}>
+        <div className="panel-head"><div><span className="eyebrow">Notification libre</span><h2>Envoyer un message</h2><p>Une campagne maximum tous les 7 jours par commerce.</p></div></div>
+        <label>Titre<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={60} required /><small>{title.length}/60</small></label>
+        <label>Message<textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} maxLength={240} placeholder="Ex. Une nouveauté vous attend cette semaine…" required /><small>{message.length}/240</small></label>
+        <div className={`wallet-campaign-availability ${campaignAllowed ? "available" : "locked"}`}><span>{campaignAllowed ? <Check size={16} /> : <RotateCcw size={16} />}</span><p>{campaignAllowed ? "Une campagne peut être envoyée maintenant." : `Prochain envoi possible le ${nextDate!.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} à ${nextDate!.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.`}</p></div>
+        <button className="button button-large button-full" disabled={sending || !campaignAllowed || !title.trim() || !message.trim()}>{sending ? "Envoi en cours…" : "Envoyer la notification"}</button>
+      </form>
+      <aside className="wallet-message-preview">
+        <span className="eyebrow">Aperçu</span><div className="wallet-preview-phone"><div className="wallet-preview-screen"><small>maintenant</small><article><span>{businessName.slice(0, 1).toUpperCase()}</span><div><strong>{title || businessName}</strong><p>{message || "Votre message apparaîtra ici avant l’envoi."}</p></div></article></div></div><p>Le rendu exact est adapté nativement par Apple Wallet ou Google Wallet.</p>
+      </aside>
+    </section>
+  </div>;
+}
+
 function ScanDecisionModal({ candidate, busy, onClose, onStamp, onRedeem }: { candidate: ScanCandidate; busy: boolean; onClose: () => void; onStamp: (code: string, quantity?: number, amountCents?: number) => Promise<void>; onRedeem: (rewardId: string) => Promise<boolean | undefined> }) {
   const [quantity, setQuantity] = useState(1);
   const [amount, setAmount] = useState("");
@@ -539,11 +652,6 @@ function ScanDecisionModal({ candidate, busy, onClose, onStamp, onRedeem }: { ca
 
 function CustomerActionModal({ dialog, busy, error, onBonus, onClose }: { dialog: CustomerDialog; busy: boolean; error: string; onBonus: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="customer-action-modal" role="dialog" aria-modal="true" aria-labelledby="customer-action-title"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="customer-action-icon bonus"><Coins size={23} aria-hidden="true" /></span><span className="eyebrow">Geste commercial</span><h2 id="customer-action-title">Ajouter un bonus à {dialog.customer.firstName}</h2><p>Les points bonus sont clairement identifiés dans l’historique et restent réservés au propriétaire.</p><form className="form-grid" onSubmit={onBonus}><label>Nombre de points bonus<input name="quantity" type="number" min="1" max="100" defaultValue="1" required autoFocus /></label><label>Motif <small>Facultatif</small><input name="note" maxLength={120} placeholder="Geste commercial, anniversaire…" /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Ajouter le bonus"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
-}
-
-function ProgramPreview({ data }: { data: ReadyDashboardData }) {
-  const spend = data.program.earningMode === "spend";
-  return <div className="panel program-preview"><span className="eyebrow"><Sparkles size={15} aria-hidden="true" />Aperçu client</span><div className={`mini-loyalty mini-loyalty-modern ${spend ? "mini-wallet" : ""}`}><div className="mini-card-head"><span>{data.merchant.businessName.slice(0, 1)}</span><div><small>CARTE FIDÉLITÉ</small><strong>{data.merchant.businessName}</strong></div></div><span className="mini-card-kicker">{data.program.name}</span>{spend ? <><div className="mini-wallet-balance"><small>SOLDE DISPONIBLE</small><strong>0</strong><span>points</span></div><div className="mini-wallet-tiers">{data.rewardTiers.map((tier) => <span key={tier.id}><b>{tier.threshold} pts</b><small>{tier.rewardText}</small></span>)}</div></> : <><h3>Encore {data.rewardTiers[0]?.threshold ?? data.program.goal} passages.</h3><div className="mini-card-stamps">{Array.from({ length: Math.min(data.program.goal, 10) }, (_, index) => <span key={index}>{index + 1}</span>)}</div><p><span><Gift size={16} aria-hidden="true" />Récompense</span><b>{data.program.rewardText}</b></p></>}</div><p className="preview-terms"><ShieldCheck size={16} aria-hidden="true" />{visibleProgramTerms(data.program.terms)}</p><a href={`/join/${data.merchant.slug}`} target="_blank" rel="noreferrer" className="button button-ghost preview-open">Ouvrir la page d’inscription<ExternalLink size={16} aria-hidden="true" /></a></div>;
 }
 
 function WelcomeModal({ onClose, onContinue }: { onClose: () => void | Promise<void>; onContinue: () => void | Promise<void> }) {

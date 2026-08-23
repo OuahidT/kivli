@@ -256,7 +256,7 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
     readFile(new URL("../docs/apple-wallet.md", import.meta.url), "utf8"),
   ]);
 
-  assert.match(appleWallet, /storeCard: appleStoreCardPreview\(card\)/);
+  assert.match(appleWallet, /storeCard: appleStoreCardPreview\(card, notification\)/);
   assert.match(appleWallet, /PKBarcodeFormatQR/);
   assert.match(appleWallet, /headerFields/);
   assert.match(appleWallet, /label: balanceLabel/);
@@ -265,8 +265,10 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
   assert.match(appleWallet, /SOLDE DE POINTS/);
   assert.match(appleWallet, /`\$\{card\.points\} sur \$\{card\.goal\}`/);
   assert.match(appleWallet, /label: "RÉCOMPENSES"/);
-  assert.match(appleWallet, /DÉTAILS DES RÉCOMPENSES/);
+  assert.match(appleWallet, /label: "DÉTAILS"/);
   assert.match(appleWallet, /value: "Au dos •••"/);
+  assert.match(appleWallet, /APPLE_WALLET_LAYOUT_VERSION/);
+  assert.match(appleWallet, /refreshOutdatedAppleWalletPasses/);
   assert.match(appleWallet, /label: "Carte de fidélité de"/);
   assert.doesNotMatch(appleWallet, /Détails des récompenses disponibles/);
   assert.match(appleWallet, /Carte de fidélité propulsée par Kivli 🧡/);
@@ -292,4 +294,24 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
   assert.match(migration, /apple_wallet_registrations/);
   assert.match(documentation, /APPLE_WALLET_SIGNING_PRIVATE_KEY_PEM/);
   assert.doesNotMatch(appleWallet + appleSigning + documentation, /BEGIN PRIVATE KEY/);
+});
+
+test("keeps Wallet notification routing idempotent and platform-transparent", async () => {
+  const [engine, route, worker, dashboard, migration] = await Promise.all([
+    readFile(new URL("../lib/wallet-notifications.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/merchant/wallet-notifications/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
+    readFile(new URL("../components/DashboardApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0005_wallet_notifications.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(engine, /idempotency_key/);
+  assert.match(engine, /sendAppleWalletNotification/);
+  assert.match(engine, /sendGoogleWalletNotification/);
+  assert.match(engine, /datetime\('now', '\+7 days'\)/);
+  assert.match(engine, /attempt_count < 3/);
+  assert.match(route, /isOwner\(merchant\)/);
+  assert.match(worker, /runWalletNotificationSchedule/);
+  assert.match(dashboard, /Alertes Wallet/);
+  assert.doesNotMatch(dashboard, /function ProgramPreview/);
+  assert.match(migration, /wallet_notification_deliveries/);
 });

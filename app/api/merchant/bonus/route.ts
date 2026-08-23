@@ -3,6 +3,7 @@ import { getMerchant, isOwner } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
 import { syncWalletsSafely } from "../../../../lib/wallet-sync";
+import { evaluateNearRewardNotifications } from "../../../../lib/wallet-notifications";
 
 type Member = { id: string; firstName: string; points: number; goal: number; programId: string; availableRewards: number; earningMode: "visits" | "spend" };
 type Tier = { id: string; threshold: number; rewardText: string };
@@ -49,6 +50,9 @@ export async function POST(request: Request) {
     }
     await db.batch(statements);
     await syncWalletsSafely(code);
+    await evaluateNearRewardNotifications(code).catch((error) => {
+      console.error("Alerte de proximité différée.", error instanceof Error ? error.message : error);
+    });
     const availableRewards = member.earningMode === "spend" ? tiers.filter((tier) => tier.threshold <= pointsAfter).length : member.availableRewards + earned.length;
     return Response.json({ ok: true, stampId, firstName: member.firstName, points: pointsAfter, quantity, rewardsEarned: earned.length, availableRewards });
   } catch (error) { return safeApiError(error); }

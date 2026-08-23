@@ -3,6 +3,7 @@ import { getMerchant } from "../../../../lib/auth";
 import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
 import { syncWalletsSafely } from "../../../../lib/wallet-sync";
+import { evaluateNearRewardNotifications } from "../../../../lib/wallet-notifications";
 
 type StampPayload = {
   code?: string;
@@ -168,6 +169,9 @@ export async function POST(request: Request) {
       throw error;
     }
     await syncWalletsSafely(code);
+    await evaluateNearRewardNotifications(code).catch((error) => {
+      console.error("Alerte de proximité différée.", error instanceof Error ? error.message : error);
+    });
     return Response.json(result);
   } catch (error) {
     return safeApiError(error);

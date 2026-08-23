@@ -118,6 +118,7 @@ const schemaStatements = [
     membership_id TEXT PRIMARY KEY, serial_number TEXT NOT NULL UNIQUE,
     pass_type_identifier TEXT NOT NULL, authentication_token_hash TEXT NOT NULL,
     last_updated_tag INTEGER NOT NULL, push_pending INTEGER NOT NULL DEFAULT 0,
+    notification_delivery_id TEXT, layout_version INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS apple_wallet_devices (
@@ -128,6 +129,44 @@ const schemaStatements = [
     device_library_identifier TEXT NOT NULL, pass_type_identifier TEXT NOT NULL,
     serial_number TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (device_library_identifier, pass_type_identifier, serial_number)
+  )`,
+  `CREATE TABLE IF NOT EXISTS google_wallet_passes (
+    membership_id TEXT PRIMARY KEY, object_id TEXT NOT NULL UNIQUE,
+    active INTEGER NOT NULL DEFAULT 1, last_verified_at TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS wallet_notification_settings (
+    merchant_id TEXT PRIMARY KEY,
+    near_reward_enabled INTEGER NOT NULL DEFAULT 0,
+    near_reward_threshold INTEGER NOT NULL DEFAULT 2,
+    reactivation_enabled INTEGER NOT NULL DEFAULT 0,
+    reactivation_days INTEGER NOT NULL DEFAULT 45,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS wallet_notification_campaigns (
+    id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, program_id TEXT NOT NULL,
+    title TEXT NOT NULL, message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', target_count INTEGER NOT NULL DEFAULT 0,
+    sent_count INTEGER NOT NULL DEFAULT 0, failed_count INTEGER NOT NULL DEFAULT 0,
+    skipped_count INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, sent_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS wallet_notification_marketing_locks (
+    merchant_id TEXT PRIMARY KEY,
+    next_allowed_at TEXT NOT NULL DEFAULT '1970-01-01 00:00:00',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS wallet_notification_deliveries (
+    id TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE,
+    merchant_id TEXT NOT NULL, customer_id TEXT NOT NULL,
+    membership_id TEXT NOT NULL, program_id TEXT NOT NULL,
+    campaign_id TEXT, notification_type TEXT NOT NULL, cycle_key TEXT NOT NULL,
+    platform TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', attempt_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT, next_attempt_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sent_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_slug ON merchants(slug)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_email ON merchants(email)`,
@@ -159,6 +198,12 @@ const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_merchant_feedback_status_created ON merchant_feedback(status, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_apple_wallet_pass_serial ON apple_wallet_passes(pass_type_identifier, serial_number)`,
   `CREATE INDEX IF NOT EXISTS idx_apple_wallet_registration_pass ON apple_wallet_registrations(pass_type_identifier, serial_number)`,
+  `CREATE INDEX IF NOT EXISTS idx_google_wallet_pass_active ON google_wallet_passes(active, updated_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_wallet_notification_campaigns_merchant ON wallet_notification_campaigns(merchant_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_wallet_notification_deliveries_retry ON wallet_notification_deliveries(status, next_attempt_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_wallet_notification_deliveries_merchant ON wallet_notification_deliveries(merchant_id, created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_wallet_notification_deliveries_membership ON wallet_notification_deliveries(membership_id, notification_type, cycle_key)`,
+  `CREATE INDEX IF NOT EXISTS idx_stamps_membership_activity ON stamps(membership_id, created_at)`,
   `PRAGMA optimize`,
 ];
 
@@ -230,6 +275,18 @@ export async function ensureSchema() {
         }
       }
 
+      const applePassColumns = await db.prepare("PRAGMA table_info(apple_wallet_passes)").all<{ name: string }>();
+      if (!(applePassColumns.results ?? []).some((column) => column.name === "notification_delivery_id")) {
+        try { await db.prepare("ALTER TABLE apple_wallet_passes ADD COLUMN notification_delivery_id TEXT").run(); } catch (error) {
+          if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+        }
+      }
+      if (!(applePassColumns.results ?? []).some((column) => column.name === "layout_version")) {
+        try { await db.prepare("ALTER TABLE apple_wallet_passes ADD COLUMN layout_version INTEGER NOT NULL DEFAULT 0").run(); } catch (error) {
+          if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+        }
+      }
+
       const stampColumns = await db.prepare("PRAGMA table_info(stamps)").all<{ name: string }>();
       const existingStampColumns = new Set((stampColumns.results ?? []).map((column) => column.name));
       const stampMigrations = [
@@ -294,6 +351,8 @@ export async function ensureSchema() {
         db.prepare(`DELETE FROM apple_wallet_registrations WHERE serial_number IN (SELECT ap.serial_number FROM apple_wallet_passes ap JOIN memberships mb ON mb.id = ap.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years'))`),
         db.prepare(`DELETE FROM apple_wallet_passes WHERE membership_id IN (SELECT id FROM memberships WHERE datetime(updated_at) < datetime('now', '-3 years'))`),
         db.prepare(`DELETE FROM apple_wallet_devices WHERE NOT EXISTS (SELECT 1 FROM apple_wallet_registrations r WHERE r.device_library_identifier = apple_wallet_devices.device_library_identifier)`),
+        db.prepare(`DELETE FROM wallet_notification_deliveries WHERE datetime(created_at) < datetime('now', '-24 months')`),
+        db.prepare(`DELETE FROM wallet_notification_campaigns WHERE datetime(created_at) < datetime('now', '-24 months')`),
         db.prepare(`DELETE FROM stamp_reward_links WHERE stamp_id IN (SELECT s.id FROM stamps s JOIN memberships mb ON mb.id = s.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years')) OR reward_id IN (SELECT r.id FROM rewards r JOIN memberships mb ON mb.id = r.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years'))`),
         db.prepare(`DELETE FROM employee_actions WHERE stamp_id IN (SELECT s.id FROM stamps s JOIN memberships mb ON mb.id = s.membership_id WHERE datetime(mb.updated_at) < datetime('now', '-3 years'))`),
         db.prepare(`DELETE FROM rewards WHERE membership_id IN (SELECT id FROM memberships WHERE datetime(updated_at) < datetime('now', '-3 years'))`),

@@ -2,6 +2,8 @@ import { env } from "cloudflare:workers";
 import { ensureSchema, getD1, queryAll, queryFirst } from "../db";
 import { getCardByCode } from "./data";
 import { walletRewardSnapshot } from "./google-wallet-content";
+
+export const APPLE_WALLET_LAYOUT_VERSION = 4;
 import { buildSignedPkpass } from "./apple-pass-signing";
 import type { CardData } from "./types";
 
@@ -58,6 +60,8 @@ export type AppleStoreCardSource = {
   };
   userInfo: { membershipId: string; programId: string; cardCode: string };
 };
+
+type WalletNotificationContent = { id: string; title: string; message: string };
 
 function runtimeEnv() {
   return env as unknown as AppleWalletEnv;
@@ -156,7 +160,7 @@ function appleRewardDetails(card: CardData) {
   };
 }
 
-export function appleStoreCardPreview(card: CardData) {
+export function appleStoreCardPreview(card: CardData, notification?: WalletNotificationContent | null) {
   const details = appleRewardDetails(card);
   const balanceLabel = card.earningMode === "spend" ? "SOLDE DE POINTS" : "PROGRESSION";
   const balanceValue = card.earningMode === "spend" ? card.points : `${card.points} sur ${card.goal}`;
@@ -184,12 +188,18 @@ export function appleStoreCardPreview(card: CardData) {
       { key: "next-tier", label: "PROCHAIN PALIER", value: details.snapshot.nextTier },
       {
         key: "reward-details-hint",
-        label: "DÉTAILS DES RÉCOMPENSES",
+        label: "DÉTAILS",
         value: "Au dos •••",
       },
     ],
     auxiliaryFields: [],
     backFields: [
+      ...(notification ? [{
+        key: "latest-wallet-notification",
+        label: notification.title,
+        value: notification.message,
+        changeMessage: `${notification.title} — %@`,
+      }] : []),
       { key: "customer", label: "Carte de fidélité de", value: card.firstName },
       { key: "all-tiers", label: "Tous les paliers", value: details.allTiers },
       { key: "available-tiers", label: "Récompenses accessibles", value: details.available },
@@ -206,6 +216,10 @@ export async function createAppleStoreCardSource(card: CardData): Promise<AppleS
   const serialNumber = await serialNumberForMembership(card.membershipId);
   const authenticationToken = await hmac(`${config.passTypeIdentifier}:${card.membershipId}`, config.authenticationSecret);
   const cardUrl = `${KIVLI_ORIGIN}/c/${encodeURIComponent(card.code)}`;
+  const notification = await queryFirst<WalletNotificationContent>(`SELECT d.id, d.title, d.message
+    FROM apple_wallet_passes ap
+    JOIN wallet_notification_deliveries d ON d.id = ap.notification_delivery_id
+    WHERE ap.membership_id = ? AND d.platform = 'apple'`, card.membershipId);
   return {
     formatVersion: 1,
     passTypeIdentifier: config.passTypeIdentifier,
@@ -221,7 +235,7 @@ export async function createAppleStoreCardSource(card: CardData): Promise<AppleS
     authenticationToken,
     barcode: { format: "PKBarcodeFormatQR", message: cardUrl, messageEncoding: "iso-8859-1", altText: card.code },
     barcodes: [{ format: "PKBarcodeFormatQR", message: cardUrl, messageEncoding: "iso-8859-1", altText: card.code }],
-    storeCard: appleStoreCardPreview(card),
+    storeCard: appleStoreCardPreview(card, notification),
     userInfo: { membershipId: card.membershipId, programId: card.id, cardCode: card.code },
   };
 }
@@ -231,14 +245,15 @@ export async function rememberAppleWalletPass(card: CardData, source: AppleStore
   const tokenHash = await hash(source.authenticationToken);
   const tag = Math.floor(Date.now() / 1000);
   await getD1().prepare(`INSERT INTO apple_wallet_passes
-    (membership_id, serial_number, pass_type_identifier, authentication_token_hash, last_updated_tag)
-    VALUES (?, ?, ?, ?, ?)
+    (membership_id, serial_number, pass_type_identifier, authentication_token_hash, last_updated_tag, layout_version)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(membership_id) DO UPDATE SET
       serial_number = excluded.serial_number,
       pass_type_identifier = excluded.pass_type_identifier,
       authentication_token_hash = excluded.authentication_token_hash,
+      layout_version = excluded.layout_version,
       updated_at = CURRENT_TIMESTAMP`)
-    .bind(card.membershipId, source.serialNumber, source.passTypeIdentifier, tokenHash, tag).run();
+    .bind(card.membershipId, source.serialNumber, source.passTypeIdentifier, tokenHash, tag, APPLE_WALLET_LAYOUT_VERSION).run();
 }
 
 export async function verifyAppleWalletRequest(passTypeIdentifier: string, serialNumber: string, authorization: string | null) {
@@ -356,6 +371,75 @@ export async function syncAppleWalletSafely(code: string) {
   } catch (error) {
     console.error("Synchronisation Apple Wallet différée.", error instanceof Error ? error.message : "Erreur inconnue");
   }
+}
+
+export async function refreshOutdatedAppleWalletPasses(limit = 100) {
+  await ensureSchema();
+  const rows = await queryAll<{ membershipId: string; code: string }>(`SELECT
+    ap.membership_id AS membershipId, mb.code
+    FROM apple_wallet_passes ap
+    JOIN memberships mb ON mb.id = ap.membership_id
+    WHERE COALESCE(ap.layout_version, 0) < ?
+    ORDER BY ap.updated_at
+    LIMIT ?`, APPLE_WALLET_LAYOUT_VERSION, limit);
+  for (const row of rows) {
+    await syncAppleWalletSafely(row.code);
+    await getD1().prepare(`UPDATE apple_wallet_passes SET layout_version = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE membership_id = ?`).bind(APPLE_WALLET_LAYOUT_VERSION, row.membershipId).run();
+  }
+  return rows.length;
+}
+
+async function removeInvalidApplePushToken(pushToken: string) {
+  await ensureSchema();
+  const db = getD1();
+  await db.batch([
+    db.prepare(`DELETE FROM apple_wallet_registrations WHERE device_library_identifier IN
+      (SELECT device_library_identifier FROM apple_wallet_devices WHERE push_token = ?)`).bind(pushToken),
+    db.prepare("DELETE FROM apple_wallet_devices WHERE push_token = ?").bind(pushToken),
+  ]);
+}
+
+export async function sendAppleWalletNotification(card: CardData, deliveryId: string) {
+  const current = runtimeEnv();
+  const config = coreConfig();
+  if (!current.APPLE_WALLET_APNS || !config) {
+    return { active: false, sent: false, error: "Apple Wallet n’est pas configuré." };
+  }
+  const serialNumber = await serialNumberForMembership(card.membershipId);
+  const targets = await pendingAppleWalletPushTargets(serialNumber);
+  if (!targets.length) return { active: false, sent: false };
+  await ensureSchema();
+  await getD1().prepare(`UPDATE apple_wallet_passes SET
+    last_updated_tag = MAX(last_updated_tag + 1, unixepoch()), push_pending = 1,
+    notification_delivery_id = ?, updated_at = CURRENT_TIMESTAMP WHERE membership_id = ?`)
+    .bind(deliveryId, card.membershipId).run();
+
+  const results = await Promise.all(targets.map(async ({ pushToken }) => {
+    if (!/^[a-f0-9]{32,256}$/i.test(pushToken)) {
+      await removeInvalidApplePushToken(pushToken);
+      return { ok: false, error: "Jeton Apple Wallet invalide." };
+    }
+    const response = await current.APPLE_WALLET_APNS!.fetch(new Request(`https://api.push.apple.com/3/device/${pushToken}`, {
+      method: "POST",
+      headers: {
+        "apns-priority": "10",
+        "apns-topic": config.passTypeIdentifier,
+        "content-type": "application/json",
+      },
+      body: "{}",
+    }));
+    if (response.ok) return { ok: true };
+    const details = await response.text();
+    if (response.status === 400 || response.status === 410) await removeInvalidApplePushToken(pushToken);
+    return { ok: false, error: `APNs ${response.status}${details ? ` : ${details.slice(0, 160)}` : ""}` };
+  }));
+  const sent = results.some((result) => result.ok);
+  return {
+    active: true,
+    sent,
+    error: sent ? undefined : results.find((result) => !result.ok)?.error ?? "Notification Apple Wallet refusée.",
+  };
 }
 
 async function applePassAssets() {

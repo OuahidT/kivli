@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { ensureSchema, getD1 } from "../db";
 import { getCardByCode } from "./data";
 import { walletRewardSnapshot } from "./google-wallet-content";
 import type { CardData } from "./types";
@@ -106,6 +107,17 @@ function walletIds(card: CardData, issuerId: string) {
     classId: `${issuerId}.kivli_program_${safeId(card.id)}`,
     objectId: `${issuerId}.kivli_member_${safeId(card.membershipId)}`,
   };
+}
+
+async function rememberGoogleWalletPass(card: CardData, objectId: string, active: boolean) {
+  await ensureSchema();
+  await getD1().prepare(`INSERT INTO google_wallet_passes
+    (membership_id, object_id, active, last_verified_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(membership_id) DO UPDATE SET
+      object_id = excluded.object_id, active = excluded.active,
+      last_verified_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP`)
+    .bind(card.membershipId, objectId, active ? 1 : 0).run();
 }
 
 function normalizedColor(color: string) {
@@ -248,12 +260,17 @@ async function upsertObject(
   const body = loyaltyObject(card, issuerId);
   const existing = await walletRequest(`/loyaltyObject/${encodeURIComponent(body.id)}`);
   if (existing.status === 404) {
-    if (!createWhenMissing) return false;
+    if (!createWhenMissing) {
+      await rememberGoogleWalletPass(card, body.id, false);
+      return false;
+    }
     const created = await walletRequest("/loyaltyObject", { method: "POST", body: JSON.stringify(body) });
     if (!created.ok) throw new Error(`Création de la carte Google Wallet impossible (${created.status}).`);
+    await rememberGoogleWalletPass(card, body.id, false);
     return true;
   }
   if (!existing.ok) throw new Error(`Lecture de la carte Google Wallet impossible (${existing.status}).`);
+  const existingObject = await existing.json() as { hasUsers?: boolean };
   const updates: Record<string, unknown> = { ...body };
   delete updates.id;
   delete updates.classId;
@@ -263,7 +280,53 @@ async function upsertObject(
     body: JSON.stringify(updates),
   });
   if (!patched.ok) throw new Error(`Synchronisation Google Wallet impossible (${patched.status}).`);
+  await rememberGoogleWalletPass(card, body.id, Boolean(existingObject.hasUsers));
   return true;
+}
+
+export async function sendGoogleWalletNotification(
+  card: CardData,
+  notificationId: string,
+  title: string,
+  message: string,
+) {
+  const config = runtimeConfig();
+  if (!config) return { active: false, sent: false, error: "Google Wallet n’est pas configuré." };
+  const { objectId } = walletIds(card, config.issuerId);
+  const existing = await walletRequest(`/loyaltyObject/${encodeURIComponent(objectId)}`);
+  if (existing.status === 404) {
+    await rememberGoogleWalletPass(card, objectId, false);
+    return { active: false, sent: false };
+  }
+  if (!existing.ok) {
+    return { active: true, sent: false, error: `Lecture Google Wallet refusée (${existing.status}).` };
+  }
+  const existingObject = await existing.json() as { hasUsers?: boolean };
+  if (!existingObject.hasUsers) {
+    await rememberGoogleWalletPass(card, objectId, false);
+    return { active: false, sent: false };
+  }
+  await rememberGoogleWalletPass(card, objectId, true);
+  const response = await walletRequest(`/loyaltyObject/${encodeURIComponent(objectId)}/addMessage`, {
+    method: "POST",
+    body: JSON.stringify({
+      message: {
+        header: title,
+        body: message,
+        id: safeId(notificationId),
+        messageType: "TEXT_AND_NOTIFY",
+      },
+    }),
+  });
+  if (!response.ok) {
+    const details = await response.text();
+    return {
+      active: true,
+      sent: false,
+      error: `Notification Google Wallet refusée (${response.status})${details ? ` : ${details.slice(0, 240)}` : ""}`,
+    };
+  }
+  return { active: true, sent: true };
 }
 
 export async function createGoogleWalletSaveUrl(card: CardData) {

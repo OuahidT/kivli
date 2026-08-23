@@ -245,6 +245,8 @@ export const appleWalletPasses = sqliteTable(
     authenticationTokenHash: text("authentication_token_hash").notNull(),
     lastUpdatedTag: integer("last_updated_tag").notNull(),
     pushPending: integer("push_pending", { mode: "boolean" }).notNull().default(false),
+    notificationDeliveryId: text("notification_delivery_id"),
+    layoutVersion: integer("layout_version").notNull().default(0),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -272,6 +274,66 @@ export const appleWalletRegistrations = sqliteTable(
   (table) => [
     uniqueIndex("idx_apple_wallet_registration_unique").on(table.deviceLibraryIdentifier, table.passTypeIdentifier, table.serialNumber),
     index("idx_apple_wallet_registration_pass").on(table.passTypeIdentifier, table.serialNumber),
+  ],
+);
+
+export const googleWalletPasses = sqliteTable(
+  "google_wallet_passes",
+  {
+    membershipId: text("membership_id").primaryKey(),
+    objectId: text("object_id").notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    lastVerifiedAt: text("last_verified_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [uniqueIndex("idx_google_wallet_pass_object").on(table.objectId), index("idx_google_wallet_pass_active").on(table.active, table.updatedAt)],
+);
+
+export const walletNotificationSettings = sqliteTable("wallet_notification_settings", {
+  merchantId: text("merchant_id").primaryKey(),
+  nearRewardEnabled: integer("near_reward_enabled", { mode: "boolean" }).notNull().default(false),
+  nearRewardThreshold: integer("near_reward_threshold").notNull().default(2),
+  reactivationEnabled: integer("reactivation_enabled", { mode: "boolean" }).notNull().default(false),
+  reactivationDays: integer("reactivation_days").notNull().default(45),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const walletNotificationCampaigns = sqliteTable(
+  "wallet_notification_campaigns",
+  {
+    id: text("id").primaryKey(), merchantId: text("merchant_id").notNull(), programId: text("program_id").notNull(),
+    title: text("title").notNull(), message: text("message").notNull(), status: text("status").notNull().default("pending"),
+    targetCount: integer("target_count").notNull().default(0), sentCount: integer("sent_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0), skippedCount: integer("skipped_count").notNull().default(0),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), sentAt: text("sent_at"),
+  },
+  (table) => [index("idx_wallet_notification_campaigns_merchant").on(table.merchantId, table.createdAt)],
+);
+
+export const walletNotificationMarketingLocks = sqliteTable("wallet_notification_marketing_locks", {
+  merchantId: text("merchant_id").primaryKey(),
+  nextAllowedAt: text("next_allowed_at").notNull().default("1970-01-01 00:00:00"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const walletNotificationDeliveries = sqliteTable(
+  "wallet_notification_deliveries",
+  {
+    id: text("id").primaryKey(), idempotencyKey: text("idempotency_key").notNull(), merchantId: text("merchant_id").notNull(),
+    customerId: text("customer_id").notNull(), membershipId: text("membership_id").notNull(), programId: text("program_id").notNull(),
+    campaignId: text("campaign_id"), notificationType: text("notification_type").notNull(), cycleKey: text("cycle_key").notNull(),
+    platform: text("platform").notNull(), title: text("title").notNull(), message: text("message").notNull(),
+    status: text("status").notNull().default("pending"), attemptCount: integer("attempt_count").notNull().default(0),
+    errorMessage: text("error_message"), nextAttemptAt: text("next_attempt_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    sentAt: text("sent_at"), createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_wallet_notification_delivery_idempotency").on(table.idempotencyKey),
+    index("idx_wallet_notification_deliveries_retry").on(table.status, table.nextAttemptAt),
+    index("idx_wallet_notification_deliveries_merchant").on(table.merchantId, table.createdAt),
+    index("idx_wallet_notification_deliveries_membership").on(table.membershipId, table.notificationType, table.cycleKey),
   ],
 );
 
