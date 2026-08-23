@@ -104,3 +104,12 @@ test("Apple Wallet pass and device routes verify the pass token", async () => {
     assert.match(await source(route), /verifyAppleWalletRequest/);
   }
 });
+
+test("Wallet campaigns and targets remain scoped to one merchant and program", async () => {
+  const notifications = await source("lib/wallet-notifications.ts");
+  assert.match(notifications, /FROM memberships mb WHERE mb\.merchant_id = \? AND mb\.program_id = \?/);
+  assert.match(notifications, /FROM programs WHERE merchant_id = \? AND active = 1/);
+  assert.match(notifications, /INSERT(?: OR IGNORE)? INTO wallet_notification_deliveries/);
+  assert.match(notifications, /idempotencyKey/);
+  assert.match(notifications, /wallet_notification_marketing_locks/);
+});
