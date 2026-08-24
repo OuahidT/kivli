@@ -1,0 +1,14 @@
+{
+  "name": "kivli-d1-backup-workflow",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "pnpm dlx wrangler@4.125.0 deploy --dry-run --outdir /tmp/kivli-d1-backup-build",
+    "deploy": "pnpm dlx wrangler@4.125.0 deploy",
+    "trigger": "pnpm dlx wrangler@4.125.0 workflows trigger kivli-d1-backup-daily"
+  },
+  "devDependencies": {
+    "wrangler": "4.125.0"
+  }
+}

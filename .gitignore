@@ -39,3 +39,14 @@ yarn-error.log*
 /outputs/
 /work/
 /tsconfig.tsbuildinfo
+
+# Production database artifacts must never be committed.
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+*.sql.zip
+**/kivli-production-*.sql
+**/d1-export-*.sql
+**/.wrangler/

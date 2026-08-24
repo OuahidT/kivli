@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kivli-d1-backup-orchestrator",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "ACCOUNT_ID": "3a803864c4641f66dafe7e9d31ffb7eb",
+    "DATABASE_ID": "2294e62a-ebce-4514-b440-36fbd3569363",
+    "DATABASE_NAME": "kivli-production-eu"
+  },
+  "workflows": [
+    {
+      "name": "kivli-d1-backup-daily",
+      "binding": "BACKUP_WORKFLOW",
+      "class_name": "KivliD1BackupWorkflow"
+    }
+  ],
+  "triggers": {
+    "crons": ["15 2 * * *"]
+  },
+  "r2_buckets": [
+    {
+      "binding": "BACKUP_BUCKET",
+      "bucket_name": "kivli-d1-backups"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
