@@ -1,7 +1,8 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../../db";
-import { createSession } from "../../../../../lib/auth";
+import { createSessionDetails } from "../../../../../lib/auth";
 import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../../lib/http";
 import { makeCode, makeId, sha256, slugify } from "../../../../../lib/ids";
+import { registerOrRecognizeOwnerDevice } from "../../../../../lib/owner-security";
 
 type PendingSignup = { id: string; payloadJson: string; expiresAt: string; usedAt: string | null };
 type PendingData = { firstName: string; lastName: string; businessName: string; email: string; phone: string | null; passwordHash: string; termsAcceptedAt: string; termsVersion: string };
@@ -26,7 +27,24 @@ export async function POST(request: Request) {
         .bind(merchantId, data.firstName, data.lastName, data.businessName, slug, data.email, data.phone, data.passwordHash, data.termsAcceptedAt, data.termsVersion),
       db.prepare("UPDATE merchant_email_verifications SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL").bind(pending.id),
     ]);
-    const cookie = await createSession(merchantId, request.url);
-    return Response.json({ ok: true }, { status: 201, headers: { "Set-Cookie": cookie } });
+    const session = await createSessionDetails(merchantId, request.url);
+    let deviceCookie: string | null = null;
+    try {
+      deviceCookie = (await registerOrRecognizeOwnerDevice(request, {
+        id: merchantId,
+        email: data.email,
+        firstName: data.firstName,
+        businessName: data.businessName,
+      })).cookie;
+    } catch (error) {
+      await db.prepare("DELETE FROM merchant_sessions WHERE id = ? AND merchant_id = ?")
+        .bind(session.sessionId, merchantId)
+        .run();
+      throw error;
+    }
+    const headers = new Headers();
+    headers.append("Set-Cookie", session.cookie);
+    if (deviceCookie) headers.append("Set-Cookie", deviceCookie);
+    return Response.json({ ok: true }, { status: 201, headers });
   } catch (error) { return safeApiError(error); }
 }

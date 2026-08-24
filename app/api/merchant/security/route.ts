@@ -11,6 +11,7 @@ import {
 } from "../../../../lib/auth";
 import { clearCredentialFailures, credentialThrottle, recordCredentialFailure } from "../../../../lib/credential-throttle";
 import { isSameOrigin, jsonError, readJson, safeApiError } from "../../../../lib/http";
+import { clearOwnerDeviceCookie, clearOwnerRecoveryCookie } from "../../../../lib/owner-security";
 
 type SecurityPayload = {
   action?: "change_owner_password" | "change_employee_pin";
@@ -102,22 +103,35 @@ export async function PATCH(request: Request) {
 
     if (action === "change_owner_password") {
       if (!validOwnerPassword(newPassword)) {
-        return jsonError("Le nouveau code confidentiel doit contenir exactement 6 chiffres.");
+        return /^\d{6}$/.test(newPassword)
+          ? jsonError("Choisis un code moins prévisible, sans suite simple ni répétition.")
+          : jsonError("Le nouveau code confidentiel doit contenir exactement 6 chiffres.");
       }
       if (await verifyPassword(newPassword, security.pinHash)) {
         return jsonError("Choisis un nouveau code différent de l’ancien.");
       }
       await clearCredentialFailures(throttle.keys);
       await db.batch([
-        db.prepare("UPDATE merchants SET pin_hash = ? WHERE id = ?").bind(await createPasswordHash(newPassword), merchant.id),
+        db.prepare("UPDATE merchants SET pin_hash = ?, owner_pin_change_required = 0 WHERE id = ?")
+          .bind(await createPasswordHash(newPassword), merchant.id),
         db.prepare(
           "DELETE FROM employee_sessions WHERE session_id IN (SELECT id FROM merchant_sessions WHERE merchant_id = ?)",
         ).bind(merchant.id),
         db.prepare("DELETE FROM merchant_sessions WHERE merchant_id = ?").bind(merchant.id),
+        db.prepare(
+          "UPDATE owner_trusted_devices SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP) WHERE merchant_id = ?",
+        ).bind(merchant.id),
+        db.prepare(
+          "UPDATE owner_security_tokens SET used_at = COALESCE(used_at, CURRENT_TIMESTAMP) WHERE merchant_id = ?",
+        ).bind(merchant.id),
       ]);
+      const headers = new Headers();
+      headers.append("Set-Cookie", clearSessionCookie(request.url));
+      headers.append("Set-Cookie", clearOwnerDeviceCookie());
+      headers.append("Set-Cookie", clearOwnerRecoveryCookie());
       return Response.json(
         { ok: true, reauthenticate: true },
-        { headers: { "Set-Cookie": clearSessionCookie(request.url) } },
+        { headers },
       );
     }
 

@@ -37,3 +37,22 @@ export async function sendMerchantFeedbackEmail(input: {
   });
   if (!response.ok) throw new Error("Le retour n’a pas pu être envoyé.");
 }
+
+export async function sendOwnerNewDeviceEmail(input: {
+  email: string;
+  firstName: string;
+  businessName: string;
+  loginDate: string;
+  deviceLabel: string;
+  country: string | null;
+  securityUrl: string;
+}) {
+  const runtimeEnv = env as unknown as { ADMIN_MAILER?: MailerBinding };
+  if (!runtimeEnv.ADMIN_MAILER) throw new Error("Le service d’e-mail est indisponible.");
+  const response = await runtimeEnv.ADMIN_MAILER.fetch("https://kivli-admin.internal/internal/owner-new-device", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error("L’alerte de nouvelle connexion n’a pas pu être envoyée.");
+}

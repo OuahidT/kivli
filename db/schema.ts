@@ -16,6 +16,7 @@ export const merchants = sqliteTable(
     termsVersion: text("terms_version"),
     pinHash: text("pin_hash").notNull(),
     employeePinHash: text("employee_pin_hash"),
+    ownerPinChangeRequired: integer("owner_pin_change_required", { mode: "boolean" }).notNull().default(false),
     accentColor: text("accent_color").notNull().default("#f05b3c"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -192,6 +193,42 @@ export const merchantSessions = sqliteTable(
   (table) => [
     uniqueIndex("idx_sessions_token").on(table.tokenHash),
     index("idx_sessions_merchant").on(table.merchantId),
+  ],
+);
+
+export const ownerTrustedDevices = sqliteTable(
+  "owner_trusted_devices",
+  {
+    id: text("id").primaryKey(),
+    merchantId: text("merchant_id").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    deviceLabel: text("device_label").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    lastSeenAt: text("last_seen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    expiresAt: text("expires_at").notNull(),
+    revokedAt: text("revoked_at"),
+  },
+  (table) => [
+    uniqueIndex("idx_owner_devices_token").on(table.tokenHash),
+    index("idx_owner_devices_merchant").on(table.merchantId, table.revokedAt, table.expiresAt),
+  ],
+);
+
+export const ownerSecurityTokens = sqliteTable(
+  "owner_security_tokens",
+  {
+    id: text("id").primaryKey(),
+    merchantId: text("merchant_id").notNull(),
+    trustedDeviceId: text("trusted_device_id"),
+    purpose: text("purpose").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    usedAt: text("used_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_owner_security_tokens_hash").on(table.tokenHash),
+    index("idx_owner_security_tokens_merchant").on(table.merchantId, table.purpose, table.usedAt),
   ],
 );
 

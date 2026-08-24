@@ -228,6 +228,20 @@ async function ensureAdminSchema(db: D1Database): Promise<void> {
         created_at TEXT DEFAULT CURRENT_TIMESTAMP NOT NULL
       )
     `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS owner_trusted_devices (
+        id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
+        device_label TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, expires_at TEXT NOT NULL, revoked_at TEXT
+      )
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS owner_security_tokens (
+        id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, trusted_device_id TEXT,
+        purpose TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
+        expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_state_status ON merchant_admin_state(status)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_audit_merchant ON admin_audit_log(merchant_id, created_at)"),
@@ -413,7 +427,13 @@ function wrapBase64(value: string): string {
   return value.match(/.{1,76}/g)?.join("\r\n") ?? "";
 }
 
-async function sendSmtpEmail(env: Env, recipient: string, subject: string, body: string): Promise<void> {
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+  })[character] ?? character);
+}
+
+async function sendSmtpEmail(env: Env, recipient: string, subject: string, body: string, htmlBody?: string): Promise<void> {
   const config = requireAdminConfig(env);
   const host = env.SMTP_HOST?.trim() || "smtp.mail.ovh.net";
   const port = Number(env.SMTP_PORT || "587");
@@ -441,17 +461,35 @@ async function sendSmtpEmail(env: Env, recipient: string, subject: string, body:
     await smtp.command(`MAIL FROM:<${username}>`, [250]);
     await smtp.command(`RCPT TO:<${recipient}>`, [250, 251]);
     await smtp.command("DATA", [354]);
+    const contentHeaders = htmlBody
+      ? [`Content-Type: multipart/alternative; boundary="kivli-${crypto.randomUUID()}"`]
+      : ["Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64"];
+    const boundary = htmlBody ? contentHeaders[0].match(/boundary="([^"]+)/)?.[1] : null;
+    const content = htmlBody && boundary
+      ? [
+        `--${boundary}`,
+        "Content-Type: text/plain; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        wrapBase64(base64Utf8(body)),
+        `--${boundary}`,
+        "Content-Type: text/html; charset=UTF-8",
+        "Content-Transfer-Encoding: base64",
+        "",
+        wrapBase64(base64Utf8(htmlBody)),
+        `--${boundary}--`,
+      ]
+      : [wrapBase64(base64Utf8(body))];
     const message = [
       `From: Kivli <${username}>`,
       `To: ${recipient}`,
-      `Subject: ${subject}`,
+      `Subject: =?UTF-8?B?${base64Utf8(subject)}?=`,
       `Date: ${new Date().toUTCString()}`,
       `Message-ID: <${crypto.randomUUID()}@kivli.fr>`,
       "MIME-Version: 1.0",
-      "Content-Type: text/plain; charset=UTF-8",
-      "Content-Transfer-Encoding: base64",
+      ...contentHeaders,
       "",
-      wrapBase64(base64Utf8(body)),
+      ...content,
       "",
       ".",
     ].join("\r\n");
@@ -460,6 +498,46 @@ async function sendSmtpEmail(env: Env, recipient: string, subject: string, body:
   } finally {
     await socket.close().catch(() => undefined);
   }
+}
+
+async function sendOwnerNewDevice(request: Request, env: Env): Promise<Response> {
+  if (new URL(request.url).hostname !== "kivli-admin.internal") return json({ error: "Route introuvable." }, 404);
+  const body = await readBody(request);
+  const email = cleanText(body.email, 160).toLowerCase();
+  const firstName = cleanText(body.firstName, 60);
+  const businessName = cleanText(body.businessName, 120);
+  const loginDate = cleanText(body.loginDate, 120);
+  const deviceLabel = cleanText(body.deviceLabel, 120);
+  const country = cleanText(body.country, 80);
+  const securityUrl = cleanText(body.securityUrl, 600);
+  let validSecurityUrl = false;
+  try {
+    const parsed = new URL(securityUrl);
+    validSecurityUrl = parsed.origin === "https://kivli.fr" && parsed.pathname === "/security/not-me" && Boolean(parsed.searchParams.get("token"));
+  } catch {
+    validSecurityUrl = false;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !validSecurityUrl || !deviceLabel || !loginDate) {
+    return json({ error: "Demande d’envoi invalide." }, 400);
+  }
+  const greeting = firstName ? `Bonjour ${firstName},` : "Bonjour,";
+  const locationLine = country ? `Pays approximatif : ${country}` : null;
+  const textBody = [
+    greeting, "", `Une nouvelle connexion au compte ${businessName || "Kivli"} vient d’être détectée.`, "",
+    `Date et heure : ${loginDate}`, `Appareil : ${deviceLabel}`, locationLine, "",
+    "Si c’était bien vous, aucune action n’est nécessaire.",
+    "Si vous ne reconnaissez pas cette connexion, ouvrez ce lien puis confirmez l’action :", securityUrl, "",
+    "L’ouverture du lien seule ne modifie rien. Une confirmation sera demandée sur Kivli.", "",
+    "Kivli — La fidélité, simplement.",
+  ].filter((line): line is string => line !== null).join("\r\n");
+  const details = [
+    `<strong>Date et heure :</strong> ${escapeHtml(loginDate)}`,
+    `<strong>Appareil :</strong> ${escapeHtml(deviceLabel)}`,
+    ...(country ? [`<strong>Pays approximatif :</strong> ${escapeHtml(country)}`] : []),
+  ].join("<br>");
+  const htmlBody = `<!doctype html><html lang="fr"><body style="margin:0;background:#f7f4ee;color:#171714;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><div style="max-width:600px;margin:0 auto;padding:36px 22px"><div style="background:#fff;border:1px solid #e6e0d7;border-radius:20px;padding:30px"><div style="font-weight:800;font-size:22px;margin-bottom:24px">Kivli</div><h1 style="font-size:24px;line-height:1.2;margin:0 0 18px">Nouvelle connexion à votre compte Kivli</h1><p>${escapeHtml(greeting)}</p><p>Une nouvelle connexion au compte <strong>${escapeHtml(businessName || "Kivli")}</strong> vient d’être détectée.</p><p style="line-height:1.7;background:#f7f4ee;border-radius:12px;padding:14px 16px">${details}</p><p>Si c’était bien vous, aucune action n’est nécessaire.</p><p>Si vous ne reconnaissez pas cette connexion :</p><p style="margin:26px 0"><a href="${escapeHtml(securityUrl)}" style="display:inline-block;background:#171714;color:#fff;text-decoration:none;font-weight:750;padding:13px 18px;border-radius:11px">Ce n’était pas moi</a></p><p style="font-size:13px;color:#69665f">L’ouverture de ce bouton ne révoque rien automatiquement. Une confirmation sera demandée sur Kivli.</p><p style="margin-top:28px">Kivli — La fidélité, simplement.</p></div></div></body></html>`;
+  await sendSmtpEmail(env, email, "Nouvelle connexion à votre compte Kivli", textBody, htmlBody);
+  return json({ ok: true });
 }
 
 async function sendResetEmail(env: Env, code: string): Promise<void> {
@@ -839,6 +917,8 @@ async function deleteMerchantAccount(
          OR reward_id IN (SELECT id FROM rewards WHERE merchant_id = ?)
     `).bind(merchantId, merchantId),
     env.DB.prepare("DELETE FROM merchant_sessions WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM owner_security_tokens WHERE merchant_id = ?").bind(merchantId),
+    env.DB.prepare("DELETE FROM owner_trusted_devices WHERE merchant_id = ?").bind(merchantId),
     env.DB.prepare("DELETE FROM stamp_requests WHERE merchant_id = ?").bind(merchantId),
     env.DB.prepare("DELETE FROM rewards WHERE merchant_id = ?").bind(merchantId),
     env.DB.prepare("DELETE FROM stamps WHERE merchant_id = ?").bind(merchantId),
@@ -1029,6 +1109,9 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   }
   if (request.method === "POST" && path === "/internal/merchant-feedback") {
     return sendMerchantFeedback(request, env);
+  }
+  if (request.method === "POST" && path === "/internal/owner-new-device") {
+    return sendOwnerNewDevice(request, env);
   }
 
   if (request.method === "POST" && path === "/api/login") return loginAdmin(request, env);

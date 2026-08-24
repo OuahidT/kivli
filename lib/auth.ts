@@ -1,5 +1,6 @@
 import { queryFirst } from "../db";
 import { makeId, sha256 } from "./ids";
+import { validStrongOwnerPin } from "./owner-auth-policy";
 
 const COOKIE_NAME = "kivli_session";
 const SESSION_DAYS = 30;
@@ -64,7 +65,7 @@ async function verifySecret(secret: string, storedHash: string) {
 }
 
 export function validOwnerPassword(password: string) {
-  return /^\d{6}$/.test(password);
+  return validStrongOwnerPin(password);
 }
 
 export const createPinHash = createSecretHash;
@@ -72,13 +73,13 @@ export const verifyPin = verifySecret;
 export const createPasswordHash = createSecretHash;
 export const verifyPassword = verifySecret;
 
-function readCookie(request: Request, name: string) {
+export function readCookie(request: Request, name: string) {
   const raw = request.headers.get("cookie") ?? "";
   const item = raw.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
   return item ? decodeURIComponent(item.slice(name.length + 1)) : null;
 }
 
-export async function createSession(
+export async function createSessionDetails(
   merchantId: string,
   requestUrl: string,
   role: MerchantIdentity["role"] = "owner",
@@ -103,7 +104,19 @@ export async function createSession(
   }
   await db.batch(statements);
   const secure = new URL(requestUrl).protocol === "https:" ? "; Secure" : "";
-  return `${COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS * 86400}${secure}`;
+  return {
+    sessionId,
+    cookie: `${COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_DAYS * 86400}${secure}`,
+  };
+}
+
+export async function createSession(
+  merchantId: string,
+  requestUrl: string,
+  role: MerchantIdentity["role"] = "owner",
+  employeeId: string | null = null,
+) {
+  return (await createSessionDetails(merchantId, requestUrl, role, employeeId)).cookie;
 }
 
 export async function getMerchant(request: Request): Promise<MerchantIdentity | null> {
@@ -124,6 +137,7 @@ export async function getMerchant(request: Request): Promise<MerchantIdentity | 
      LEFT JOIN employees e ON e.id = es.employee_id AND e.merchant_id = m.id AND e.active = 1
      WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP
        AND COALESCE(mas.status, 'active') = 'active'
+       AND (s.role != 'owner' OR COALESCE(m.owner_pin_change_required, 0) = 0)
        AND (s.role = 'owner' OR (s.role = 'employee' AND e.id IS NOT NULL))`,
     tokenHash,
   );

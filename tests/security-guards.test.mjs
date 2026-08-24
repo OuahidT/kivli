@@ -15,6 +15,8 @@ const mutationRoutes = [
   "app/api/merchant/redeem/route.ts",
   "app/api/merchant/redeem/undo/route.ts",
   "app/api/merchant/security/route.ts",
+  "app/api/merchant/security/not-me/route.ts",
+  "app/api/merchant/security/forced-pin/route.ts",
   "app/api/merchant/stamp/route.ts",
   "app/api/merchant/stamp/undo/route.ts",
   "app/api/merchant/wallet-notifications/route.ts",

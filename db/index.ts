@@ -89,6 +89,17 @@ const schemaStatements = [
     window_started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, locked_until TEXT,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS owner_trusted_devices (
+    id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
+    device_label TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, expires_at TEXT NOT NULL,
+    revoked_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS owner_security_tokens (
+    id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, trusted_device_id TEXT,
+    purpose TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE TABLE IF NOT EXISTS merchant_admin_state (
     merchant_id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'active',
     internal_note TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -188,6 +199,8 @@ const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_stamp_reward_links_stamp ON stamp_reward_links(stamp_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_reward_links_reward ON stamp_reward_links(reward_id)`,
   `CREATE INDEX IF NOT EXISTS idx_login_attempts_updated ON login_attempts(updated_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_owner_devices_merchant ON owner_trusted_devices(merchant_id, revoked_at, expires_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_owner_security_tokens_merchant ON owner_security_tokens(merchant_id, purpose, used_at)`,
   `CREATE INDEX IF NOT EXISTS idx_admin_state_status ON merchant_admin_state(status)`,
   `CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_admin_audit_merchant ON admin_audit_log(merchant_id, created_at)`,
@@ -222,6 +235,7 @@ export async function ensureSchema() {
         ["email_verified_at", "ALTER TABLE merchants ADD COLUMN email_verified_at TEXT"],
         ["terms_accepted_at", "ALTER TABLE merchants ADD COLUMN terms_accepted_at TEXT"],
         ["terms_version", "ALTER TABLE merchants ADD COLUMN terms_version TEXT"],
+        ["owner_pin_change_required", "ALTER TABLE merchants ADD COLUMN owner_pin_change_required INTEGER NOT NULL DEFAULT 0"],
       ] as const;
       for (const [column, statement] of migrations) {
         if (existing.has(column)) continue;
@@ -343,6 +357,8 @@ export async function ensureSchema() {
         db.prepare("DELETE FROM merchant_sessions WHERE datetime(expires_at) <= CURRENT_TIMESTAMP"),
         db.prepare("DELETE FROM merchant_email_verifications WHERE datetime(expires_at) < datetime('now', '-1 day')"),
         db.prepare("DELETE FROM login_attempts WHERE datetime(updated_at) < datetime('now', '-30 days')"),
+        db.prepare("DELETE FROM owner_security_tokens WHERE datetime(expires_at) < datetime('now', '-7 days')"),
+        db.prepare("DELETE FROM owner_trusted_devices WHERE revoked_at IS NOT NULL AND datetime(revoked_at) < datetime('now', '-30 days')"),
         db.prepare("DELETE FROM stamp_requests WHERE datetime(created_at) < datetime('now', '-2 days')"),
         db.prepare("DELETE FROM admin_sessions WHERE datetime(expires_at) <= CURRENT_TIMESTAMP"),
         db.prepare("DELETE FROM admin_login_attempts WHERE datetime(updated_at) < datetime('now', '-30 days')"),

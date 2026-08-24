@@ -1,5 +1,5 @@
 import { ensureSchema, getD1, queryFirst } from "../../../../db";
-import { createPasswordHash } from "../../../../lib/auth";
+import { createPasswordHash, validOwnerPassword } from "../../../../lib/auth";
 import { cleanText, isSameOrigin, jsonError, normalizePhone, readJson, safeApiError, validEmail } from "../../../../lib/http";
 import { makeId, sha256 } from "../../../../lib/ids";
 import { sendMerchantVerificationEmail } from "../../../../lib/mailer";
@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     if (!validEmail(email)) return jsonError("Indique un e-mail valide.");
     if (payload.phone && !phone) return jsonError("Indique un numéro de téléphone valide.");
     if (!/^\d{6}$/.test(password)) return jsonError("Choisis un code confidentiel composé de 6 chiffres.");
+    if (!validOwnerPassword(password)) return jsonError("Choisis un code moins prévisible, sans suite simple ni répétition.");
     if (password !== confirmPassword) return jsonError("Les deux codes confidentiels ne correspondent pas.");
     if (!acceptedCheckbox(payload.termsAccepted)) return jsonError("Accepte les conditions du pilote gratuit et l’annexe RGPD pour créer ton compte.");
 

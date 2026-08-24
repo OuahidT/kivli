@@ -477,7 +477,7 @@ export function DashboardApp() {
                 <div className="panel-head"><div><h2>Sécurité du propriétaire</h2><p>Les accès individuels des employés se gèrent dans l’onglet Mon équipe.</p></div></div>
                 <form className="form-grid owner-pin-form" onSubmit={(event) => updateSecurity(event, "change_owner_password")}>
                   <label>Code confidentiel actuel<input name="currentPassword" type="password" inputMode="numeric" autoComplete="current-password" maxLength={6} pattern="[0-9]{6}" required /></label>
-                  <label>Nouveau code<input name="newPassword" type="password" inputMode="numeric" autoComplete="new-password" minLength={6} maxLength={6} pattern="[0-9]{6}" required /><small>Exactement 6 chiffres.</small></label>
+                  <label>Nouveau code<input name="newPassword" type="password" inputMode="numeric" autoComplete="new-password" minLength={6} maxLength={6} pattern="[0-9]{6}" required /><small>6 chiffres, sans suite simple ni répétition.</small></label>
                   <button className="button" disabled={busy}>Modifier mon code</button>
                 </form>
               </section>
