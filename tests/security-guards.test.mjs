@@ -11,6 +11,7 @@ const mutationRoutes = [
   "app/api/merchant/employees/route.ts",
   "app/api/merchant/feedback/route.ts",
   "app/api/merchant/logout/route.ts",
+  "app/api/merchant/pilot-acceptance/route.ts",
   "app/api/merchant/program/route.ts",
   "app/api/merchant/redeem/route.ts",
   "app/api/merchant/redeem/undo/route.ts",
@@ -58,6 +59,7 @@ test("owner-only routes keep explicit role checks", async () => {
     "app/api/merchant/feedback/route.ts",
     "app/api/merchant/program/route.ts",
     "app/api/merchant/wallet-notifications/route.ts",
+    "app/api/merchant/pilot-acceptance/route.ts",
   ]) {
     assert.match(await source(route), /isOwner\(merchant\)/, `${route} must remain owner-only`);
   }
