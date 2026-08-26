@@ -3,9 +3,8 @@ import { createPasswordHash, validOwnerPassword } from "../../../../lib/auth";
 import { cleanText, isSameOrigin, jsonError, normalizePhone, readJson, safeApiError, validEmail } from "../../../../lib/http";
 import { makeId, sha256 } from "../../../../lib/ids";
 import { sendMerchantVerificationEmail } from "../../../../lib/mailer";
-import { acceptedCheckbox, LEGAL_VERSION } from "../../../../lib/legal";
 
-type SignupPayload = { firstName?: string; lastName?: string; businessName?: string; email?: string; phone?: string; password?: string; confirmPassword?: string; termsAccepted?: boolean | string };
+type SignupPayload = { firstName?: string; lastName?: string; businessName?: string; email?: string; phone?: string; password?: string; confirmPassword?: string };
 type RecentVerification = { lastSentAt: string };
 
 export async function POST(request: Request) {
@@ -28,7 +27,6 @@ export async function POST(request: Request) {
     if (!/^\d{6}$/.test(password)) return jsonError("Choisis un code confidentiel composé de 6 chiffres.");
     if (!validOwnerPassword(password)) return jsonError("Choisis un code moins prévisible, sans suite simple ni répétition.");
     if (password !== confirmPassword) return jsonError("Les deux codes confidentiels ne correspondent pas.");
-    if (!acceptedCheckbox(payload.termsAccepted)) return jsonError("Accepte les conditions du pilote gratuit et l’annexe RGPD pour créer ton compte.");
 
     await ensureSchema();
     if (await queryFirst<{ id: string }>("SELECT id FROM merchants WHERE email = ?", email)) return jsonError("Un compte existe déjà avec cet e-mail.", 409);
@@ -40,7 +38,7 @@ export async function POST(request: Request) {
     const tokenHash = await sha256(token);
     const passwordHash = await createPasswordHash(password);
     const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
-    const pending = { firstName, lastName, businessName, email, phone, passwordHash, termsAcceptedAt: new Date().toISOString(), termsVersion: LEGAL_VERSION };
+    const pending = { firstName, lastName, businessName, email, phone, passwordHash };
     const db = getD1();
     await db.batch([
       db.prepare("DELETE FROM merchant_email_verifications WHERE datetime(expires_at) < datetime('now', '-1 day')"),
