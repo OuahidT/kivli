@@ -1,5 +1,6 @@
 import { queryFirst } from "../db";
 import type { CardData, Program, RewardTier } from "./types";
+import { merchantHasCurrentPilotAcceptance } from "./pilot-acceptance";
 
 export async function getProgramBySlug(slug: string) {
   const program = await queryFirst<Omit<Program, "rewardTiers">>(
@@ -11,6 +12,7 @@ export async function getProgramBySlug(slug: string) {
     slug,
   );
   if (!program) return null;
+  if (!(await merchantHasCurrentPilotAcceptance(program.merchantId))) return null;
   const { queryAll } = await import("../db");
   const rewardTiers = await queryAll<RewardTier>(
     `SELECT id, threshold, reward_text AS rewardText, sort_order AS sortOrder
@@ -36,6 +38,7 @@ export async function getCardByCode(code: string) {
     code,
   );
   if (!card) return null;
+  if (!(await merchantHasCurrentPilotAcceptance(card.merchantId))) return null;
   const { queryAll } = await import("../db");
   const [rewardTiers, availableRewardItems] = await Promise.all([
     queryAll<RewardTier>(`SELECT id, threshold, reward_text AS rewardText, sort_order AS sortOrder FROM program_reward_tiers WHERE program_id = ? AND active = 1 ORDER BY threshold`, card.id),
