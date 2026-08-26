@@ -56,3 +56,21 @@ export async function sendOwnerNewDeviceEmail(input: {
   });
   if (!response.ok) throw new Error("L’alerte de nouvelle connexion n’a pas pu être envoyée.");
 }
+
+export async function sendPilotAcceptanceConfirmationEmail(input: {
+  email: string;
+  firstName: string;
+  businessName: string;
+  acceptedAt: string;
+  pilotTermsVersion: string;
+  dataProcessingVersion: string;
+}) {
+  const runtimeEnv = env as unknown as { ADMIN_MAILER?: MailerBinding };
+  if (!runtimeEnv.ADMIN_MAILER) throw new Error("Le service d’e-mail est indisponible.");
+  const response = await runtimeEnv.ADMIN_MAILER.fetch("https://kivli-admin.internal/internal/pilot-acceptance-confirmation", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error("La confirmation d’activation du pilote n’a pas pu être envoyée.");
+}
