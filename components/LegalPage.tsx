@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { LegalHeader } from "./LegalHeader";
 
-export function LegalPage({ eyebrow, title, intro, children }: { eyebrow: string; title: string; intro: string; children: ReactNode }) {
+export function LegalPage({ eyebrow, title, intro, version = "21 août 2026", children }: { eyebrow: string; title: string; intro: string; version?: string; children: ReactNode }) {
   return (
     <main className="legal-page">
       <LegalHeader />
       <article className="legal-document">
-        <header><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{intro}</p><small>Version du 21 août 2026</small></header>
+        <header><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{intro}</p><small>Version du {version}</small></header>
         <div className="legal-content">{children}</div>
       </article>
       <footer className="legal-footer" aria-label="Navigation légale">
