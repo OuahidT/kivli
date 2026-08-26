@@ -30,9 +30,11 @@ import { Brand } from "./Brand";
 import { MerchantScanner } from "./MerchantScanner";
 import { QrCode } from "./QrCode";
 import { PROGRAM_COLORS, visibleProgramTerms } from "../lib/program-style";
+import { PILOT_DURATION_REMINDER } from "../lib/legal";
 
 type DashboardData = {
   welcomePending?: boolean;
+  pilotAcceptanceRequired: boolean;
   merchant: {
     id: string;
     firstName: string;
@@ -106,7 +108,6 @@ export function DashboardApp() {
   const [employeeAccess, setEmployeeAccess] = useState<{ displayName: string; loginCode: string; temporaryPin: string } | null>(null);
   const [showEmployeePin, setShowEmployeePin] = useState(false);
   const [customerDialog, setCustomerDialog] = useState<CustomerDialog | null>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackError, setFeedbackError] = useState("");
   const [settingsTierCount, setSettingsTierCount] = useState(1);
@@ -122,21 +123,9 @@ export function DashboardApp() {
     const result = (await response.json()) as DashboardData & { error?: string };
     if (!response.ok) throw new Error(result.error ?? "Tableau de bord indisponible.");
     setData(result);
-    if (result.welcomePending) setShowWelcome(true);
     if (!sessionInitialized.current) {
       sessionInitialized.current = true;
       if (result.merchant.role === "employee") setTab("scan");
-    }
-  }, []);
-
-  const dismissWelcome = useCallback(async () => {
-    setShowWelcome(false);
-    setData((current) => current ? { ...current, welcomePending: false } : current);
-    try {
-      const response = await fetch("/api/merchant/welcome-seen", { method: "POST" });
-      if (!response.ok) throw new Error();
-    } catch {
-      setError("La fermeture de la bienvenue n’a pas pu être enregistrée. Réessaie dans un instant.");
     }
   }, []);
 
@@ -432,6 +421,9 @@ export function DashboardApp() {
   if (data.merchant.role === "employee" && data.merchant.employeeMustChangePin) {
     return <EmployeePinSetup data={data} busy={busy} error={error} onSubmit={changeEmployeePin} onLogout={logout} />;
   }
+  if (data.pilotAcceptanceRequired) {
+    return <PilotActivationGate data={data} onAccepted={load} onLogout={logout} />;
+  }
   if (!data.program) {
     return <ProgramOnboarding data={data} onCreated={load} onLogout={logout} />;
   }
@@ -518,7 +510,6 @@ export function DashboardApp() {
       {showEmployeePin && <PinChangeModal busy={busy} error={error} onSubmit={changeEmployeePin} onClose={() => { setShowEmployeePin(false); setError(""); }} />}
       {customerDialog && <CustomerActionModal dialog={customerDialog} busy={busy} error={error} onBonus={submitBonus} onClose={() => { setCustomerDialog(null); setError(""); }} />}
       {employeeAccess && <EmployeeAccessModal access={employeeAccess} onClose={() => setEmployeeAccess(null)} />}
-      {showWelcome && <WelcomeModal onClose={() => { void dismissWelcome(); }} onContinue={async () => { await dismissWelcome(); setTab("program"); }} />}
       {feedbackOpen && <FeedbackModal busy={busy} error={feedbackError} onSubmit={submitFeedback} onClose={() => { setFeedbackOpen(false); setFeedbackError(""); }} />}
       {toast && <div className="toast" role="status">✓ {toast}</div>}
     </main>
@@ -658,8 +649,49 @@ function CustomerActionModal({ dialog, busy, error, onBonus, onClose }: { dialog
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="customer-action-modal" role="dialog" aria-modal="true" aria-labelledby="customer-action-title"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="customer-action-icon bonus"><Coins size={23} aria-hidden="true" /></span><span className="eyebrow">Geste commercial</span><h2 id="customer-action-title">Ajouter un bonus à {dialog.customer.firstName}</h2><p>Les points bonus sont clairement identifiés dans l’historique et restent réservés au propriétaire.</p><form className="form-grid" onSubmit={onBonus}><label>Nombre de points bonus<input name="quantity" type="number" min="1" max="100" defaultValue="1" required autoFocus /></label><label>Motif <small>Facultatif</small><input name="note" maxLength={120} placeholder="Geste commercial, anniversaire…" /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Ajouter le bonus"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
 }
 
-function WelcomeModal({ onClose, onContinue }: { onClose: () => void | Promise<void>; onContinue: () => void | Promise<void> }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="welcome-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="welcome-modal-icon">👋</span><span className="eyebrow">Bienvenue chez Kivli</span><h2 id="welcome-title">Bienvenue chez Kivli 👋</h2><p>Toute l’équipe Kivli vous remercie pour votre confiance.</p><p>En rejoignant Kivli aujourd’hui, vous faites partie de nos premiers ambassadeurs. À ce titre, vous bénéficiez actuellement de la plateforme gratuitement, pendant que nous construisons Kivli avec nos premiers commerçants.</p><p>Votre expérience compte énormément pour nous. Une idée, une amélioration, quelque chose qui vous manque ou qui pourrait être plus simple ? N’hésitez pas à nous le dire. Vos retours participent directement à l’évolution de Kivli.</p><p className="welcome-thanks">Merci de faire partie de l’aventure 🧡</p><button className="button button-large button-full" onClick={onContinue}>Créer ma carte de fidélité<ArrowRight size={18} aria-hidden="true" /></button><button className="text-link" onClick={onClose}>Continuer vers mon espace</button></section></div>;
+function PilotActivationGate({ data, onAccepted, onLogout }: { data: DashboardData; onAccepted: () => Promise<void>; onLogout: () => Promise<void> }) {
+  const [accepted, setAccepted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function activate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!accepted || data.merchant.role !== "owner") return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/merchant/pilot-acceptance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accepted }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error ?? "L’activation n’a pas pu être enregistrée.");
+      await onAccepted();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "L’activation n’a pas pu être enregistrée.");
+      setBusy(false);
+    }
+  }
+
+  if (data.merchant.role !== "owner") {
+    return <main className="pilot-activation-page"><header className="pilot-activation-nav"><Brand /><button onClick={onLogout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button></header><section className="pilot-activation-card pilot-activation-employee"><span className="pilot-activation-icon"><ShieldCheck size={26} aria-hidden="true" /></span><span className="eyebrow">Activation requise</span><h1>Le propriétaire doit activer le pilote.</h1><p>Par sécurité, seul le propriétaire du commerce peut accepter les documents du pilote Kivli. Le scanner sera disponible immédiatement après son activation.</p><button className="button button-ghost" onClick={onLogout}>Revenir à la connexion</button></section></main>;
+  }
+
+  return <main className="pilot-activation-page">
+    <header className="pilot-activation-nav"><Brand /><div><span>{data.merchant.businessName}</span><button onClick={onLogout}><LogOut size={17} aria-hidden="true" />Se déconnecter</button></div></header>
+    <section className="pilot-activation-card" aria-labelledby="pilot-activation-title">
+      <div className="pilot-activation-copy"><span className="pilot-activation-icon" aria-hidden="true">👋</span><span className="eyebrow">Bienvenue chez Kivli</span><h1 id="pilot-activation-title">Bienvenue chez Kivli 👋</h1><p>Toute l’équipe Kivli vous remercie pour votre confiance.</p><p>En rejoignant Kivli aujourd’hui, vous faites partie de nos premiers ambassadeurs. À ce titre, vous bénéficiez actuellement de la plateforme gratuitement, pendant que nous construisons Kivli avec nos premiers commerçants.</p><p>Votre expérience compte énormément pour nous. Une idée, une amélioration, quelque chose qui vous manque ou qui pourrait être plus simple ? N’hésitez pas à nous le dire. Vos retours participent directement à l’évolution de Kivli.</p><p className="pilot-activation-thanks">Merci de faire partie de l’aventure 🧡</p></div>
+      <form className="pilot-acceptance-form" onSubmit={activate}>
+        <div className="pilot-legal-heading"><span><ShieldCheck size={20} aria-hidden="true" /></span><div><small>Dernière étape</small><h2>Activez votre pilote gratuitement.</h2></div></div>
+        <label className={`pilot-consent ${accepted ? "checked" : ""}`}><input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} required /><span className="pilot-consent-box" aria-hidden="true"><Check size={16} /></span><span>Je confirme être habilité(e) à engager le commerce <strong>{data.merchant.businessName}</strong> et j’accepte les <a href="/conditions-pilote" target="_blank" rel="noreferrer">Conditions du pilote Kivli</a> ainsi que l’<a href="/accord-traitement-donnees" target="_blank" rel="noreferrer">Accord relatif au traitement des données personnelles</a>.</span></label>
+        <p className="pilot-duration-reminder"><Check size={17} aria-hidden="true" />{PILOT_DURATION_REMINDER}</p>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <button className="button button-large button-full" disabled={!accepted || busy}>{busy ? "Activation…" : "Activer gratuitement mon pilote"}<ArrowRight size={18} aria-hidden="true" /></button>
+        <small className="pilot-proof-note">Votre acceptation datée et les versions exactes des documents seront conservées de manière sécurisée.</small>
+      </form>
+    </section>
+  </main>;
 }
 
 function FeedbackModal({ busy, error, onSubmit, onClose }: { busy: boolean; error: string; onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
@@ -668,7 +700,6 @@ function FeedbackModal({ busy, error, onSubmit, onClose }: { busy: boolean; erro
 
 function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData; onCreated: () => Promise<void>; onLogout: () => Promise<void> }) {
   const [showForm, setShowForm] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(Boolean(data.welcomePending));
   const [earningMode, setEarningMode] = useState<"visits" | "spend">("visits");
   const [onboardingTierCount, setOnboardingTierCount] = useState(1);
   const [cardName, setCardName] = useState("Ma carte fidélité");
@@ -677,17 +708,6 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
   const [selectedColor, setSelectedColor] = useState<string>(PROGRAM_COLORS[0].value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  async function dismissWelcome(openForm = false) {
-    setShowWelcome(false);
-    try {
-      const response = await fetch("/api/merchant/welcome-seen", { method: "POST" });
-      if (!response.ok) throw new Error();
-    } catch {
-      setError("La fermeture de la bienvenue n’a pas pu être enregistrée. Réessaie dans un instant.");
-    }
-    if (openForm) setShowForm(true);
-  }
 
   async function createProgram(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -730,7 +750,6 @@ function ProgramOnboarding({ data, onCreated, onLogout }: { data: DashboardData;
         </form> : <div className="program-setup-preview"><div className="setup-preview-card"><span>{data.merchant.businessName.slice(0, 1)}</span><small>VOTRE FUTURE CARTE</small><h2>{data.merchant.businessName}</h2><div>{Array.from({ length: 8 }, (_, index) => <i key={index}>{index + 1}</i>)}</div><p><Gift size={17} aria-hidden="true" />Votre récompense apparaîtra ici</p></div><p><Sparkles size={17} aria-hidden="true" />Après la création, votre QR code d’inscription sera immédiatement prêt à partager.</p></div>}
       </div>
     </section>
-    {showWelcome && <WelcomeModal onClose={() => { void dismissWelcome(); }} onContinue={() => dismissWelcome(true)} />}
   </main>;
 }
 
