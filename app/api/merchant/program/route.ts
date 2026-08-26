@@ -3,6 +3,7 @@ import { getMerchant, isOwner } from "../../../../lib/auth";
 import { cleanText, isHexColor, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { DEFAULT_PROGRAM_TERMS } from "../../../../lib/program-style";
 import { makeId } from "../../../../lib/ids";
+import { requireCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
 
 type ProgramPayload = { name?: string; goal?: number; rewardText?: string; terms?: string; accentColor?: string; earningMode?: string; spendAmountEuros?: number | string; rewardTiers?: Array<{ threshold?: number; rewardText?: string }> };
 
@@ -31,6 +32,8 @@ export async function POST(request: Request) {
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Seul le propriétaire peut créer la carte.", 403);
+    const acceptanceError = await requireCurrentPilotAcceptance(merchant.id);
+    if (acceptanceError) return acceptanceError;
     const programExists = await queryFirst<{ id: string }>("SELECT id FROM programs WHERE merchant_id = ?", merchant.id);
     if (programExists) return jsonError("Une carte existe déjà pour ce commerce.", 409);
 
@@ -61,6 +64,8 @@ export async function PATCH(request: Request) {
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Seul le propriétaire peut modifier le programme.", 403);
+    const acceptanceError = await requireCurrentPilotAcceptance(merchant.id);
+    if (acceptanceError) return acceptanceError;
     const values = readProgram(await readJson<ProgramPayload>(request), merchant.accentColor);
     if (!values.name || !values.rewardTiers.length) return jsonError("Le nom de la carte et au moins une récompense sont obligatoires.");
 
