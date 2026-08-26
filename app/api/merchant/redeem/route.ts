@@ -3,6 +3,7 @@ import { getMerchant } from "../../../../lib/auth";
 import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../lib/http";
 import { makeId } from "../../../../lib/ids";
 import { syncWalletsSafely } from "../../../../lib/wallet-sync";
+import { requireCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
 
 type RedeemPayload = { code?: string; rewardId?: string };
 type MemberRow = { id: string; firstName: string; points: number; programId: string; earningMode: "visits" | "spend" };
@@ -14,6 +15,8 @@ export async function POST(request: Request) {
     if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
+    const acceptanceError = await requireCurrentPilotAcceptance(merchant.id);
+    if (acceptanceError) return acceptanceError;
     const payload = await readJson<RedeemPayload>(request);
     const code = cleanText(payload?.code, 80).toUpperCase();
     const rewardId = cleanText(payload?.rewardId, 80);
