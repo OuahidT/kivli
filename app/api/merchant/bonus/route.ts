@@ -4,6 +4,7 @@ import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../.
 import { makeId } from "../../../../lib/ids";
 import { syncWalletsSafely } from "../../../../lib/wallet-sync";
 import { evaluateNearRewardNotifications } from "../../../../lib/wallet-notifications";
+import { requireCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
 
 type Member = { id: string; firstName: string; points: number; goal: number; programId: string; availableRewards: number; earningMode: "visits" | "spend" };
 type Tier = { id: string; threshold: number; rewardText: string };
@@ -14,6 +15,8 @@ export async function POST(request: Request) {
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Seul le propriétaire peut attribuer un bonus.", 403);
+    const acceptanceError = await requireCurrentPilotAcceptance(merchant.id);
+    if (acceptanceError) return acceptanceError;
     const body = await readJson<{ code?: string; quantity?: number; note?: string }>(request);
     const code = cleanText(body?.code, 80).toUpperCase();
     const quantity = Math.round(Number(body?.quantity));
