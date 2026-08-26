@@ -3,6 +3,7 @@ import { refreshOutdatedAppleWalletPasses, sendAppleWalletNotification } from ".
 import { getCardByCode } from "./data";
 import { sendGoogleWalletNotification } from "./google-wallet";
 import { makeId } from "./ids";
+import { merchantHasCurrentPilotAcceptance } from "./pilot-acceptance";
 
 export type WalletNotificationSettings = {
   nearRewardEnabled: number;
@@ -240,6 +241,7 @@ export async function evaluateNearRewardNotifications(code?: string) {
   const candidates = await nearRewardCandidates(code?.toUpperCase());
   let processed = 0;
   for (const candidate of candidates) {
+    if (!(await merchantHasCurrentPilotAcceptance(candidate.merchantId))) continue;
     const remaining = candidate.nextThreshold - candidate.points;
     if (remaining < 1) continue;
     const cycle = candidate.earningMode === "visits"
@@ -278,15 +280,18 @@ export async function evaluateReactivationNotifications() {
         AND st.reason IN ('visit', 'purchase') AND st.reversed_at IS NULL), mb.created_at))
         <= datetime('now', '-' || s.reactivation_days || ' days')
     ORDER BY lastActivity LIMIT 500`);
+  let processed = 0;
   for (const candidate of candidates) {
+    if (!(await merchantHasCurrentPilotAcceptance(candidate.merchantId))) continue;
     await dispatchNotification(candidate, {
       type: "reactivation",
       cycleKey: candidate.lastActivity,
       title: candidate.businessName,
       message: `Cela fait un moment — ${candidate.businessName} serait ravi de vous revoir 🧡`,
     });
+    processed += 1;
   }
-  return candidates.length;
+  return processed;
 }
 
 async function campaignTargets(merchantId: string, programId: string) {
@@ -328,6 +333,7 @@ export async function processMarketingCampaign(campaignId: string) {
     id, merchant_id AS merchantId, program_id AS programId, title, message
     FROM wallet_notification_campaigns WHERE id = ?`, campaignId);
   if (!campaign) return;
+  if (!(await merchantHasCurrentPilotAcceptance(campaign.merchantId))) return;
   const targets = await campaignTargets(campaign.merchantId, campaign.programId);
   for (let index = 0; index < targets.length; index += 10) {
     await Promise.allSettled(targets.slice(index, index + 10).map((target) => dispatchNotification(target, {
