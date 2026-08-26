@@ -4,6 +4,7 @@ import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../.
 import { makeId } from "../../../../lib/ids";
 import { syncWalletsSafely } from "../../../../lib/wallet-sync";
 import { evaluateNearRewardNotifications } from "../../../../lib/wallet-notifications";
+import { requireCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
 
 type StampPayload = {
   code?: string;
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
     if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
+    const acceptanceError = await requireCurrentPilotAcceptance(merchant.id);
+    if (acceptanceError) return acceptanceError;
     const payload = await readJson<StampPayload>(request);
     const code = cleanText(payload?.code, 80).toUpperCase();
     const requestId = cleanText(payload?.requestId, 80);
