@@ -1,14 +1,18 @@
 import { queryAll, queryFirst } from "../../../../db";
 import { getMerchant } from "../../../../lib/auth";
-import { cleanText, jsonError, readJson, safeApiError } from "../../../../lib/http";
+import { cleanText, isSameOrigin, jsonError, readJson, safeApiError } from "../../../../lib/http";
+import { requireCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
 
 type CardRow = { membershipId: string; firstName: string; code: string; points: number; goal: number; earningMode: "visits" | "spend"; spendAmountCents: number };
 type RewardRow = { id: string; rewardText: string; threshold: number };
 
 export async function POST(request: Request) {
   try {
+    if (!isSameOrigin(request)) return jsonError("Origine de la requête refusée.", 403);
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
+    const acceptanceError = await requireCurrentPilotAcceptance(merchant.id);
+    if (acceptanceError) return acceptanceError;
     const body = await readJson<{ code?: string }>(request);
     const code = cleanText(body?.code, 80).toUpperCase();
     const card = await queryFirst<CardRow>(`SELECT mb.id AS membershipId, c.first_name AS firstName, mb.code, mb.points, p.goal,
