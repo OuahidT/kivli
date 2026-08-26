@@ -8,6 +8,7 @@ import {
   updateNotificationSettings,
   WalletCampaignCooldownError,
 } from "../../../../lib/wallet-notifications";
+import { requireCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
 
 type NotificationPayload = {
   action?: "settings" | "send";
@@ -24,6 +25,8 @@ export async function GET(request: Request) {
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Cet espace est réservé au propriétaire.", 403);
+    const acceptanceError = await requireCurrentPilotAcceptance(merchant.id);
+    if (acceptanceError) return acceptanceError;
     return Response.json(await notificationSettingsForMerchant(merchant.id));
   } catch (error) {
     return safeApiError(error);
@@ -35,6 +38,8 @@ export async function POST(request: Request) {
     const merchant = await getMerchant(request);
     if (!merchant) return jsonError("Session expirée.", 401);
     if (!isOwner(merchant)) return jsonError("Cet espace est réservé au propriétaire.", 403);
+    const acceptanceError = await requireCurrentPilotAcceptance(merchant.id);
+    if (acceptanceError) return acceptanceError;
     const payload = await readJson<NotificationPayload>(request);
     if (payload?.action === "settings") {
       const settings = await updateNotificationSettings(merchant.id, {
