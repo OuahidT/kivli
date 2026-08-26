@@ -120,6 +120,48 @@ export const merchantEmailVerifications = sqliteTable(
   ],
 );
 
+export const legalDocumentVersions = sqliteTable(
+  "legal_document_versions",
+  {
+    documentKey: text("document_key").notNull(),
+    version: text("version").notNull(),
+    title: text("title").notNull(),
+    canonicalContent: text("canonical_content").notNull(),
+    contentSha256: text("content_sha256").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [uniqueIndex("idx_legal_document_version").on(table.documentKey, table.version)],
+);
+
+export const merchantPilotAcceptances = sqliteTable(
+  "merchant_pilot_acceptances",
+  {
+    id: text("id").primaryKey(),
+    merchantId: text("merchant_id").notNull(),
+    ownerId: text("owner_id").notNull(),
+    ownerName: text("owner_name").notNull(),
+    ownerEmail: text("owner_email").notNull(),
+    businessName: text("business_name").notNull(),
+    declarationText: text("declaration_text").notNull(),
+    pilotTermsVersion: text("pilot_terms_version").notNull(),
+    pilotTermsSha256: text("pilot_terms_sha256").notNull(),
+    dataProcessingVersion: text("data_processing_version").notNull(),
+    dataProcessingSha256: text("data_processing_sha256").notNull(),
+    acceptedAt: text("accepted_at").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_pilot_acceptance_current").on(
+      table.merchantId,
+      table.pilotTermsVersion,
+      table.pilotTermsSha256,
+      table.dataProcessingVersion,
+      table.dataProcessingSha256,
+    ),
+    index("idx_pilot_acceptance_merchant_date").on(table.merchantId, table.acceptedAt),
+  ],
+);
+
 export const memberships = sqliteTable(
   "memberships",
   {
