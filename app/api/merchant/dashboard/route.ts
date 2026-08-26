@@ -1,6 +1,7 @@
 import { queryAll, queryFirst } from "../../../../db";
 import { getMerchant } from "../../../../lib/auth";
 import { jsonError, safeApiError } from "../../../../lib/http";
+import { merchantHasCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
 
 type ProgramRow = { id: string; name: string; goal: number; rewardText: string; terms: string; active: number; earningMode: "visits" | "spend"; spendAmountCents: number };
 type RewardTierRow = { id: string; threshold: number; rewardText: string; sortOrder: number };
@@ -26,6 +27,8 @@ export async function GET(request: Request) {
     if (!merchant) return jsonError("Connecte-toi pour accéder au tableau de bord.", 401);
 
     const owner = merchant.role === "owner";
+    const pilotAcceptanceRequired = !(await merchantHasCurrentPilotAcceptance(merchant.id));
+    const clientDataAllowed = !pilotAcceptanceRequired;
     let welcomePending = false;
     if (owner) {
       const marker = await queryFirst<{ welcomeSeenAt: string | null }>(
@@ -43,7 +46,7 @@ export async function GET(request: Request) {
          FROM programs WHERE merchant_id = ?`,
         merchant.id,
       ),
-      owner ? queryAll<CustomerRow>(
+      owner && clientDataAllowed ? queryAll<CustomerRow>(
         `SELECT mb.code, c.first_name AS firstName, c.phone, c.marketing_consent AS marketingConsent,
           mb.points, mb.total_points AS totalPoints,
           mb.updated_at AS updatedAt,
@@ -77,7 +80,7 @@ export async function GET(request: Request) {
          WHERE mb.merchant_id = ? ORDER BY mb.updated_at DESC LIMIT 60`,
         merchant.id,
       ) : Promise.resolve([]),
-      queryAll<ActivityRow>(
+      clientDataAllowed ? queryAll<ActivityRow>(
         `SELECT s.id, mb.code, c.first_name AS firstName, s.delta, s.reason, s.amount_cents AS amountCents, s.note,
           r.reward_text AS rewardText,
           CASE WHEN s.reason = 'redeem' AND s.delta < 0 AND s.reversed_at IS NULL AND r.status = 'redeemed' AND p.earning_mode = 'spend'
@@ -95,8 +98,8 @@ export async function GET(request: Request) {
          ORDER BY s.created_at DESC LIMIT 12`,
         merchant.id,
         ...(!owner ? [merchant.employeeId] : []),
-      ),
-      owner ? queryFirst<StatsRow>(
+      ) : Promise.resolve([]),
+      owner && clientDataAllowed ? queryFirst<StatsRow>(
         `SELECT
           (SELECT COUNT(*) FROM memberships WHERE merchant_id = ?) AS customers,
           (SELECT COALESCE(SUM(delta), 0) FROM stamps WHERE merchant_id = ? AND reason IN ('visit', 'purchase') AND reversed_at IS NULL) AS visits,
@@ -126,13 +129,14 @@ export async function GET(request: Request) {
     return Response.json({
       merchant,
       welcomePending,
+      pilotAcceptanceRequired,
       program,
       customers,
       activity,
       employees,
       stats: stats ?? { customers: 0, visits: 0, rewards: 0, newMembers: 0, returningCustomers: 0, avgFrequencyDays: null, rewardsEarned: 0, rewardsRedeemed: 0 },
       rewardTiers: program ? await queryAll<RewardTierRow>(`SELECT id, threshold, reward_text AS rewardText, sort_order AS sortOrder FROM program_reward_tiers WHERE program_id = ? AND active = 1 ORDER BY threshold`, program.id) : [],
-      segmentCounts: owner ? {
+      segmentCounts: owner && clientDataAllowed ? {
         new: customers.filter((customer) => customer.segment === "new").length,
         active: customers.filter((customer) => customer.segment === "active").length,
         loyal: customers.filter((customer) => customer.segment === "loyal").length,
