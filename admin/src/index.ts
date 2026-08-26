@@ -572,6 +572,39 @@ async function sendMerchantVerification(request: Request, env: Env): Promise<Res
   return json({ ok: true });
 }
 
+async function sendPilotAcceptanceConfirmation(request: Request, env: Env): Promise<Response> {
+  if (new URL(request.url).hostname !== "kivli-admin.internal") return json({ error: "Route introuvable." }, 404);
+  const body = await readBody(request);
+  const email = cleanText(body.email, 160).toLowerCase();
+  const firstName = cleanText(body.firstName, 60);
+  const businessName = cleanText(body.businessName, 120);
+  const acceptedAt = cleanText(body.acceptedAt, 80);
+  const pilotTermsVersion = cleanText(body.pilotTermsVersion, 40);
+  const dataProcessingVersion = cleanText(body.dataProcessingVersion, 40);
+  const acceptedDate = new Date(acceptedAt);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || Number.isNaN(acceptedDate.getTime()) || !businessName || !pilotTermsVersion || !dataProcessingVersion) {
+    return json({ error: "Demande d’envoi invalide." }, 400);
+  }
+  const formattedDate = new Intl.DateTimeFormat("fr-FR", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(acceptedDate);
+  const greeting = firstName ? `Bonjour ${firstName},` : "Bonjour,";
+  const textBody = [
+    greeting, "", `Le pilote gratuit Kivli du commerce ${businessName} est maintenant activé.`, "",
+    `Acceptation enregistrée le ${formattedDate}.`,
+    `Conditions du pilote : version ${pilotTermsVersion}.`,
+    `Accord relatif au traitement des données personnelles : version ${dataProcessingVersion}.`, "",
+    "Pilote gratuit pendant 6 à 8 semaines, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat.", "",
+    "Vous pouvez consulter les documents à tout moment :", "https://kivli.fr/conditions-pilote", "https://kivli.fr/accord-traitement-donnees", "",
+    "Kivli — La fidélité, simplement.",
+  ].join("\r\n");
+  const htmlBody = `<!doctype html><html lang="fr"><body style="margin:0;background:#f7f4ee;color:#171714;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><div style="max-width:600px;margin:0 auto;padding:36px 22px"><div style="background:#fff;border:1px solid #e6e0d7;border-radius:20px;padding:30px"><div style="font-weight:800;font-size:22px;margin-bottom:24px">Kivli</div><h1 style="font-size:24px;line-height:1.2;margin:0 0 18px">Votre pilote Kivli est activé</h1><p>${escapeHtml(greeting)}</p><p>Le pilote gratuit du commerce <strong>${escapeHtml(businessName)}</strong> est maintenant activé.</p><div style="line-height:1.75;background:#f7f4ee;border-radius:12px;padding:14px 16px"><strong>Acceptation enregistrée le ${escapeHtml(formattedDate)}</strong><br>Conditions du pilote : version ${escapeHtml(pilotTermsVersion)}<br>Accord relatif au traitement des données personnelles : version ${escapeHtml(dataProcessingVersion)}</div><p style="line-height:1.6">Pilote gratuit pendant 6 à 8 semaines, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat.</p><p><a href="https://kivli.fr/conditions-pilote" style="color:#bd432b;font-weight:700">Conditions du pilote</a><br><a href="https://kivli.fr/accord-traitement-donnees" style="color:#bd432b;font-weight:700">Accord relatif au traitement des données</a></p><p style="margin-top:28px">Kivli — La fidélité, simplement.</p></div></div></body></html>`;
+  await sendSmtpEmail(env, email, "Votre pilote Kivli est activé", textBody, htmlBody);
+  return json({ ok: true });
+}
+
 async function sendMerchantFeedback(request: Request, env: Env): Promise<Response> {
   if (new URL(request.url).hostname !== "kivli-admin.internal") return json({ error: "Route introuvable." }, 404);
   const body = await readBody(request);
@@ -1106,6 +1139,9 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "POST" && path === "/internal/merchant-verification") {
     return sendMerchantVerification(request, env);
+  }
+  if (request.method === "POST" && path === "/internal/pilot-acceptance-confirmation") {
+    return sendPilotAcceptanceConfirmation(request, env);
   }
   if (request.method === "POST" && path === "/internal/merchant-feedback") {
     return sendMerchantFeedback(request, env);
