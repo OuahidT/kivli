@@ -133,7 +133,8 @@ test("keeps first-visit and navigation polish deterministic", async () => {
   ]);
   assert.doesNotMatch(dashboard, /welcome=preview/);
   assert.doesNotMatch(dashboardRoute, /previewWelcome/);
-  assert.match(dashboard, /welcomePending: false/);
+  assert.match(dashboard, /pilotAcceptanceRequired/);
+  assert.match(dashboard, /Activer gratuitement mon pilote/);
   assert.doesNotMatch(customerCard, /Garder ma carte|saveCardOpen|installPrompt/);
   assert.match(customerCard, /googleWalletEnabled && installEnvironment === "android"/);
   assert.doesNotMatch(customerCard, /installEnvironment !== "ios"/);
