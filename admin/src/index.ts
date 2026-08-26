@@ -433,6 +433,98 @@ function escapeHtml(value: string) {
   })[character] ?? character);
 }
 
+type BrandedEmailAction = {
+  label: string;
+  url: string;
+};
+
+type BrandedEmailOptions = {
+  preheader: string;
+  eyebrow?: string;
+  title: string;
+  greeting: string;
+  contentHtml: string;
+  action?: BrandedEmailAction;
+  actionHint?: string;
+};
+
+const EMAIL_LOGO_URL = "https://kivli.fr/google-wallet-program-logo.png";
+
+function renderBrandedEmail({
+  preheader,
+  eyebrow,
+  title,
+  greeting,
+  contentHtml,
+  action,
+  actionHint,
+}: BrandedEmailOptions): string {
+  const safeActionUrl = action ? escapeHtml(action.url) : "";
+  const actionHtml = action ? `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 22px">
+      <tr>
+        <td bgcolor="#171714" style="border-radius:12px">
+          <a href="${safeActionUrl}" style="display:inline-block;padding:14px 22px;color:#ffffff;font-size:16px;line-height:20px;font-weight:750;text-decoration:none;border-radius:12px">${escapeHtml(action.label)}</a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 8px;color:#77736b;font-size:12px;line-height:18px">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+    <p style="margin:0;color:#bd432b;font-size:12px;line-height:18px;word-break:break-all"><a href="${safeActionUrl}" style="color:#bd432b;text-decoration:underline">${safeActionUrl}</a></p>
+  ` : "";
+  const hintHtml = actionHint
+    ? `<p style="margin:20px 0 0;padding:14px 16px;background:#f7f4ee;border-left:3px solid #f05b3c;border-radius:4px 10px 10px 4px;color:#5f5b54;font-size:13px;line-height:20px">${escapeHtml(actionHint)}</p>`
+    : "";
+
+  return `<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f7f4ee;color:#171714;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;-webkit-text-size-adjust:100%">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${escapeHtml(preheader)}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f7f4ee">
+      <tr>
+        <td align="center" style="padding:24px 12px 32px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;border-collapse:separate">
+            <tr>
+              <td bgcolor="#f05b3c" style="padding:24px 24px 22px;border-radius:22px 22px 0 0">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="padding-right:12px;vertical-align:middle">
+                      <img src="${EMAIL_LOGO_URL}" width="46" height="46" alt="Logo Kivli" style="display:block;width:46px;height:46px;border:0;border-radius:12px">
+                    </td>
+                    <td style="vertical-align:middle;color:#171714;font-size:25px;line-height:30px;font-weight:850;letter-spacing:-0.6px">Kivli</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td bgcolor="#ffffff" style="padding:32px 28px 30px;border:1px solid #e6e0d7;border-top:0;border-radius:0 0 22px 22px;box-shadow:0 14px 38px rgba(23,23,20,0.07)">
+                ${eyebrow ? `<p style="margin:0 0 10px;color:#bd432b;font-size:12px;line-height:16px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase">${escapeHtml(eyebrow)}</p>` : ""}
+                <h1 style="margin:0 0 22px;color:#171714;font-size:27px;line-height:34px;font-weight:800;letter-spacing:-0.5px">${escapeHtml(title)}</h1>
+                <p style="margin:0 0 16px;color:#171714;font-size:16px;line-height:26px">${escapeHtml(greeting)}</p>
+                <div style="color:#36342f;font-size:16px;line-height:26px">${contentHtml}</div>
+                ${actionHtml}
+                ${hintHtml}
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:22px 18px 0;color:#77736b;font-size:12px;line-height:19px">
+                Kivli — La fidélité, simplement.<br>
+                <a href="mailto:contact@kivli.fr" style="color:#77736b;text-decoration:underline">contact@kivli.fr</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
 async function sendSmtpEmail(env: Env, recipient: string, subject: string, body: string, htmlBody?: string): Promise<void> {
   const config = requireAdminConfig(env);
   const host = env.SMTP_HOST?.trim() || "smtp.mail.ovh.net";
@@ -535,7 +627,15 @@ async function sendOwnerNewDevice(request: Request, env: Env): Promise<Response>
     `<strong>Appareil :</strong> ${escapeHtml(deviceLabel)}`,
     ...(country ? [`<strong>Pays approximatif :</strong> ${escapeHtml(country)}`] : []),
   ].join("<br>");
-  const htmlBody = `<!doctype html><html lang="fr"><body style="margin:0;background:#f7f4ee;color:#171714;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><div style="max-width:600px;margin:0 auto;padding:36px 22px"><div style="background:#fff;border:1px solid #e6e0d7;border-radius:20px;padding:30px"><div style="font-weight:800;font-size:22px;margin-bottom:24px">Kivli</div><h1 style="font-size:24px;line-height:1.2;margin:0 0 18px">Nouvelle connexion à votre compte Kivli</h1><p>${escapeHtml(greeting)}</p><p>Une nouvelle connexion au compte <strong>${escapeHtml(businessName || "Kivli")}</strong> vient d’être détectée.</p><p style="line-height:1.7;background:#f7f4ee;border-radius:12px;padding:14px 16px">${details}</p><p>Si c’était bien vous, aucune action n’est nécessaire.</p><p>Si vous ne reconnaissez pas cette connexion :</p><p style="margin:26px 0"><a href="${escapeHtml(securityUrl)}" style="display:inline-block;background:#171714;color:#fff;text-decoration:none;font-weight:750;padding:13px 18px;border-radius:11px">Ce n’était pas moi</a></p><p style="font-size:13px;color:#69665f">L’ouverture de ce bouton ne révoque rien automatiquement. Une confirmation sera demandée sur Kivli.</p><p style="margin-top:28px">Kivli — La fidélité, simplement.</p></div></div></body></html>`;
+  const htmlBody = renderBrandedEmail({
+    preheader: `Nouvelle connexion détectée pour ${businessName || "votre compte Kivli"}.`,
+    eyebrow: "Sécurité du compte",
+    title: "Nouvelle connexion à votre compte Kivli",
+    greeting,
+    contentHtml: `<p style="margin:0 0 18px">Une nouvelle connexion au compte <strong>${escapeHtml(businessName || "Kivli")}</strong> vient d’être détectée.</p><div style="margin:0 0 18px;padding:16px 18px;background:#f7f4ee;border:1px solid #ebe5dc;border-radius:12px;line-height:26px">${details}</div><p style="margin:0">Si c’était bien vous, aucune action n’est nécessaire. Sinon, sécurisez immédiatement votre compte.</p>`,
+    action: { label: "Ce n’était pas moi", url: securityUrl },
+    actionHint: "L’ouverture du bouton ne révoque rien automatiquement. Une confirmation sera demandée sur Kivli.",
+  });
   await sendSmtpEmail(env, email, "Nouvelle connexion à votre compte Kivli", textBody, htmlBody);
   return json({ ok: true });
 }
@@ -562,13 +662,23 @@ async function sendMerchantVerification(request: Request, env: Env): Promise<Res
     return json({ error: "Demande d’envoi invalide." }, 400);
   }
   const message = [
-    `Bonjour ${firstName || ""},`, "",
+    firstName ? `Bonjour ${firstName},` : "Bonjour,", "",
     `Confirmez l’adresse e-mail de votre compte ${businessName || "Kivli"} en ouvrant ce lien :`,
     verificationUrl, "",
     "Ce lien expire dans 30 minutes. Si vous n’êtes pas à l’origine de cette demande, ignorez ce message.", "",
     "Kivli — La fidélité, simplement.",
   ].join("\r\n");
-  await sendSmtpEmail(env, email, "Confirmez votre compte Kivli", message);
+  const greeting = firstName ? `Bonjour ${firstName},` : "Bonjour,";
+  const htmlBody = renderBrandedEmail({
+    preheader: "Confirmez votre adresse e-mail pour activer votre compte Kivli.",
+    eyebrow: "Bienvenue chez Kivli",
+    title: "Confirmez votre adresse e-mail",
+    greeting,
+    contentHtml: `<p style="margin:0">Votre compte pour <strong>${escapeHtml(businessName || "votre commerce")}</strong> est presque prêt. Confirmez simplement votre adresse e-mail pour poursuivre votre inscription.</p>`,
+    action: { label: "Confirmer mon adresse e-mail", url: verificationUrl },
+    actionHint: "Ce lien expire dans 30 minutes. Si vous n’êtes pas à l’origine de cette demande, vous pouvez ignorer cet e-mail.",
+  });
+  await sendSmtpEmail(env, email, "Confirmez votre compte Kivli", message, htmlBody);
   return json({ ok: true });
 }
 
@@ -600,7 +710,14 @@ async function sendPilotAcceptanceConfirmation(request: Request, env: Env): Prom
     "Vous pouvez consulter les documents à tout moment :", "https://kivli.fr/conditions-pilote", "https://kivli.fr/accord-traitement-donnees", "",
     "Kivli — La fidélité, simplement.",
   ].join("\r\n");
-  const htmlBody = `<!doctype html><html lang="fr"><body style="margin:0;background:#f7f4ee;color:#171714;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><div style="max-width:600px;margin:0 auto;padding:36px 22px"><div style="background:#fff;border:1px solid #e6e0d7;border-radius:20px;padding:30px"><div style="font-weight:800;font-size:22px;margin-bottom:24px">Kivli</div><h1 style="font-size:24px;line-height:1.2;margin:0 0 18px">Votre pilote Kivli est activé</h1><p>${escapeHtml(greeting)}</p><p>Le pilote gratuit du commerce <strong>${escapeHtml(businessName)}</strong> est maintenant activé.</p><div style="line-height:1.75;background:#f7f4ee;border-radius:12px;padding:14px 16px"><strong>Acceptation enregistrée le ${escapeHtml(formattedDate)}</strong><br>Conditions du pilote : version ${escapeHtml(pilotTermsVersion)}<br>Accord relatif au traitement des données personnelles : version ${escapeHtml(dataProcessingVersion)}</div><p style="line-height:1.6">Pilote gratuit pendant 6 à 8 semaines, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat.</p><p><a href="https://kivli.fr/conditions-pilote" style="color:#bd432b;font-weight:700">Conditions du pilote</a><br><a href="https://kivli.fr/accord-traitement-donnees" style="color:#bd432b;font-weight:700">Accord relatif au traitement des données</a></p><p style="margin-top:28px">Kivli — La fidélité, simplement.</p></div></div></body></html>`;
+  const htmlBody = renderBrandedEmail({
+    preheader: `Le pilote gratuit Kivli de ${businessName} est maintenant activé.`,
+    eyebrow: "Pilote activé",
+    title: "Votre pilote Kivli est activé",
+    greeting,
+    contentHtml: `<p style="margin:0 0 18px">Le pilote gratuit du commerce <strong>${escapeHtml(businessName)}</strong> est maintenant activé.</p><div style="margin:0 0 18px;padding:16px 18px;background:#f7f4ee;border:1px solid #ebe5dc;border-radius:12px;line-height:26px"><strong>Acceptation enregistrée le ${escapeHtml(formattedDate)}</strong><br>Conditions du pilote : version ${escapeHtml(pilotTermsVersion)}<br>Accord relatif au traitement des données personnelles : version ${escapeHtml(dataProcessingVersion)}</div><p style="margin:0 0 18px">Pilote gratuit pendant 6 à 8 semaines, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat.</p><p style="margin:0"><a href="https://kivli.fr/conditions-pilote" style="color:#bd432b;font-weight:700;text-decoration:underline">Conditions du pilote</a><br><a href="https://kivli.fr/accord-traitement-donnees" style="color:#bd432b;font-weight:700;text-decoration:underline">Accord relatif au traitement des données</a></p>`,
+    action: { label: "Accéder à mon espace Kivli", url: "https://kivli.fr/dashboard" },
+  });
   await sendSmtpEmail(env, email, "Votre pilote Kivli est activé", textBody, htmlBody);
   return json({ ok: true });
 }
