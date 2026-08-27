@@ -14,6 +14,8 @@ export const merchants = sqliteTable(
     emailVerifiedAt: text("email_verified_at"),
     termsAcceptedAt: text("terms_accepted_at"),
     termsVersion: text("terms_version"),
+    pilotStartedAt: text("pilot_started_at"),
+    pilotEndsAt: text("pilot_ends_at"),
     pinHash: text("pin_hash").notNull(),
     employeePinHash: text("employee_pin_hash"),
     ownerPinChangeRequired: integer("owner_pin_change_required", { mode: "boolean" }).notNull().default(false),

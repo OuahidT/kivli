@@ -15,6 +15,7 @@ const schemaStatements = [
     email TEXT NOT NULL UNIQUE, phone TEXT, pin_hash TEXT NOT NULL, employee_pin_hash TEXT,
     accent_color TEXT NOT NULL DEFAULT '#f05b3c',
     welcome_seen_at TEXT, terms_accepted_at TEXT, terms_version TEXT,
+    pilot_started_at TEXT, pilot_ends_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS programs (
@@ -255,6 +256,8 @@ export async function ensureSchema() {
         ["email_verified_at", "ALTER TABLE merchants ADD COLUMN email_verified_at TEXT"],
         ["terms_accepted_at", "ALTER TABLE merchants ADD COLUMN terms_accepted_at TEXT"],
         ["terms_version", "ALTER TABLE merchants ADD COLUMN terms_version TEXT"],
+        ["pilot_started_at", "ALTER TABLE merchants ADD COLUMN pilot_started_at TEXT"],
+        ["pilot_ends_at", "ALTER TABLE merchants ADD COLUMN pilot_ends_at TEXT"],
         ["owner_pin_change_required", "ALTER TABLE merchants ADD COLUMN owner_pin_change_required INTEGER NOT NULL DEFAULT 0"],
       ] as const;
       for (const [column, statement] of migrations) {
@@ -266,6 +269,14 @@ export async function ensureSchema() {
         }
       }
       await db.prepare("UPDATE merchants SET email_verified_at = COALESCE(email_verified_at, created_at, CURRENT_TIMESTAMP)").run();
+      await db.prepare(`UPDATE merchants SET
+        pilot_started_at = COALESCE(pilot_started_at,
+          (SELECT MIN(a.accepted_at) FROM merchant_pilot_acceptances a WHERE a.merchant_id = merchants.id),
+          terms_accepted_at),
+        pilot_ends_at = COALESCE(pilot_ends_at, datetime(COALESCE(
+          (SELECT MIN(a.accepted_at) FROM merchant_pilot_acceptances a WHERE a.merchant_id = merchants.id),
+          terms_accepted_at), '+60 days'))
+        WHERE pilot_started_at IS NULL OR pilot_ends_at IS NULL`).run();
 
       const programColumns = await db.prepare("PRAGMA table_info(programs)").all<{ name: string }>();
       const existingProgramColumns = new Set((programColumns.results ?? []).map((column) => column.name));

@@ -250,6 +250,22 @@ async function ensureAdminSchema(db: D1Database): Promise<void> {
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_reset_email ON admin_password_resets(admin_email, created_at)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_admin_reset_network ON admin_password_resets(network_hash, created_at)"),
   ]);
+  const merchantColumns = await db.prepare("PRAGMA table_info(merchants)").all<{ name: string }>();
+  const existingMerchantColumns = new Set((merchantColumns.results ?? []).map((column) => column.name));
+  if (!existingMerchantColumns.has("pilot_started_at")) {
+    await db.prepare("ALTER TABLE merchants ADD COLUMN pilot_started_at TEXT").run();
+  }
+  if (!existingMerchantColumns.has("pilot_ends_at")) {
+    await db.prepare("ALTER TABLE merchants ADD COLUMN pilot_ends_at TEXT").run();
+  }
+  await db.prepare(`UPDATE merchants SET
+    pilot_started_at = COALESCE(pilot_started_at,
+      (SELECT MIN(a.accepted_at) FROM merchant_pilot_acceptances a WHERE a.merchant_id = merchants.id),
+      terms_accepted_at),
+    pilot_ends_at = COALESCE(pilot_ends_at, datetime(COALESCE(
+      (SELECT MIN(a.accepted_at) FROM merchant_pilot_acceptances a WHERE a.merchant_id = merchants.id),
+      terms_accepted_at), '+60 days'))
+    WHERE pilot_started_at IS NULL OR pilot_ends_at IS NULL`).run();
   await db.prepare("PRAGMA optimize").run();
   schemaReady = true;
 }
@@ -706,7 +722,8 @@ async function sendPilotAcceptanceConfirmation(request: Request, env: Env): Prom
     `Acceptation enregistrée le ${formattedDate}.`,
     `Conditions du pilote : version ${pilotTermsVersion}.`,
     `Accord relatif au traitement des données personnelles : version ${dataProcessingVersion}.`, "",
-    "Pilote gratuit pendant 6 à 8 semaines, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat.", "",
+    "Pilote gratuit pendant 60 jours, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat.",
+    "Après ces 60 jours, l’accès reste fonctionnel sans facturation automatique et peut être prolongé gratuitement.", "",
     "Vous pouvez consulter les documents à tout moment :", "https://kivli.fr/conditions-pilote", "https://kivli.fr/accord-traitement-donnees", "",
     "Kivli — La fidélité, simplement.",
   ].join("\r\n");
@@ -715,7 +732,7 @@ async function sendPilotAcceptanceConfirmation(request: Request, env: Env): Prom
     eyebrow: "Pilote activé",
     title: "Votre pilote Kivli est activé",
     greeting,
-    contentHtml: `<p style="margin:0 0 18px">Le pilote gratuit du commerce <strong>${escapeHtml(businessName)}</strong> est maintenant activé.</p><div style="margin:0 0 18px;padding:16px 18px;background:#f7f4ee;border:1px solid #ebe5dc;border-radius:12px;line-height:26px"><strong>Acceptation enregistrée le ${escapeHtml(formattedDate)}</strong><br>Conditions du pilote : version ${escapeHtml(pilotTermsVersion)}<br>Accord relatif au traitement des données personnelles : version ${escapeHtml(dataProcessingVersion)}</div><p style="margin:0 0 18px">Pilote gratuit pendant 6 à 8 semaines, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat.</p><p style="margin:0"><a href="https://kivli.fr/conditions-pilote" style="color:#bd432b;font-weight:700;text-decoration:underline">Conditions du pilote</a><br><a href="https://kivli.fr/accord-traitement-donnees" style="color:#bd432b;font-weight:700;text-decoration:underline">Accord relatif au traitement des données</a></p>`,
+    contentHtml: `<p style="margin:0 0 18px">Le pilote gratuit du commerce <strong>${escapeHtml(businessName)}</strong> est maintenant activé.</p><div style="margin:0 0 18px;padding:16px 18px;background:#f7f4ee;border:1px solid #ebe5dc;border-radius:12px;line-height:26px"><strong>Acceptation enregistrée le ${escapeHtml(formattedDate)}</strong><br>Conditions du pilote : version ${escapeHtml(pilotTermsVersion)}<br>Accord relatif au traitement des données personnelles : version ${escapeHtml(dataProcessingVersion)}</div><p style="margin:0 0 18px">Pilote gratuit pendant 60 jours, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat. Après ces 60 jours, l’accès reste fonctionnel sans facturation automatique et peut être prolongé gratuitement.</p><p style="margin:0"><a href="https://kivli.fr/conditions-pilote" style="color:#bd432b;font-weight:700;text-decoration:underline">Conditions du pilote</a><br><a href="https://kivli.fr/accord-traitement-donnees" style="color:#bd432b;font-weight:700;text-decoration:underline">Accord relatif au traitement des données</a></p>`,
     action: { label: "Accéder à mon espace Kivli", url: "https://kivli.fr/dashboard" },
   });
   await sendSmtpEmail(env, email, "Votre pilote Kivli est activé", textBody, htmlBody);
@@ -896,6 +913,8 @@ async function listMerchants(db: D1Database, url: URL): Promise<Response> {
       m.slug,
       m.accent_color AS accentColor,
       m.created_at AS createdAt,
+      m.pilot_started_at AS pilotStartedAt,
+      m.pilot_ends_at AS pilotEndsAt,
       p.name AS programName,
       p.goal,
       p.reward_text AS rewardText,
@@ -930,7 +949,8 @@ async function getMerchant(db: D1Database, merchantId: string): Promise<Response
   const merchant = await db.prepare(`
     SELECT
       m.id, m.business_name AS businessName, m.email, m.slug, m.accent_color AS accentColor,
-      m.created_at AS createdAt, p.name AS programName, p.goal, p.reward_text AS rewardText,
+      m.created_at AS createdAt, m.pilot_started_at AS pilotStartedAt, m.pilot_ends_at AS pilotEndsAt,
+      p.name AS programName, p.goal, p.reward_text AS rewardText,
       p.terms, p.active AS programActive, COALESCE(s.status, 'active') AS status,
       COALESCE(s.internal_note, '') AS internalNote, s.updated_at AS adminUpdatedAt,
       (SELECT COUNT(*) FROM customers WHERE merchant_id = m.id) AS customerCount,
@@ -1012,6 +1032,69 @@ async function setMerchantNote(
     auditStatement(env.DB, identity, "merchant.note_updated", merchantId, { noteLength: note.length }),
   ]);
   return json({ ok: true, note });
+}
+
+async function updateMerchantPilot(
+  request: Request,
+  env: Env,
+  identity: AdminIdentity,
+  merchantId: string,
+): Promise<Response> {
+  requireSameOrigin(request);
+  const merchant = await env.DB.prepare(`
+    SELECT id, business_name AS businessName, pilot_started_at AS pilotStartedAt,
+      pilot_ends_at AS pilotEndsAt
+    FROM merchants WHERE id = ?
+  `).bind(merchantId).first<{
+    id: string;
+    businessName: string;
+    pilotStartedAt: string | null;
+    pilotEndsAt: string | null;
+  }>();
+  if (!merchant) return json({ error: "Commerce introuvable." }, 404);
+  if (!merchant.pilotStartedAt || !merchant.pilotEndsAt) {
+    return json({ error: "Le pilote n’est pas encore activé par le propriétaire." }, 409);
+  }
+
+  const body = await readBody(request);
+  const addDays = typeof body.addDays === "number" && Number.isInteger(body.addDays) ? body.addDays : null;
+  const endsOn = cleanText(body.endsOn, 10);
+  if ((addDays === null) === !endsOn) {
+    return json({ error: "Choisissez soit un nombre de jours, soit une nouvelle date de fin." }, 400);
+  }
+
+  const currentEnd = parseDatabaseDate(merchant.pilotEndsAt);
+  const pilotStart = parseDatabaseDate(merchant.pilotStartedAt);
+  if (!currentEnd || !pilotStart) return json({ error: "Dates du pilote invalides." }, 409);
+
+  let nextEnd: Date;
+  let mode: "add_days" | "set_date";
+  if (addDays !== null) {
+    if (addDays < 1 || addDays > 3650) return json({ error: "La prolongation doit être comprise entre 1 et 3 650 jours." }, 400);
+    const base = new Date(Math.max(currentEnd.getTime(), Date.now()));
+    nextEnd = new Date(base.getTime() + addDays * 24 * 60 * 60 * 1000);
+    mode = "add_days";
+  } else {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) return json({ error: "Date de fin invalide." }, 400);
+    nextEnd = new Date(`${endsOn}T23:59:59.000Z`);
+    if (Number.isNaN(nextEnd.getTime()) || nextEnd.getTime() <= Date.now() || nextEnd.getTime() <= pilotStart.getTime()) {
+      return json({ error: "La nouvelle date de fin doit être future et postérieure à l’activation." }, 400);
+    }
+    mode = "set_date";
+  }
+
+  const nextEndIso = nextEnd.toISOString();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE merchants SET pilot_ends_at = ? WHERE id = ?").bind(nextEndIso, merchantId),
+    auditStatement(env.DB, identity, "merchant.pilot_extended", merchantId, {
+      businessName: merchant.businessName,
+      mode,
+      addDays,
+      previousEnd: currentEnd.toISOString(),
+      nextEnd: nextEndIso,
+    }),
+  ]);
+  return json({ ok: true, pilotStartedAt: pilotStart.toISOString(), pilotEndsAt: nextEndIso });
 }
 
 type MerchantDeletionSummary = {
@@ -1200,7 +1283,7 @@ function adminPage(identity: AdminIdentity): Response {
     @media(max-width:680px){.shell,.topbar-inner{width:min(100% - 22px,1220px)}.topbar-inner{height:68px}.identity span{display:none}.admin-chip{display:none}.hero{padding-top:30px;align-items:flex-start;flex-direction:column}.hero h1{font-size:38px}.metrics{gap:9px}.metric{padding:16px;border-radius:15px}.metric-value{font-size:28px}.section{border-radius:17px}.section-head{align-items:flex-start;flex-direction:column;padding:18px}.tools{width:100%}.field{width:100%;min-width:0}.merchant-row{grid-template-columns:1fr auto;padding:16px 18px}.merchant-row>:nth-child(2),.merchant-row>:nth-child(3),.merchant-row>:nth-child(4),.merchant-row>:nth-child(5),.merchant-row>:nth-child(6){display:none}.audit-row{grid-template-columns:1fr;padding:13px 18px;gap:5px}.panel{padding:20px}.panel-grid{grid-template-columns:1fr 1fr}.panel h2{font-size:27px}}
     html{scroll-behavior:smooth}body{background:radial-gradient(circle at 5% 8%,rgba(240,91,60,.08),transparent 25%),var(--paper)}.topbar{background:rgba(246,245,240,.86);box-shadow:0 1px 0 rgba(255,255,255,.65) inset}.brand-mark{transform:rotate(-8deg);box-shadow:0 7px 17px rgba(240,91,60,.28)}.logout,.sync,.details-button,.primary,.danger,.close{min-height:42px;transition:transform .16s ease,border-color .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease}.logout{padding:10px 2px}.hero h1{text-wrap:balance}.sync{box-shadow:0 8px 22px rgba(30,39,35,.05)}.sync:hover,.details-button:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(30,39,35,.08)}.sync:active,.details-button:active,.primary:active,.danger:active{transform:translateY(1px)}.metrics{perspective:800px}.metric{position:relative;overflow:hidden;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}.metric:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,var(--brand),#ff987a);opacity:.82}.section{box-shadow:0 22px 60px rgba(30,39,35,.075)}.merchant-row{transition:background .16s ease,box-shadow .16s ease}.merchant-row:hover{position:relative;z-index:1;box-shadow:0 10px 28px rgba(30,39,35,.055)}.field{transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.field:hover{border-color:#c5c5bd}.field:focus{background:#fff}.panel{box-shadow:-24px 0 70px rgba(17,23,20,.13);transform:translateX(42px);transition:transform .24s cubic-bezier(.22,.8,.25,1)}.panel-section,.info{box-shadow:0 8px 24px rgba(30,39,35,.035)}.toast{bottom:max(24px,env(safe-area-inset-bottom));box-shadow:0 18px 46px rgba(23,32,29,.22)}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(240,91,60,.24);outline-offset:2px}@media(hover:hover) and (pointer:fine){.metric:hover{transform:translateY(-4px);border-color:rgba(240,91,60,.3);box-shadow:0 18px 40px rgba(30,39,35,.09)}}@media(max-width:680px){.hero{padding-bottom:24px}.hero p{font-size:14px}.sync{width:100%}.metric{min-height:116px}.merchant-row{min-height:74px}.details-button{min-width:78px}.section-head{gap:15px}.panel{width:100%;padding:20px 18px max(24px,env(safe-area-inset-bottom))}.actions{flex-wrap:wrap}.primary,.danger{min-height:44px}}@media(max-width:360px){.metrics{grid-template-columns:1fr}.metric{min-height:0}.panel-grid{grid-template-columns:1fr}.topbar-inner{width:calc(100% - 18px)}.brand{font-size:20px}.shell{width:calc(100% - 18px)}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.metric,.merchant-row,.panel,.sync,.details-button,.primary,.danger{transition:none}}
   </style>
-  <style nonce="${nonce}">.topbar{background:var(--paper)}.brand-mark{transform:rotate(-3deg);box-shadow:0 7px 17px rgba(23,23,20,.2)}</style>
+  <style nonce="${nonce}">.topbar{background:var(--paper)}.brand-mark{transform:rotate(-3deg);box-shadow:0 7px 17px rgba(23,23,20,.2)}.pilot-mini{display:block;margin-top:6px;color:var(--brand-dark);font-size:11px;font-weight:780}.pilot-card{background:linear-gradient(135deg,rgba(240,91,60,.08),rgba(255,253,249,.9));border-color:rgba(240,91,60,.22)}.pilot-status{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin:12px 0 18px}.pilot-status strong{font-size:18px;letter-spacing:-.025em}.pilot-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:12px}.pilot-controls .field{width:100%;height:44px}.pilot-controls .primary{white-space:nowrap}.pilot-help{font-size:12px;line-height:1.5}@media(max-width:520px){.pilot-status{display:block}.pilot-status .muted{margin-top:5px}.pilot-controls{grid-template-columns:1fr}.pilot-controls .primary{width:100%}}</style>
 </head>
 <body>
   <header class="topbar"><div class="topbar-inner"><div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Kivli</span><span class="admin-chip">Administration</span></div><div class="identity"><span id="admin-email"></span><button class="logout" id="logout" type="button">Se déconnecter</button></div></div></header>
@@ -1229,16 +1312,30 @@ function adminPage(identity: AdminIdentity): Response {
     const escapeHtml=(value)=>String(value??"").replace(/[&<>"']/g,(char)=>({38:"&amp;",60:"&lt;",62:"&gt;",34:"&quot;",39:"&#39;"}[char.charCodeAt(0)]));
     const formatNumber=(value)=>new Intl.NumberFormat("fr-FR").format(Number(value||0));
     const formatDate=(value)=>value?new Intl.DateTimeFormat("fr-FR",{dateStyle:"medium",timeStyle:"short"}).format(new Date(String(value).includes("T")?value:String(value).replace(" ","T")+"Z")):"—";
-    const actionLabel=(action)=>({"merchant.suspended":"Commerce suspendu","merchant.reactivated":"Commerce réactivé","merchant.note_updated":"Note interne modifiée","merchant.deleted":"Compte commerçant supprimé","admin.login":"Connexion administrateur","admin.logout":"Déconnexion administrateur","admin.password_reset":"Mot de passe administrateur modifié"}[action]||action);
+    const parseUtc=(value)=>value?new Date(String(value).includes("T")?value:String(value).replace(" ","T")+"Z"):null;
+    const pilotView=(merchant)=>{const start=parseUtc(merchant.pilotStartedAt),end=parseUtc(merchant.pilotEndsAt);if(!start||!end)return{active:false,label:"Pilote non activé",days:0,endLabel:"En attente de l’acceptation du propriétaire"};const days=Math.max(0,Math.ceil((end.getTime()-Date.now())/86400000)),initialEnd=start.getTime()+60*86400000,extended=end.getTime()>initialEnd+1000;return{active:true,label:end.getTime()<=Date.now()?"Accès pilote prolongé gratuitement":extended?"Pilote prolongé gratuitement":days+" jour"+(days>1?"s":"")+" restant"+(days>1?"s":""),days,endLabel:"Échéance actuelle : "+formatDate(merchant.pilotEndsAt)}};
+    const actionLabel=(action)=>({"merchant.suspended":"Commerce suspendu","merchant.reactivated":"Commerce réactivé","merchant.note_updated":"Note interne modifiée","merchant.pilot_extended":"Pilote prolongé gratuitement","merchant.deleted":"Compte commerçant supprimé","admin.login":"Connexion administrateur","admin.logout":"Déconnexion administrateur","admin.password_reset":"Mot de passe administrateur modifié"}[action]||action);
     function toast(message,error=false){const el=$("toast");el.textContent=message;el.className="toast show"+(error?" error":"");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.className="toast",3200)}
     async function api(path,options={}){const response=await fetch(path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const body=await response.json().catch(()=>({}));if(response.status===401){location.replace("/login");throw new Error("Session expirée.")}if(!response.ok)throw new Error(body.error||"Une erreur est survenue.");return body}
     async function loadOverview(){const {overview}=await api("/api/overview");$("metric-merchants").textContent=formatNumber(overview.merchants);$("metric-active").textContent=formatNumber(overview.active_merchants)+" actifs · "+formatNumber(overview.suspended_merchants)+" suspendus";$("metric-customers").textContent=formatNumber(overview.customers);$("metric-passages").textContent=formatNumber(overview.passages);$("metric-rewards").textContent=formatNumber(overview.rewards);$("metric-points").textContent=formatNumber(overview.current_points)+" points en cours"}
     function renderMerchants(){const list=$("merchant-list");$("merchant-count").textContent=state.merchants.length+" commerce"+(state.merchants.length>1?"s":"")+" affiché"+(state.merchants.length>1?"s":"");if(!state.merchants.length){list.innerHTML='<div class="empty">Aucun commerce ne correspond à cette recherche.</div>';return}list.innerHTML=state.merchants.map((merchant)=>'<article class="merchant-row"><div><div class="merchant-name">'+escapeHtml(merchant.businessName)+'</div><div class="merchant-email">'+escapeHtml(merchant.email)+'</div></div><div><div class="program">'+escapeHtml(merchant.programName||"Sans programme")+'</div><span class="status status-'+escapeHtml(merchant.status)+'">'+(merchant.status==="suspended"?"Suspendu":"Actif")+'</span></div><div class="cell-number">'+formatNumber(merchant.customerCount)+'<span class="cell-label">Clients</span></div><div class="cell-number">'+formatNumber(merchant.passageCount)+'<span class="cell-label">Passages</span></div><div class="cell-number">'+formatNumber(merchant.employeeCount)+'<span class="cell-label">Équipe</span></div><div><div class="cell-number">'+formatDate(merchant.lastActivity)+'</div><span class="cell-label">Activité</span></div><button class="details-button" type="button" data-id="'+escapeHtml(merchant.id)+'">Ouvrir</button></article>').join("");list.querySelectorAll("[data-id]").forEach((button)=>button.addEventListener("click",()=>openMerchant(button.dataset.id)))}
     async function loadMerchants(){const query=encodeURIComponent($("search").value.trim());const status=encodeURIComponent($("status-filter").value);const {merchants}=await api("/api/merchants?q="+query+"&status="+status);state.merchants=merchants;renderMerchants()}
     async function loadAudit(){const {events}=await api("/api/audit");const list=$("audit-list");if(!events.length){list.innerHTML='<div class="empty">Aucune action pour le moment.</div>';return}list.innerHTML=events.map((event)=>'<div class="audit-row"><div class="audit-time">'+formatDate(event.createdAt)+'</div><div><div class="audit-action">'+escapeHtml(actionLabel(event.action))+'</div><div class="muted">'+escapeHtml(event.businessName||"Plateforme")+'</div></div><div class="audit-admin">'+escapeHtml(event.adminEmail)+'</div></div>').join("")}
-    async function openMerchant(id){const data=await api("/api/merchants/"+encodeURIComponent(id));state.selected=data.merchant;$("panel-title").textContent=data.merchant.businessName;$("panel-email").textContent=data.merchant.email;const m=data.merchant;const activity=data.activity.length?data.activity.map((item)=>'<div class="activity-item"><span>'+(Number(item.delta)>0?"Passage ajouté":"Correction")+' · '+escapeHtml(item.actorRole)+'</span><span class="muted">'+formatDate(item.createdAt)+'</span></div>').join(""):'<div class="muted">Aucune activité enregistrée.</div>';$("panel-content").innerHTML='<div class="panel-grid"><div class="info"><span>Statut</span><strong>'+(m.status==="suspended"?"Suspendu":"Actif")+'</strong></div><div class="info"><span>Clients</span><strong>'+formatNumber(m.customerCount)+'</strong></div><div class="info"><span>Passages</span><strong>'+formatNumber(m.passageCount)+'</strong></div><div class="info"><span>Récompenses</span><strong>'+formatNumber(m.rewardCount)+'</strong></div></div><section class="panel-section"><h3>Programme</h3><div class="program">'+escapeHtml(m.programName||"Sans programme")+'</div><div class="muted">Objectif : '+formatNumber(m.goal)+' · '+escapeHtml(m.rewardText||"")+'</div><div class="muted">Lien public : /join/'+escapeHtml(m.slug)+'</div></section><section class="panel-section"><h3>Note interne</h3><textarea class="note" id="merchant-note" maxlength="600" placeholder="Informations de support, suivi commercial…">'+escapeHtml(m.internalNote||"")+'</textarea><div class="actions"><button class="primary" id="save-note" type="button">Enregistrer la note</button></div></section><section class="panel-section"><h3>Gestion de l’accès</h3><p class="muted">La suspension bloque le commerçant et ses employés sans supprimer leurs données.</p><button class="'+(m.status==="suspended"?"primary":"danger")+'" id="toggle-status" type="button">'+(m.status==="suspended"?"Réactiver le commerce":"Suspendre le commerce")+'</button></section><section class="panel-section delete-zone"><h3>Suppression définitive</h3><p class="muted">Supprime le compte commerçant, ses employés, ses clients, ses cartes, ses points et ses historiques. Cette action est irréversible.</p><button class="danger danger-strong" id="delete-merchant" type="button">Supprimer définitivement</button></section><section class="panel-section"><h3>Dernière activité</h3><div class="activity">'+activity+'</div></section>';$("overlay").classList.add("open");$("overlay").setAttribute("aria-hidden","false");$("close-panel").focus();$("save-note").onclick=saveNote;$("toggle-status").onclick=toggleStatus;$("delete-merchant").onclick=deleteMerchant}
+    async function openMerchant(id){
+      const data=await api("/api/merchants/"+encodeURIComponent(id));state.selected=data.merchant;
+      $("panel-title").textContent=data.merchant.businessName;$("panel-email").textContent=data.merchant.email;
+      const m=data.merchant,pilot=pilotView(m);
+      const activity=data.activity.length?data.activity.map((item)=>'<div class="activity-item"><span>'+(Number(item.delta)>0?"Passage ajouté":"Correction")+' · '+escapeHtml(item.actorRole)+'</span><span class="muted">'+formatDate(item.createdAt)+'</span></div>').join(""):'<div class="muted">Aucune activité enregistrée.</div>';
+      const pilotControls=pilot.active?'<div class="pilot-controls"><input class="field" id="pilot-add-days" type="number" min="1" max="3650" step="1" value="30" aria-label="Jours à ajouter"><button class="primary" id="pilot-add" type="button">Ajouter des jours</button></div><div class="pilot-controls"><input class="field" id="pilot-end-date" type="date" aria-label="Nouvelle date de fin"><button class="primary" id="pilot-set-date" type="button">Définir la date</button></div>':'<p class="pilot-help muted">La durée de 60 jours commencera lorsque le propriétaire acceptera les documents du pilote.</p>';
+      $("panel-content").innerHTML='<div class="panel-grid"><div class="info"><span>Statut</span><strong>'+(m.status==="suspended"?"Suspendu":"Actif")+'</strong></div><div class="info"><span>Clients</span><strong>'+formatNumber(m.customerCount)+'</strong></div><div class="info"><span>Passages</span><strong>'+formatNumber(m.passageCount)+'</strong></div><div class="info"><span>Récompenses</span><strong>'+formatNumber(m.rewardCount)+'</strong></div></div><section class="panel-section pilot-card"><h3>Pilote gratuit</h3><div class="pilot-status"><strong>'+escapeHtml(pilot.label)+'</strong><div class="muted">'+escapeHtml(pilot.endLabel)+'</div></div><p class="pilot-help muted">Aucune facturation automatique. Le commerce reste accessible après l’échéance.</p>'+pilotControls+'</section><section class="panel-section"><h3>Programme</h3><div class="program">'+escapeHtml(m.programName||"Sans programme")+'</div><div class="muted">Objectif : '+formatNumber(m.goal)+' · '+escapeHtml(m.rewardText||"")+'</div><div class="muted">Lien public : /join/'+escapeHtml(m.slug)+'</div></section><section class="panel-section"><h3>Note interne</h3><textarea class="note" id="merchant-note" maxlength="600" placeholder="Informations de support, suivi commercial…">'+escapeHtml(m.internalNote||"")+'</textarea><div class="actions"><button class="primary" id="save-note" type="button">Enregistrer la note</button></div></section><section class="panel-section"><h3>Gestion de l’accès</h3><p class="muted">La suspension bloque le commerçant et ses employés sans supprimer leurs données.</p><button class="'+(m.status==="suspended"?"primary":"danger")+'" id="toggle-status" type="button">'+(m.status==="suspended"?"Réactiver le commerce":"Suspendre le commerce")+'</button></section><section class="panel-section delete-zone"><h3>Suppression définitive</h3><p class="muted">Supprime le compte commerçant, ses employés, ses clients, ses cartes, ses points et ses historiques. Cette action est irréversible.</p><button class="danger danger-strong" id="delete-merchant" type="button">Supprimer définitivement</button></section><section class="panel-section"><h3>Dernière activité</h3><div class="activity">'+activity+'</div></section>';
+      $("overlay").classList.add("open");$("overlay").setAttribute("aria-hidden","false");$("close-panel").focus();
+      $("save-note").onclick=saveNote;$("toggle-status").onclick=toggleStatus;$("delete-merchant").onclick=deleteMerchant;
+      if(pilot.active){$("pilot-add").onclick=extendPilot;$("pilot-set-date").onclick=setPilotEnd}
+    }
     function closePanel(){$("overlay").classList.remove("open");$("overlay").setAttribute("aria-hidden","true");state.selected=null}
     async function saveNote(){if(!state.selected)return;const note=$("merchant-note").value;await api("/api/merchants/"+encodeURIComponent(state.selected.id)+"/note",{method:"POST",body:JSON.stringify({note})});toast("Note enregistrée.");await Promise.all([loadMerchants(),loadAudit()])}
+    async function extendPilot(){if(!state.selected)return;const addDays=Number($("pilot-add-days").value);if(!Number.isInteger(addDays)||addDays<1||addDays>3650){toast("Indique un nombre de jours entre 1 et 3 650.",true);return}await api("/api/merchants/"+encodeURIComponent(state.selected.id)+"/pilot",{method:"POST",body:JSON.stringify({addDays})});toast("Pilote prolongé gratuitement de "+addDays+" jour"+(addDays>1?"s":"")+".");await Promise.all([loadMerchants(),loadAudit()]);await openMerchant(state.selected.id)}
+    async function setPilotEnd(){if(!state.selected)return;const endsOn=$("pilot-end-date").value;if(!endsOn){toast("Choisis une nouvelle date de fin.",true);return}await api("/api/merchants/"+encodeURIComponent(state.selected.id)+"/pilot",{method:"POST",body:JSON.stringify({endsOn})});toast("Nouvelle date de fin enregistrée.");await Promise.all([loadMerchants(),loadAudit()]);await openMerchant(state.selected.id)}
     async function toggleStatus(){if(!state.selected)return;const next=state.selected.status==="suspended"?"active":"suspended";const verb=next==="suspended"?"suspendre":"réactiver";if(!confirm("Confirmer : "+verb+" "+state.selected.businessName+" ?"))return;await api("/api/merchants/"+encodeURIComponent(state.selected.id)+"/status",{method:"POST",body:JSON.stringify({status:next})});toast(next==="suspended"?"Commerce suspendu.":"Commerce réactivé.");closePanel();await refreshAll()}
     async function deleteMerchant(){if(!state.selected)return;const merchant={id:state.selected.id,businessName:state.selected.businessName};const button=$("delete-merchant");let input=$("delete-confirmation-input");if(!input){button.insertAdjacentHTML("beforebegin",'<label class="delete-confirmation">Saisis exactement <strong>'+escapeHtml(merchant.businessName)+'</strong><input id="delete-confirmation-input" autocomplete="off" spellcheck="false"></label>');button.textContent="Confirmer la suppression";input=$("delete-confirmation-input");input.focus();return}const confirmation=input.value.trim();if(confirmation!==merchant.businessName){toast("Le nom saisi ne correspond pas. Le compte n’a pas été supprimé.",true);input.focus();return}button.disabled=true;button.textContent="Suppression…";try{await api("/api/merchants/"+encodeURIComponent(merchant.id),{method:"DELETE",body:JSON.stringify({confirmation})});closePanel();toast("Compte "+merchant.businessName+" supprimé définitivement.");await refreshAll()}catch(error){button.disabled=false;button.textContent="Confirmer la suppression";toast(error.message||"Suppression impossible.",true)}}
     async function refreshAll(){try{await Promise.all([loadOverview(),loadMerchants(),loadAudit()])}catch(error){toast(error.message||"Chargement impossible.",true)}}
@@ -1304,6 +1401,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const noteMatch = path.match(/^\/api\/merchants\/([^/]+)\/note$/);
   if (request.method === "POST" && noteMatch) {
     return setMerchantNote(request, env, identity, decodeURIComponent(noteMatch[1]));
+  }
+  const pilotMatch = path.match(/^\/api\/merchants\/([^/]+)\/pilot$/);
+  if (request.method === "POST" && pilotMatch) {
+    return updateMerchantPilot(request, env, identity, decodeURIComponent(pilotMatch[1]));
   }
   return json({ error: "Route introuvable." }, 404);
 }

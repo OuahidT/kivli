@@ -2,6 +2,7 @@ import { queryAll, queryFirst } from "../../../../db";
 import { getMerchant } from "../../../../lib/auth";
 import { jsonError, safeApiError } from "../../../../lib/http";
 import { merchantHasCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
+import { pilotStatusForMerchant } from "../../../../lib/pilot-duration";
 
 type ProgramRow = { id: string; name: string; goal: number; rewardText: string; terms: string; active: number; earningMode: "visits" | "spend"; spendAmountCents: number };
 type RewardTierRow = { id: string; threshold: number; rewardText: string; sortOrder: number };
@@ -126,10 +127,13 @@ export async function GET(request: Request) {
       ) : Promise.resolve([]),
     ]);
 
+    const pilot = owner && !pilotAcceptanceRequired ? await pilotStatusForMerchant(merchant.id) : null;
+
     return Response.json({
       merchant,
       welcomePending,
       pilotAcceptanceRequired,
+      pilot,
       program,
       customers,
       activity,

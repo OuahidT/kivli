@@ -7,7 +7,7 @@ export default function MentionsLegalesPage() {
   return <LegalPage eyebrow="Informations légales" title="Mentions légales" intro="Les informations permettant d’identifier l’éditeur actuel de Kivli et les prestataires qui assurent son fonctionnement.">
     <LegalSection title="Éditeur du service">
       <dl className="legal-facts"><div><dt>Éditeur</dt><dd>TAILEB Ouahid, personne physique non immatriculée — phase pilote non commerciale</dd></div><div><dt>Adresse</dt><dd>2 rue Léonie, 28100 Dreux, France</dd></div><div><dt>Téléphone</dt><dd><a href="tel:+33641047766">06 41 04 77 66</a></dd></div><div><dt>E-mail</dt><dd><a href="mailto:contact@kivli.fr">contact@kivli.fr</a></dd></div></dl>
-      <p>Kivli est actuellement proposé gratuitement dans le cadre d’une phase pilote. Aucun SIREN, capital social, numéro de TVA ou forme sociale n’est indiqué, l’activité n’étant pas encore exploitée par une structure immatriculée.</p>
+      <p>Kivli est actuellement proposé gratuitement dans le cadre d’une phase pilote de 60 jours, dont l’accès reste fonctionnel sans facturation automatique après l’échéance et peut être prolongé gratuitement. Aucun SIREN, capital social, numéro de TVA ou forme sociale n’est indiqué, l’activité n’étant pas encore exploitée par une structure immatriculée.</p>
     </LegalSection>
     <LegalSection title="Direction de la publication"><p>Directeur de la publication : TAILEB Ouahid.</p></LegalSection>
     <LegalSection title="Hébergement et infrastructure">

@@ -9,7 +9,7 @@ async function source(path) {
 
 test("the current legal documents have stable, exact content proofs", async () => {
   const legal = await source("lib/legal.ts");
-  assert.match(legal, /PILOT_TERMS_VERSION = "2026-08-26"/);
+  assert.match(legal, /PILOT_TERMS_VERSION = "2026-08-27"/);
   assert.match(legal, /DATA_PROCESSING_AGREEMENT_VERSION = "2026-08-21"/);
   const pilotText = legal.match(/PILOT_TERMS_CANONICAL_TEXT = `([\s\S]*?)`;/)?.[1];
   const dataText = legal.match(/DATA_PROCESSING_AGREEMENT_CANONICAL_TEXT = `([\s\S]*?)`;/)?.[1];
@@ -33,8 +33,25 @@ test("pilot acceptance is explicit, owner-only, same-origin and idempotent", asy
   assert.match(route, /if \(acceptance\.inserted\)/);
   assert.match(route, /catch \(error\)/);
   assert.match(service, /INSERT OR IGNORE INTO merchant_pilot_acceptances/);
+  assert.match(service, /pilot_started_at = COALESCE\(pilot_started_at, \?\)/);
+  assert.match(service, /pilot_ends_at = COALESCE\(pilot_ends_at, datetime\(\?, '\+60 days'\)\)/);
   assert.match(service, /pilot_terms_version = \? AND pilot_terms_sha256 = \?/);
   assert.doesNotMatch(`${route}\n${service}`, /fingerprint|request\.headers\.get\(["'](?:cf-connecting-ip|x-forwarded-for)/i);
+});
+
+test("the current pilot terms describe exactly the 60-day non-blocking model", async () => {
+  const [legal, termsPage, legalNotice] = await Promise.all([
+    source("lib/legal.ts"),
+    source("app/conditions-pilote/page.tsx"),
+    source("app/mentions-legales/page.tsx"),
+  ]);
+  for (const text of [legal, termsPage]) {
+    assert.match(text, /60 jours/);
+    assert.match(text, /(?:aucun blocage automatique|n’est pas bloqué automatiquement)/i);
+    assert.match(text, /accord explicite distinct/i);
+  }
+  assert.match(legalNotice, /60 jours/);
+  assert.match(legalNotice, /sans facturation automatique/i);
 });
 
 test("acceptance history and legal snapshots are immutable and migration is additive", async () => {

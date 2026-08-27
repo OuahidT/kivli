@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   ArrowRight,
   BellRing,
+  CalendarClock,
   Check,
   Copy,
   ExternalLink,
@@ -35,6 +36,7 @@ import { PILOT_DURATION_REMINDER } from "../lib/legal";
 type DashboardData = {
   welcomePending?: boolean;
   pilotAcceptanceRequired: boolean;
+  pilot: { startedAt: string; endsAt: string; daysRemaining: number; state: "standard" | "extended" | "continued" } | null;
   merchant: {
     id: string;
     firstName: string;
@@ -440,6 +442,7 @@ export function DashboardApp() {
 
       <section className="dashboard-main">
         <header className="dashboard-top"><div><small className="dashboard-date">{new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</small><small className="dashboard-context">{data.merchant.role === "employee" ? `${data.merchant.businessName} · ${data.merchant.employeeName}` : data.merchant.businessName}</small><h1>{data.merchant.role === "employee" ? "Scanner" : visibleTabs.find((item) => item.id === tab)?.label}</h1></div>{data.merchant.role === "employee" ? <div className="dashboard-actions employee-top-actions"><button className="button button-ghost" onClick={() => setShowEmployeePin(true)}><ShieldCheck size={17} aria-hidden="true" /><span>Mon PIN</span></button><button className="button button-ghost logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /><span>Déconnexion</span></button></div> : <div className="dashboard-actions"><button className="button button-ghost qr-quick" onClick={showEnrollmentQr}><QrCodeIcon size={18} aria-hidden="true" /><span>QR codes clients</span></button><button className="button scan-quick" onClick={() => setTab("scan")}><ScanLine size={18} aria-hidden="true" />Scanner</button><button className="button button-ghost feedback-quick" onClick={() => { setFeedbackError(""); setFeedbackOpen(true); }}><MessageSquareText size={17} aria-hidden="true" /><span>Faire un retour</span></button><button className="button button-ghost owner-logout-quick" onClick={logout} aria-label="Se déconnecter"><LogOut size={18} aria-hidden="true" /></button></div>}</header>
+        {data.merchant.role === "owner" && data.pilot && <PilotCounter pilot={data.pilot} />}
         {data.merchant.role === "owner" && <nav className="mobile-tabs" aria-label="Navigation principale" style={{ "--tab-count": visibleTabs.length } as React.CSSProperties}>{visibleTabs.map((item) => { const Icon = item.icon; return <button key={item.id} aria-label={item.label} aria-current={tab === item.id ? "page" : undefined} className={tab === item.id ? "active" : ""} onClick={() => { setTab(item.id); setError(""); }}><span className="mobile-tab-icon"><Icon className="nav-icon" size={21} strokeWidth={2} aria-hidden="true" /></span><small>{item.shortLabel}</small></button>; })}</nav>}
         {error && <div className="dashboard-error" role="alert"><span>!</span>{error}<button onClick={() => setError("")}>×</button></div>}
 
@@ -514,6 +517,20 @@ export function DashboardApp() {
       {toast && <div className="toast" role="status">✓ {toast}</div>}
     </main>
   );
+}
+
+function PilotCounter({ pilot }: { pilot: NonNullable<DashboardData["pilot"]> }) {
+  const endDate = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" }).format(new Date(pilot.endsAt));
+  const remainingLabel = `${pilot.daysRemaining} jour${pilot.daysRemaining > 1 ? "s" : ""} restant${pilot.daysRemaining > 1 ? "s" : ""}`;
+  const title = pilot.state === "continued"
+    ? "Accès pilote prolongé gratuitement"
+    : pilot.state === "extended"
+      ? `Pilote prolongé gratuitement · ${remainingLabel}`
+      : `Pilote gratuit · ${remainingLabel}`;
+  return <aside className={`pilot-counter pilot-counter-${pilot.state}`} aria-label="Durée du pilote">
+    <span><CalendarClock size={18} aria-hidden="true" /></span>
+    <div><strong>{title}</strong><small>{pilot.state === "continued" ? "Votre espace reste pleinement fonctionnel, sans facturation automatique." : `Échéance actuelle : ${endDate}. Aucun paiement automatique.`}</small></div>
+  </aside>;
 }
 
 type WalletNotificationSettingsData = {

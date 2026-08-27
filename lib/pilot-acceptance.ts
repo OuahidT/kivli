@@ -115,8 +115,16 @@ export async function acceptCurrentPilotDocuments(owner: MerchantIdentity & { ro
   if (!acceptance) throw new Error("L’acceptation du pilote n’a pas pu être enregistrée.");
   await db.prepare(`UPDATE merchants SET
     terms_accepted_at = COALESCE(terms_accepted_at, ?), terms_version = ?,
+    pilot_started_at = COALESCE(pilot_started_at, ?),
+    pilot_ends_at = COALESCE(pilot_ends_at, datetime(?, '+60 days')),
     welcome_seen_at = COALESCE(welcome_seen_at, CURRENT_TIMESTAMP)
-    WHERE id = ?`).bind(acceptance.acceptedAt, proofs.pilotTerms.version, owner.id).run();
+    WHERE id = ?`).bind(
+      acceptance.acceptedAt,
+      proofs.pilotTerms.version,
+      acceptance.acceptedAt,
+      acceptance.acceptedAt,
+      owner.id,
+    ).run();
   return {
     acceptanceId: acceptance.id,
     acceptedAt: acceptance.acceptedAt,

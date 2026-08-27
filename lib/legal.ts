@@ -1,21 +1,22 @@
 import { sha256 } from "./ids";
 
-export const LEGAL_VERSION = "2026-08-26";
-export const PILOT_TERMS_VERSION = "2026-08-26";
+export const LEGAL_VERSION = "2026-08-27";
+export const PILOT_TERMS_VERSION = "2026-08-27";
 export const DATA_PROCESSING_AGREEMENT_VERSION = "2026-08-21";
 export const MARKETING_CONSENT_VERSION = "sms-v1-2026-08-21";
 
-export const PILOT_DURATION_REMINDER = "Pilote gratuit pendant 6 à 8 semaines, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat.";
+export const PILOT_DURATION_REMINDER = "Pilote gratuit pendant 60 jours, sans carte bancaire, sans prélèvement, sans renouvellement automatique et sans obligation d’achat. Si aucune décision commerciale n’est prise à l’issue des 60 jours, l’accès reste fonctionnel et peut être prolongé gratuitement.";
 
 export const PILOT_TERMS_CANONICAL_TEXT = `Conditions du pilote gratuit
-Version du 26 août 2026
+Version du 27 août 2026
 Ces conditions encadrent l’accès professionnel à Kivli avant son éventuelle commercialisation. Elles ne constituent pas des CGV payantes.
 
 1. Objet et acceptation
 Kivli met à disposition des commerces et professionnels un outil de fidélité digitale comprenant notamment la création d’un programme, des cartes clients, la gestion des points et récompenses, des accès employés et un historique. L’accès aux fonctions impliquant les données des clients est activé lorsque le propriétaire authentifié confirme être habilité à engager le commerce et accepte expressément les présentes conditions ainsi que l’annexe RGPD.
 
 2. Pilote entièrement gratuit
-Le pilote est fourni gratuitement pendant une durée indicative de 6 à 8 semaines à compter de son activation. Aucun moyen de paiement n’est demandé, aucun prélèvement n’est réalisé, aucun renouvellement payant ou automatique n’est prévu et aucune obligation d’achat n’est créée. Toute future offre payante fera l’objet d’une information et d’un accord distincts ; l’absence de réponse ne pourra jamais valoir souscription.
+Le pilote est fourni gratuitement pendant 60 jours à compter de son activation effective, laquelle intervient après l’acceptation obligatoire des présentes conditions et de l’annexe RGPD par le propriétaire habilité. Aucun moyen de paiement n’est demandé, aucun prélèvement n’est réalisé, aucune facturation ni reconduction payante ou automatique ne se déclenche et aucune obligation d’achat n’est créée.
+À l’issue des 60 jours, le commerce n’est pas bloqué automatiquement. Si aucune décision commerciale n’a encore été prise, son accès reste fonctionnel et Kivli peut prolonger gratuitement le pilote. Toute future offre payante fera l’objet d’une proposition et d’un accord explicite distincts du commerçant ; l’absence de réponse, la poursuite de l’accès ou l’expiration du compteur ne pourront jamais valoir souscription.
 
 3. Accès au service
 Le commerçant fournit des informations exactes, protège son code confidentiel, limite les accès employés aux personnes autorisées et signale rapidement tout usage suspect. Il reste responsable des appareils et réseaux utilisés pour accéder à Kivli.
