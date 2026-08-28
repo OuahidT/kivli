@@ -41,7 +41,7 @@ export async function POST(request: Request) {
        JOIN customers c ON c.id = mb.customer_id
        JOIN programs p ON p.id = mb.program_id AND p.earning_mode = 'spend'
        JOIN rewards r ON r.id = s.reward_id AND r.status = 'redeemed'
-       WHERE s.id = ? AND s.merchant_id = ? AND s.reason = 'redeem' AND s.delta < 0
+       WHERE s.id = ? AND s.merchant_id = ? AND mb.deleted_at IS NULL AND s.reason = 'redeem' AND s.delta < 0
          AND s.reversed_at IS NULL ${employeeGuard}`,
       stampId,
       merchant.id,

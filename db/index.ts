@@ -40,7 +40,7 @@ const schemaStatements = [
   )`,
   `CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, first_name TEXT NOT NULL,
-    email TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    email TEXT, anonymized_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS merchant_email_verifications (
     id TEXT PRIMARY KEY, email TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE,
@@ -66,6 +66,7 @@ const schemaStatements = [
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, program_id TEXT NOT NULL,
     customer_id TEXT NOT NULL, code TEXT NOT NULL UNIQUE, points INTEGER NOT NULL DEFAULT 0,
     total_points INTEGER NOT NULL DEFAULT 0, wallet_mode_ready INTEGER NOT NULL DEFAULT 0,
+    deleted_at TEXT, deleted_by_role TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(program_id, customer_id)
   )`,
@@ -145,6 +146,7 @@ const schemaStatements = [
     pass_type_identifier TEXT NOT NULL, authentication_token_hash TEXT NOT NULL,
     last_updated_tag INTEGER NOT NULL, push_pending INTEGER NOT NULL DEFAULT 0,
     notification_delivery_id TEXT, layout_version INTEGER NOT NULL DEFAULT 0,
+    voided_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS apple_wallet_devices (
@@ -194,6 +196,14 @@ const schemaStatements = [
     sent_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS wallet_invalidation_jobs (
+    id TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE,
+    merchant_id TEXT NOT NULL, membership_id TEXT NOT NULL, platform TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', attempt_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT, next_attempt_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_slug ON merchants(slug)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_merchants_email ON merchants(email)`,
   `CREATE INDEX IF NOT EXISTS idx_employees_merchant ON employees(merchant_id)`,
@@ -233,6 +243,8 @@ const schemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_wallet_notification_deliveries_retry ON wallet_notification_deliveries(status, next_attempt_at)`,
   `CREATE INDEX IF NOT EXISTS idx_wallet_notification_deliveries_merchant ON wallet_notification_deliveries(merchant_id, created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_wallet_notification_deliveries_membership ON wallet_notification_deliveries(membership_id, notification_type, cycle_key)`,
+  `CREATE INDEX IF NOT EXISTS idx_wallet_invalidation_jobs_retry ON wallet_invalidation_jobs(status, next_attempt_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_wallet_invalidation_jobs_membership ON wallet_invalidation_jobs(membership_id, platform)`,
   `CREATE INDEX IF NOT EXISTS idx_stamps_membership_activity ON stamps(membership_id, created_at)`,
   `CREATE TRIGGER IF NOT EXISTS legal_document_versions_no_update BEFORE UPDATE ON legal_document_versions BEGIN SELECT RAISE(ABORT, 'legal document versions are immutable'); END`,
   `CREATE TRIGGER IF NOT EXISTS legal_document_versions_no_delete BEFORE DELETE ON legal_document_versions BEGIN SELECT RAISE(ABORT, 'legal document versions are immutable'); END`,
@@ -301,6 +313,7 @@ export async function ensureSchema() {
         ["marketing_consent_version", "ALTER TABLE customers ADD COLUMN marketing_consent_version TEXT"],
         ["marketing_consent_source", "ALTER TABLE customers ADD COLUMN marketing_consent_source TEXT"],
         ["marketing_withdrawn_at", "ALTER TABLE customers ADD COLUMN marketing_withdrawn_at TEXT"],
+        ["anonymized_at", "ALTER TABLE customers ADD COLUMN anonymized_at TEXT"],
       ] as const;
       for (const [column, statement] of customerMigrations) {
         if (!existingCustomerColumns.has(column)) {
@@ -314,11 +327,19 @@ export async function ensureSchema() {
 
       const membershipColumns = await db.prepare("PRAGMA table_info(memberships)").all<{ name: string }>();
       const existingMembershipColumns = new Set((membershipColumns.results ?? []).map((column) => column.name));
-      if (!existingMembershipColumns.has("wallet_mode_ready")) {
-        try { await db.prepare("ALTER TABLE memberships ADD COLUMN wallet_mode_ready INTEGER NOT NULL DEFAULT 0").run(); } catch (error) {
-          if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+      const membershipMigrations = [
+        ["wallet_mode_ready", "ALTER TABLE memberships ADD COLUMN wallet_mode_ready INTEGER NOT NULL DEFAULT 0"],
+        ["deleted_at", "ALTER TABLE memberships ADD COLUMN deleted_at TEXT"],
+        ["deleted_by_role", "ALTER TABLE memberships ADD COLUMN deleted_by_role TEXT"],
+      ] as const;
+      for (const [column, statement] of membershipMigrations) {
+        if (!existingMembershipColumns.has(column)) {
+          try { await db.prepare(statement).run(); } catch (error) {
+            if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+          }
         }
       }
+      await db.prepare("CREATE INDEX IF NOT EXISTS idx_memberships_merchant_active ON memberships(merchant_id, deleted_at, updated_at)").run();
 
       const applePassColumns = await db.prepare("PRAGMA table_info(apple_wallet_passes)").all<{ name: string }>();
       if (!(applePassColumns.results ?? []).some((column) => column.name === "notification_delivery_id")) {
@@ -328,6 +349,11 @@ export async function ensureSchema() {
       }
       if (!(applePassColumns.results ?? []).some((column) => column.name === "layout_version")) {
         try { await db.prepare("ALTER TABLE apple_wallet_passes ADD COLUMN layout_version INTEGER NOT NULL DEFAULT 0").run(); } catch (error) {
+          if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+        }
+      }
+      if (!(applePassColumns.results ?? []).some((column) => column.name === "voided_at")) {
+        try { await db.prepare("ALTER TABLE apple_wallet_passes ADD COLUMN voided_at TEXT").run(); } catch (error) {
           if (!String(error).toLowerCase().includes("duplicate column")) throw error;
         }
       }

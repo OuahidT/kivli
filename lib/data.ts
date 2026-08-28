@@ -22,7 +22,7 @@ export async function getProgramBySlug(slug: string) {
   return { ...program, rewardTiers };
 }
 
-export async function getCardByCode(code: string) {
+export async function getCardByCode(code: string, options: { includeDeleted?: boolean } = {}) {
   const card = await queryFirst<Omit<CardData, "rewardTiers" | "availableRewardItems">>(
     `SELECT p.id, p.merchant_id AS merchantId, m.business_name AS businessName, m.slug,
       m.accent_color AS accentColor, p.name, p.goal, p.reward_text AS rewardText, p.terms,
@@ -34,7 +34,7 @@ export async function getCardByCode(code: string) {
      JOIN customers c ON c.id = mb.customer_id
      JOIN programs p ON p.id = mb.program_id
      JOIN merchants m ON m.id = mb.merchant_id
-     WHERE mb.code = ? AND p.active = 1`,
+     WHERE mb.code = ? AND p.active = 1 ${options.includeDeleted ? "" : "AND mb.deleted_at IS NULL"}`,
     code,
   );
   if (!card) return null;
@@ -43,7 +43,7 @@ export async function getCardByCode(code: string) {
   const [rewardTiers, availableRewardItems] = await Promise.all([
     queryAll<RewardTier>(`SELECT id, threshold, reward_text AS rewardText, sort_order AS sortOrder FROM program_reward_tiers WHERE program_id = ? AND active = 1 ORDER BY threshold`, card.id),
     card.earningMode === "visits"
-      ? queryAll<{ id: string; rewardText: string; threshold: number }>(`SELECT id, COALESCE(reward_text, ?) AS rewardText, COALESCE(threshold, ?) AS threshold FROM rewards WHERE membership_id = (SELECT id FROM memberships WHERE code = ?) AND status = 'available' ORDER BY earned_at`, card.rewardText, card.goal, code)
+      ? queryAll<{ id: string; rewardText: string; threshold: number }>(`SELECT id, COALESCE(reward_text, ?) AS rewardText, COALESCE(threshold, ?) AS threshold FROM rewards WHERE membership_id = (SELECT id FROM memberships WHERE code = ? ${options.includeDeleted ? "" : "AND deleted_at IS NULL"}) AND status = 'available' ORDER BY earned_at`, card.rewardText, card.goal, code)
       : Promise.resolve([]),
   ]);
   const walletRewards = card.earningMode === "spend" ? rewardTiers.filter((tier) => tier.threshold <= card.points) : availableRewardItems;

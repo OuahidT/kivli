@@ -56,7 +56,7 @@ export async function POST(request: Request) {
         p.earning_mode AS earningMode, p.spend_amount_cents AS spendAmountCents,
         (SELECT COUNT(*) FROM rewards r WHERE r.membership_id = mb.id AND r.status = 'available') AS availableRewards
        FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
-       WHERE mb.code = ? AND mb.merchant_id = ?`,
+       WHERE mb.code = ? AND mb.merchant_id = ? AND mb.deleted_at IS NULL`,
       code,
       merchant.id,
     );

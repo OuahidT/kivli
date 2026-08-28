@@ -4,6 +4,7 @@ import { getCardByCode } from "./data";
 import { sendGoogleWalletNotification } from "./google-wallet";
 import { makeId } from "./ids";
 import { merchantHasCurrentPilotAcceptance } from "./pilot-acceptance";
+import { retryWalletInvalidationJobs } from "./customer-deletion";
 
 export type WalletNotificationSettings = {
   nearRewardEnabled: number;
@@ -231,6 +232,7 @@ async function nearRewardCandidates(code?: string) {
     JOIN programs p ON p.merchant_id = s.merchant_id AND p.active = 1
     JOIN memberships mb ON mb.program_id = p.id
     WHERE s.near_reward_enabled = 1
+      AND mb.deleted_at IS NULL
       AND (? IS NULL OR mb.code = ?)
       AND EXISTS (SELECT 1 FROM program_reward_tiers t WHERE t.program_id = p.id AND t.active = 1
         AND t.threshold > mb.points AND t.threshold - mb.points <= s.near_reward_threshold)
@@ -276,6 +278,7 @@ export async function evaluateReactivationNotifications() {
     JOIN programs p ON p.merchant_id = s.merchant_id AND p.active = 1
     JOIN memberships mb ON mb.program_id = p.id
     WHERE s.reactivation_enabled = 1
+      AND mb.deleted_at IS NULL
       AND datetime(COALESCE((SELECT MAX(st.created_at) FROM stamps st WHERE st.membership_id = mb.id
         AND st.reason IN ('visit', 'purchase') AND st.reversed_at IS NULL), mb.created_at))
         <= datetime('now', '-' || s.reactivation_days || ' days')
@@ -297,7 +300,7 @@ export async function evaluateReactivationNotifications() {
 async function campaignTargets(merchantId: string, programId: string) {
   return queryAll<NotificationTarget>(`SELECT mb.merchant_id AS merchantId, mb.customer_id AS customerId,
     mb.id AS membershipId, mb.program_id AS programId, mb.code
-    FROM memberships mb WHERE mb.merchant_id = ? AND mb.program_id = ?`, merchantId, programId);
+    FROM memberships mb WHERE mb.merchant_id = ? AND mb.program_id = ? AND mb.deleted_at IS NULL`, merchantId, programId);
 }
 
 export async function createMarketingCampaign(
@@ -360,7 +363,7 @@ export async function retryFailedWalletNotifications() {
     d.attempt_count AS attemptCount, d.next_attempt_at AS nextAttemptAt,
     d.platform, d.title, d.message, mb.code
     FROM wallet_notification_deliveries d JOIN memberships mb ON mb.id = d.membership_id
-    WHERE d.status = 'failed' AND d.attempt_count < 3 AND datetime(d.next_attempt_at) <= CURRENT_TIMESTAMP
+    WHERE d.status = 'failed' AND mb.deleted_at IS NULL AND d.attempt_count < 3 AND datetime(d.next_attempt_at) <= CURRENT_TIMESTAMP
     ORDER BY d.next_attempt_at LIMIT 100`);
   for (const row of rows) await processDelivery(row, row.code);
   return rows.length;
@@ -368,11 +371,12 @@ export async function retryFailedWalletNotifications() {
 
 export async function runWalletNotificationSchedule() {
   await ensureSchema();
-  const [retried, nearReward, reactivation, appleLayouts] = await Promise.all([
+  const [retried, invalidations, nearReward, reactivation, appleLayouts] = await Promise.all([
     retryFailedWalletNotifications(),
+    retryWalletInvalidationJobs(),
     evaluateNearRewardNotifications(),
     evaluateReactivationNotifications(),
     refreshOutdatedAppleWalletPasses(),
   ]);
-  return { retried, nearReward, reactivation, appleLayouts };
+  return { retried, invalidations, nearReward, reactivation, appleLayouts };
 }

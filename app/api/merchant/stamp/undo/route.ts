@@ -38,7 +38,7 @@ export async function POST(request: Request) {
        FROM stamps s
        JOIN memberships mb ON mb.id = s.membership_id
        JOIN customers c ON c.id = mb.customer_id
-       WHERE s.id = ? AND s.merchant_id = ? AND s.reason IN ('visit', 'purchase', 'bonus')
+       WHERE s.id = ? AND s.merchant_id = ? AND mb.deleted_at IS NULL AND s.reason IN ('visit', 'purchase', 'bonus')
          ${merchant.role === "employee" ? "AND s.reason IN ('visit', 'purchase')" : ""}
          AND s.reversed_at IS NULL AND s.points_before IS NOT NULL
          ${employeeGuard}

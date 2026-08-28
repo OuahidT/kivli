@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const member = await queryFirst<Member>(`SELECT mb.id, c.first_name AS firstName, mb.points, p.goal, p.id AS programId, p.earning_mode AS earningMode,
       (SELECT COUNT(*) FROM rewards r WHERE r.membership_id = mb.id AND r.status = 'available') AS availableRewards
       FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
-      WHERE mb.code = ? AND mb.merchant_id = ?`, code, merchant.id);
+      WHERE mb.code = ? AND mb.merchant_id = ? AND mb.deleted_at IS NULL`, code, merchant.id);
     if (!member) return jsonError("Carte introuvable.", 404);
     const tiers = await queryAll<Tier>(`SELECT id, threshold, reward_text AS rewardText FROM program_reward_tiers WHERE program_id = ? AND active = 1 ORDER BY threshold`, member.programId);
     const pointsAfter = member.earningMode === "spend" ? member.points + quantity : (member.points + quantity) % member.goal;

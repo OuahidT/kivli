@@ -257,7 +257,8 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
     readFile(new URL("../docs/apple-wallet.md", import.meta.url), "utf8"),
   ]);
 
-  assert.match(appleWallet, /storeCard: appleStoreCardPreview\(card, notification\)/);
+  assert.match(appleWallet, /storeCard: appleStoreCardPreview\(displayCard, notification\)/);
+  assert.match(appleWallet, /options\.voided \? \{ voided: true \}/);
   assert.match(appleWallet, /PKBarcodeFormatQR/);
   assert.match(appleWallet, /headerFields/);
   assert.match(appleWallet, /label: balanceLabel/);

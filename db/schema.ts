@@ -95,6 +95,7 @@ export const customers = sqliteTable(
     marketingConsentVersion: text("marketing_consent_version"),
     marketingConsentSource: text("marketing_consent_source"),
     marketingWithdrawnAt: text("marketing_withdrawn_at"),
+    anonymizedAt: text("anonymized_at"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => [
@@ -175,6 +176,8 @@ export const memberships = sqliteTable(
     points: integer("points").notNull().default(0),
     totalPoints: integer("total_points").notNull().default(0),
     walletModeReady: integer("wallet_mode_ready", { mode: "boolean" }).notNull().default(false),
+    deletedAt: text("deleted_at"),
+    deletedByRole: text("deleted_by_role"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -182,6 +185,7 @@ export const memberships = sqliteTable(
     uniqueIndex("idx_memberships_code").on(table.code),
     uniqueIndex("idx_memberships_program_customer").on(table.programId, table.customerId),
     index("idx_memberships_merchant_updated").on(table.merchantId, table.updatedAt),
+    index("idx_memberships_merchant_active").on(table.merchantId, table.deletedAt, table.updatedAt),
   ],
 );
 
@@ -328,6 +332,7 @@ export const appleWalletPasses = sqliteTable(
     pushPending: integer("push_pending", { mode: "boolean" }).notNull().default(false),
     notificationDeliveryId: text("notification_delivery_id"),
     layoutVersion: integer("layout_version").notNull().default(0),
+    voidedAt: text("voided_at"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
@@ -415,6 +420,29 @@ export const walletNotificationDeliveries = sqliteTable(
     index("idx_wallet_notification_deliveries_retry").on(table.status, table.nextAttemptAt),
     index("idx_wallet_notification_deliveries_merchant").on(table.merchantId, table.createdAt),
     index("idx_wallet_notification_deliveries_membership").on(table.membershipId, table.notificationType, table.cycleKey),
+  ],
+);
+
+export const walletInvalidationJobs = sqliteTable(
+  "wallet_invalidation_jobs",
+  {
+    id: text("id").primaryKey(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    merchantId: text("merchant_id").notNull(),
+    membershipId: text("membership_id").notNull(),
+    platform: text("platform").notNull(),
+    status: text("status").notNull().default("pending"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    errorMessage: text("error_message"),
+    nextAttemptAt: text("next_attempt_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    completedAt: text("completed_at"),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("idx_wallet_invalidation_jobs_idempotency").on(table.idempotencyKey),
+    index("idx_wallet_invalidation_jobs_retry").on(table.status, table.nextAttemptAt),
+    index("idx_wallet_invalidation_jobs_membership").on(table.membershipId, table.platform),
   ],
 );
 

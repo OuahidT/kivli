@@ -7,6 +7,7 @@ import { pilotStatusForMerchant } from "../../../../lib/pilot-duration";
 type ProgramRow = { id: string; name: string; goal: number; rewardText: string; terms: string; active: number; earningMode: "visits" | "spend"; spendAmountCents: number };
 type RewardTierRow = { id: string; threshold: number; rewardText: string; sortOrder: number };
 type CustomerRow = {
+  membershipId: string;
   code: string;
   firstName: string;
   phone: string | null;
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
         merchant.id,
       ),
       owner && clientDataAllowed ? queryAll<CustomerRow>(
-        `SELECT mb.code, c.first_name AS firstName, c.phone, c.marketing_consent AS marketingConsent,
+        `SELECT mb.id AS membershipId, mb.code, c.first_name AS firstName, c.phone, c.marketing_consent AS marketingConsent,
           mb.points, mb.total_points AS totalPoints,
           mb.updated_at AS updatedAt,
           CASE WHEN p.earning_mode = 'spend'
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
            WHERE s.membership_id = mb.id AND s.reason IN ('visit', 'purchase', 'bonus') AND s.reversed_at IS NULL
            ORDER BY s.rowid DESC LIMIT 1) AS undoableStampId
          FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
-         WHERE mb.merchant_id = ? ORDER BY mb.updated_at DESC LIMIT 60`,
+         WHERE mb.merchant_id = ? AND mb.deleted_at IS NULL ORDER BY mb.updated_at DESC LIMIT 60`,
         merchant.id,
       ) : Promise.resolve([]),
       clientDataAllowed ? queryAll<ActivityRow>(
@@ -95,19 +96,19 @@ export async function GET(request: Request) {
          LEFT JOIN rewards r ON r.id = s.reward_id
          LEFT JOIN employee_actions ea ON ea.stamp_id = s.id
          LEFT JOIN employees e ON e.id = ea.employee_id
-         WHERE s.merchant_id = ? ${owner ? "" : "AND ea.employee_id = ?"}
+         WHERE s.merchant_id = ? AND mb.deleted_at IS NULL ${owner ? "" : "AND ea.employee_id = ?"}
          ORDER BY s.created_at DESC LIMIT 12`,
         merchant.id,
         ...(!owner ? [merchant.employeeId] : []),
       ) : Promise.resolve([]),
       owner && clientDataAllowed ? queryFirst<StatsRow>(
         `SELECT
-          (SELECT COUNT(*) FROM memberships WHERE merchant_id = ?) AS customers,
+          (SELECT COUNT(*) FROM memberships WHERE merchant_id = ? AND deleted_at IS NULL) AS customers,
           (SELECT COALESCE(SUM(delta), 0) FROM stamps WHERE merchant_id = ? AND reason IN ('visit', 'purchase') AND reversed_at IS NULL) AS visits,
           (SELECT COUNT(*) FROM rewards WHERE merchant_id = ? AND status IN ('available', 'redeemed')) AS rewards,
-          (SELECT COUNT(*) FROM memberships WHERE merchant_id = ? AND created_at >= datetime('now', '-30 days')) AS newMembers,
-          (SELECT COUNT(*) FROM (SELECT membership_id FROM stamps WHERE merchant_id = ? AND reason IN ('visit','purchase') AND reversed_at IS NULL GROUP BY membership_id HAVING COUNT(*) >= 2)) AS returningCustomers,
-          (SELECT ROUND(AVG(frequency), 1) FROM (SELECT (julianday(MAX(created_at)) - julianday(MIN(created_at))) / (COUNT(*) - 1) AS frequency FROM stamps WHERE merchant_id = ? AND reason IN ('visit','purchase') AND reversed_at IS NULL GROUP BY membership_id HAVING COUNT(*) >= 2)) AS avgFrequencyDays,
+          (SELECT COUNT(*) FROM memberships WHERE merchant_id = ? AND deleted_at IS NULL AND created_at >= datetime('now', '-30 days')) AS newMembers,
+          (SELECT COUNT(*) FROM (SELECT s.membership_id FROM stamps s JOIN memberships mb ON mb.id = s.membership_id WHERE s.merchant_id = ? AND mb.deleted_at IS NULL AND s.reason IN ('visit','purchase') AND s.reversed_at IS NULL GROUP BY s.membership_id HAVING COUNT(*) >= 2)) AS returningCustomers,
+          (SELECT ROUND(AVG(frequency), 1) FROM (SELECT (julianday(MAX(s.created_at)) - julianday(MIN(s.created_at))) / (COUNT(*) - 1) AS frequency FROM stamps s JOIN memberships mb ON mb.id = s.membership_id WHERE s.merchant_id = ? AND mb.deleted_at IS NULL AND s.reason IN ('visit','purchase') AND s.reversed_at IS NULL GROUP BY s.membership_id HAVING COUNT(*) >= 2)) AS avgFrequencyDays,
           (SELECT COUNT(*) FROM rewards WHERE merchant_id = ? AND status IN ('available', 'redeemed') AND earned_at >= datetime('now', '-30 days')) AS rewardsEarned,
           (SELECT COUNT(*) FROM rewards WHERE merchant_id = ? AND status = 'redeemed' AND redeemed_at >= datetime('now', '-30 days')) AS rewardsRedeemed`,
         merchant.id,

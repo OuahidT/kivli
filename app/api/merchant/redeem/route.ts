@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const member = await queryFirst<MemberRow>(
       `SELECT mb.id, c.first_name AS firstName, mb.points, mb.program_id AS programId, p.earning_mode AS earningMode
        FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
-       WHERE mb.code = ? AND mb.merchant_id = ?`,
+       WHERE mb.code = ? AND mb.merchant_id = ? AND mb.deleted_at IS NULL`,
       code,
       merchant.id,
     );
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 
     const availableRewards = await queryAll<{ id: string }>(
       `SELECT r.id FROM rewards r JOIN memberships mb ON mb.id = r.membership_id
-       WHERE mb.code = ? AND r.merchant_id = ? AND r.status = 'available' ORDER BY r.earned_at`,
+       WHERE mb.code = ? AND mb.deleted_at IS NULL AND r.merchant_id = ? AND r.status = 'available' ORDER BY r.earned_at`,
       code,
       merchant.id,
     );
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
         COALESCE(r.reward_text, p.reward_text) AS rewardText
        FROM rewards r JOIN memberships mb ON mb.id = r.membership_id JOIN customers c ON c.id = mb.customer_id
        JOIN programs p ON p.id = r.program_id
-       WHERE mb.code = ? AND r.merchant_id = ? AND r.status = 'available' AND (? = '' OR r.id = ?) ORDER BY r.earned_at LIMIT 1`,
+       WHERE mb.code = ? AND mb.deleted_at IS NULL AND r.merchant_id = ? AND r.status = 'available' AND (? = '' OR r.id = ?) ORDER BY r.earned_at LIMIT 1`,
       code,
       merchant.id,
       rewardId,

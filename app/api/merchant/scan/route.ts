@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const card = await queryFirst<CardRow>(`SELECT mb.id AS membershipId, c.first_name AS firstName, mb.code, mb.points, p.goal,
       p.earning_mode AS earningMode, p.spend_amount_cents AS spendAmountCents
       FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
-      WHERE mb.code = ? AND mb.merchant_id = ?`, code, merchant.id);
+      WHERE mb.code = ? AND mb.merchant_id = ? AND mb.deleted_at IS NULL`, code, merchant.id);
     if (!card) return jsonError("Cette carte n’appartient pas à ton programme.", 404);
     const rewards = card.earningMode === "spend"
       ? await queryAll<RewardRow>(`SELECT id, reward_text AS rewardText, threshold

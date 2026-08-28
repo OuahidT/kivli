@@ -49,6 +49,7 @@ export type AppleStoreCardSource = {
   labelColor: string;
   webServiceURL: string;
   authenticationToken: string;
+  voided?: boolean;
   barcode: { format: "PKBarcodeFormatQR"; message: string; messageEncoding: "iso-8859-1"; altText: string };
   barcodes: Array<{ format: "PKBarcodeFormatQR"; message: string; messageEncoding: "iso-8859-1"; altText: string }>;
   storeCard: {
@@ -210,16 +211,19 @@ export function appleStoreCardPreview(card: CardData, notification?: WalletNotif
   } satisfies AppleStoreCardSource["storeCard"];
 }
 
-export async function createAppleStoreCardSource(card: CardData): Promise<AppleStoreCardSource> {
+export async function createAppleStoreCardSource(card: CardData, options: { voided?: boolean } = {}): Promise<AppleStoreCardSource> {
   const config = coreConfig();
   if (!config) throw new Error("La configuration Apple Wallet sera finalisée après l’inscription Apple Developer.");
   const serialNumber = await serialNumberForMembership(card.membershipId);
   const authenticationToken = await hmac(`${config.passTypeIdentifier}:${card.membershipId}`, config.authenticationSecret);
-  const cardUrl = `${KIVLI_ORIGIN}/c/${encodeURIComponent(card.code)}`;
-  const notification = await queryFirst<WalletNotificationContent>(`SELECT d.id, d.title, d.message
+  const cardUrl = options.voided ? `${KIVLI_ORIGIN}/carte-supprimee` : `${KIVLI_ORIGIN}/c/${encodeURIComponent(card.code)}`;
+  const notification = options.voided ? null : await queryFirst<WalletNotificationContent>(`SELECT d.id, d.title, d.message
     FROM apple_wallet_passes ap
     JOIN wallet_notification_deliveries d ON d.id = ap.notification_delivery_id
     WHERE ap.membership_id = ? AND d.platform = 'apple'`, card.membershipId);
+  const displayCard = options.voided
+    ? { ...card, firstName: "Client", points: 0, totalPoints: 0, availableRewards: 0, availableRewardItems: [] }
+    : card;
   return {
     formatVersion: 1,
     passTypeIdentifier: config.passTypeIdentifier,
@@ -233,10 +237,11 @@ export async function createAppleStoreCardSource(card: CardData): Promise<AppleS
     labelColor: "rgb(255, 255, 255)",
     webServiceURL: APPLE_WEB_SERVICE_URL,
     authenticationToken,
-    barcode: { format: "PKBarcodeFormatQR", message: cardUrl, messageEncoding: "iso-8859-1", altText: card.code },
-    barcodes: [{ format: "PKBarcodeFormatQR", message: cardUrl, messageEncoding: "iso-8859-1", altText: card.code }],
-    storeCard: appleStoreCardPreview(card, notification),
-    userInfo: { membershipId: card.membershipId, programId: card.id, cardCode: card.code },
+    ...(options.voided ? { voided: true } : {}),
+    barcode: { format: "PKBarcodeFormatQR", message: cardUrl, messageEncoding: "iso-8859-1", altText: options.voided ? "CARTE SUPPRIMÉE" : card.code },
+    barcodes: [{ format: "PKBarcodeFormatQR", message: cardUrl, messageEncoding: "iso-8859-1", altText: options.voided ? "CARTE SUPPRIMÉE" : card.code }],
+    storeCard: appleStoreCardPreview(displayCard, notification),
+    userInfo: { membershipId: card.membershipId, programId: card.id, cardCode: options.voided ? "REVOKED" : card.code },
   };
 }
 
@@ -316,10 +321,12 @@ export async function updatedAppleWalletSerials(deviceId: string, passTypeId: st
 export async function cardForAppleWalletSerial(passTypeId: string, serialNumber: string) {
   const config = coreConfig();
   if (!config || config.passTypeIdentifier !== passTypeId) return null;
-  const record = await queryFirst<{ code: string }>(`SELECT mb.code
+  const record = await queryFirst<{ code: string; voidedAt: string | null }>(`SELECT mb.code, ap.voided_at AS voidedAt
     FROM apple_wallet_passes ap JOIN memberships mb ON mb.id = ap.membership_id
     WHERE ap.pass_type_identifier = ? AND ap.serial_number = ?`, passTypeId, serialNumber);
-  return record ? getCardByCode(record.code) : null;
+  if (!record) return null;
+  const card = await getCardByCode(record.code, { includeDeleted: true });
+  return card ? { card, voided: Boolean(record.voidedAt) } : null;
 }
 
 export async function markAppleWalletPassServed(serialNumber: string) {
@@ -332,6 +339,56 @@ export async function pendingAppleWalletPushTargets(serialNumber: string) {
   return queryAll<{ pushToken: string }>(`SELECT DISTINCT d.push_token AS pushToken
     FROM apple_wallet_registrations r JOIN apple_wallet_devices d ON d.device_library_identifier = r.device_library_identifier
     WHERE r.serial_number = ?`, serialNumber);
+}
+
+export async function invalidateAppleWalletPass(membershipId: string) {
+  await ensureSchema();
+  const pass = await queryFirst<{ serialNumber: string }>(
+    "SELECT serial_number AS serialNumber FROM apple_wallet_passes WHERE membership_id = ?",
+    membershipId,
+  );
+  if (!pass) return { active: false, sent: true };
+
+  await getD1().prepare(`UPDATE apple_wallet_passes SET
+    voided_at = COALESCE(voided_at, CURRENT_TIMESTAMP),
+    last_updated_tag = MAX(last_updated_tag + 1, unixepoch()),
+    push_pending = 1, notification_delivery_id = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE membership_id = ?`).bind(membershipId).run();
+
+  const targets = await pendingAppleWalletPushTargets(pass.serialNumber);
+  if (!targets.length) return { active: false, sent: true };
+  const current = runtimeEnv();
+  const config = coreConfig();
+  if (!current.APPLE_WALLET_APNS || !config) {
+    return { active: true, sent: false, error: "La mise à jour Apple Wallet est temporairement indisponible." };
+  }
+
+  const results = await Promise.all(targets.map(async ({ pushToken }) => {
+    if (!/^[a-f0-9]{32,256}$/i.test(pushToken)) {
+      await removeInvalidApplePushToken(pushToken);
+      return { ok: true };
+    }
+    const response = await current.APPLE_WALLET_APNS!.fetch(new Request(`https://api.push.apple.com/3/device/${pushToken}`, {
+      method: "POST",
+      headers: {
+        "apns-priority": "10",
+        "apns-topic": config.passTypeIdentifier,
+        "content-type": "application/json",
+      },
+      body: "{}",
+    }));
+    if (response.ok) return { ok: true };
+    const details = await response.text();
+    if (response.status === 400 || response.status === 410) {
+      await removeInvalidApplePushToken(pushToken);
+      return { ok: true };
+    }
+    return { ok: false, error: `APNs ${response.status}${details ? ` : ${details.slice(0, 160)}` : ""}` };
+  }));
+  const failed = results.find((result) => !result.ok);
+  return failed
+    ? { active: true, sent: false, error: failed.error ?? "Mise à jour Apple Wallet refusée." }
+    : { active: true, sent: true };
 }
 
 export async function touchAppleWalletPassByCode(code: string) {
@@ -379,7 +436,7 @@ export async function refreshOutdatedAppleWalletPasses(limit = 100) {
     ap.membership_id AS membershipId, mb.code
     FROM apple_wallet_passes ap
     JOIN memberships mb ON mb.id = ap.membership_id
-    WHERE COALESCE(ap.layout_version, 0) < ?
+    WHERE COALESCE(ap.layout_version, 0) < ? AND mb.deleted_at IS NULL
     ORDER BY ap.updated_at
     LIMIT ?`, APPLE_WALLET_LAYOUT_VERSION, limit);
   for (const row of rows) {
@@ -406,6 +463,11 @@ export async function sendAppleWalletNotification(card: CardData, deliveryId: st
   if (!current.APPLE_WALLET_APNS || !config) {
     return { active: false, sent: false, error: "Apple Wallet n’est pas configuré." };
   }
+  const passState = await queryFirst<{ voidedAt: string | null }>(
+    "SELECT voided_at AS voidedAt FROM apple_wallet_passes WHERE membership_id = ?",
+    card.membershipId,
+  );
+  if (!passState || passState.voidedAt) return { active: false, sent: false };
   const serialNumber = await serialNumberForMembership(card.membershipId);
   const targets = await pendingAppleWalletPushTargets(serialNumber);
   if (!targets.length) return { active: false, sent: false };
@@ -454,7 +516,7 @@ async function applePassAssets() {
   return files;
 }
 
-export async function createSignedAppleWalletPass(card: CardData): Promise<Uint8Array> {
+export async function createSignedAppleWalletPass(card: CardData, options: { voided?: boolean } = {}): Promise<Uint8Array> {
   const current = runtimeEnv();
   if (!appleWalletConfigured()
     || !current.APPLE_WALLET_SIGNING_CERTIFICATE_PEM
@@ -462,7 +524,7 @@ export async function createSignedAppleWalletPass(card: CardData): Promise<Uint8
     || !current.APPLE_WALLET_WWDR_CERTIFICATE_PEM) {
     throw new Error("La signature Apple Wallet n’est pas encore configurée.");
   }
-  const source = await createAppleStoreCardSource(card);
+  const source = await createAppleStoreCardSource(card, options);
   const sourceFiles = {
     "pass.json": new TextEncoder().encode(JSON.stringify(source)),
     ...await applePassAssets(),

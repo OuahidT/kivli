@@ -13,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ code:
     const action = cleanText(body?.action, 40);
     if (action !== "withdrawMarketing") return jsonError("Action non reconnue.");
     await ensureSchema();
-    const owner = await queryFirst<CardOwner>(`SELECT c.id AS customerId, c.marketing_consent AS marketingConsent, mb.merchant_id AS merchantId FROM memberships mb JOIN customers c ON c.id = mb.customer_id WHERE mb.code = ?`, code.toUpperCase());
+    const owner = await queryFirst<CardOwner>(`SELECT c.id AS customerId, c.marketing_consent AS marketingConsent, mb.merchant_id AS merchantId FROM memberships mb JOIN customers c ON c.id = mb.customer_id WHERE mb.code = ? AND mb.deleted_at IS NULL`, code.toUpperCase());
     if (!owner) return jsonError("Carte introuvable.", 404);
     const acceptanceError = await requireCurrentPilotAcceptance(owner.merchantId);
     if (acceptanceError) return acceptanceError;

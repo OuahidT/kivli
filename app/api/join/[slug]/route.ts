@@ -22,7 +22,7 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
 
     const existing = await queryFirst<ExistingRow>(
       `SELECT mb.code, c.id AS customerId, c.marketing_consent AS marketingConsent FROM memberships mb JOIN customers c ON c.id = mb.customer_id
-       WHERE mb.program_id = ? AND c.phone = ? LIMIT 1`, program.id, phone,
+       WHERE mb.program_id = ? AND mb.deleted_at IS NULL AND c.phone = ? LIMIT 1`, program.id, phone,
     );
     if (existing) {
       if (marketingConsent && !existing.marketingConsent) {

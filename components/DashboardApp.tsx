@@ -52,7 +52,7 @@ type DashboardData = {
   };
   program: { id: string; name: string; goal: number; rewardText: string; terms: string; active: number; earningMode: "visits" | "spend"; spendAmountCents: number } | null;
   rewardTiers: Array<{ id: string; threshold: number; rewardText: string; sortOrder: number }>;
-  customers: Array<{ code: string; firstName: string; phone: string | null; marketingConsent: number; points: number; totalPoints: number; availableRewards: number; undoableStampId: string | null; updatedAt: string; segment: "new" | "active" | "loyal" | "reactivate" }>;
+  customers: Array<{ membershipId: string; code: string; firstName: string; phone: string | null; marketingConsent: number; points: number; totalPoints: number; availableRewards: number; undoableStampId: string | null; updatedAt: string; segment: "new" | "active" | "loyal" | "reactivate" }>;
   activity: Array<{ id: string; code: string; firstName: string; delta: number; reason: string; actorName: string; createdAt: string; amountCents: number | null; note: string | null; rewardText: string | null; canUndoReward: number }>;
   employees: Array<{ id: string; displayName: string; email: string | null; loginCode: string; active: number; mustChangePin: number; createdAt: string }>;
   stats: { customers: number; visits: number; rewards: number; newMembers: number; returningCustomers: number; avgFrequencyDays: number | null; rewardsEarned: number; rewardsRedeemed: number };
@@ -81,7 +81,7 @@ type ScanCandidate = {
 };
 
 type CustomerDialog = {
-  kind: "bonus";
+  kind: "bonus" | "delete";
   customer: DashboardData["customers"][number];
 };
 
@@ -270,6 +270,11 @@ export function DashboardApp() {
     setCustomerDialog({ kind: "bonus", customer });
   }
 
+  function confirmCustomerDeletion(customer: DashboardData["customers"][number]) {
+    setError("");
+    setCustomerDialog({ kind: "delete", customer });
+  }
+
   async function submitBonus(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!customerDialog || customerDialog.kind !== "bonus") return;
@@ -280,6 +285,27 @@ export function DashboardApp() {
     const response = await fetch("/api/merchant/bonus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: customerDialog.customer.code, quantity, note }) });
     const result = await response.json() as { error?: string };
     if (!response.ok) setError(result.error ?? "Bonus non ajouté."); else { setToast(`Bonus ajouté à ${customerDialog.customer.firstName}.`); setCustomerDialog(null); await load(); }
+    setBusy(false);
+  }
+
+  async function deleteCustomer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!customerDialog || customerDialog.kind !== "delete") return;
+    setBusy(true); setError("");
+    const response = await fetch(`/api/merchant/customers/${encodeURIComponent(customerDialog.customer.membershipId)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmed: true }),
+    });
+    const result = await response.json() as { error?: string; walletInvalidationPending?: boolean };
+    if (!response.ok) setError(result.error ?? "Le client n’a pas pu être supprimé.");
+    else {
+      setCustomerDialog(null);
+      setToast(result.walletInvalidationPending
+        ? "Client supprimé. La désactivation Wallet se terminera automatiquement."
+        : "Client supprimé du programme.");
+      await load();
+    }
     setBusy(false);
   }
 
@@ -459,7 +485,7 @@ export function DashboardApp() {
             <div className="segment-filters">{([['all','Tous',data.customers.length],['new','Nouveaux',data.segmentCounts.new],['active','Actifs',data.segmentCounts.active],['loyal','Fidèles',data.segmentCounts.loyal],['reactivate','À réactiver',data.segmentCounts.reactivate],['reward','Récompense',data.segmentCounts.reward]] as const).map(([id,label,count]) => <button key={id} className={segment === id ? "active" : ""} onClick={() => setSegment(id)}>{label}<b>{count}</b></button>)}</div>
             <div className="customer-table">
               <div className="table-head"><span>Client</span><span>Progression</span><span>Total</span><span>Récompense</span><span /></div>
-              {filteredCustomers.map((customer) => <div className="table-row" key={customer.code}><span className="customer-name"><i>{customer.firstName.slice(0, 1)}</i><span><b>{customer.firstName}</b><small>{customer.phone || "Ancienne fiche sans téléphone"}{customer.marketingConsent ? " · SMS accepté" : ""}</small></span></span><span data-label={data.program!.earningMode === "spend" ? "Solde" : "Progression"}><b>{data.program!.earningMode === "spend" ? `${customer.points} points` : `${customer.points}/${data.program!.goal}`}</b>{data.program!.earningMode === "visits" && <i className="mini-progress"><i style={{ width: `${customer.points / data.program!.goal * 100}%` }} /></i>}</span><span data-label="Total">{customer.totalPoints} points cumulés</span><span data-label="Récompense">{customer.availableRewards ? <b className="reward-badge">{customer.availableRewards} {data.program!.earningMode === "spend" ? `palier${customer.availableRewards > 1 ? "s" : ""} accessible${customer.availableRewards > 1 ? "s" : ""}` : `disponible${customer.availableRewards > 1 ? "s" : ""}`}</b> : <small className="muted">Aucune</small>}</span><span className="row-actions"><button onClick={() => customerAction(customer)} disabled={busy}><Footprints size={16} aria-hidden="true" />Action</button><button onClick={() => addBonus(customer)} disabled={busy}><Coins size={15} aria-hidden="true" />Bonus</button>{customer.undoableStampId && <button className="undo-button" onClick={() => undoStamp(customer.undoableStampId!, customer.firstName)} disabled={busy}><RotateCcw size={15} aria-hidden="true" />Annuler</button>}{customer.availableRewards > 0 && <button className="redeem-button" onClick={() => recognize(customer.code)} disabled={busy}><Gift size={15} aria-hidden="true" />Remettre</button>}</span></div>)}
+              {filteredCustomers.map((customer) => <div className="table-row" key={customer.membershipId}><span className="customer-name"><i>{customer.firstName.slice(0, 1)}</i><span><b>{customer.firstName}</b><small>{customer.phone || "Ancienne fiche sans téléphone"}{customer.marketingConsent ? " · SMS accepté" : ""}</small></span></span><span data-label={data.program!.earningMode === "spend" ? "Solde" : "Progression"}><b>{data.program!.earningMode === "spend" ? `${customer.points} points` : `${customer.points}/${data.program!.goal}`}</b>{data.program!.earningMode === "visits" && <i className="mini-progress"><i style={{ width: `${customer.points / data.program!.goal * 100}%` }} /></i>}</span><span data-label="Total">{customer.totalPoints} points cumulés</span><span data-label="Récompense">{customer.availableRewards ? <b className="reward-badge">{customer.availableRewards} {data.program!.earningMode === "spend" ? `palier${customer.availableRewards > 1 ? "s" : ""} accessible${customer.availableRewards > 1 ? "s" : ""}` : `disponible${customer.availableRewards > 1 ? "s" : ""}`}</b> : <small className="muted">Aucune</small>}</span><span className="row-actions"><button onClick={() => customerAction(customer)} disabled={busy}><Footprints size={16} aria-hidden="true" />Action</button><button onClick={() => addBonus(customer)} disabled={busy}><Coins size={15} aria-hidden="true" />Bonus</button>{customer.undoableStampId && <button className="undo-button" onClick={() => undoStamp(customer.undoableStampId!, customer.firstName)} disabled={busy}><RotateCcw size={15} aria-hidden="true" />Annuler</button>}{customer.availableRewards > 0 && <button className="redeem-button" onClick={() => recognize(customer.code)} disabled={busy}><Gift size={15} aria-hidden="true" />Remettre</button>}<button className="delete-customer-button" onClick={() => confirmCustomerDeletion(customer)} disabled={busy}><Trash2 size={15} aria-hidden="true" />Supprimer</button></span></div>)}
               {!filteredCustomers.length && (data.customers.length ? <div className="table-empty">Aucun client ne correspond à cette recherche.</div> : <div className="table-empty table-empty-onboarding"><span><QrCodeIcon size={22} aria-hidden="true" /></span><strong>Ta liste de clients est prête.</strong><p>Partage le QR code d’inscription pour créer la première carte.</p><button className="button button-small" onClick={showEnrollmentQr}>Afficher le QR code</button></div>)}
             </div>
           </div>
@@ -511,7 +537,7 @@ export function DashboardApp() {
       {scanCandidate && <ScanDecisionModal candidate={scanCandidate} busy={busy} onClose={() => setScanCandidate(null)} onStamp={stamp} onRedeem={(rewardId) => redeem(scanCandidate.customer.code, rewardId, true)} />}
       {stampResult && <div className="modal-backdrop"><section className="result-modal" role="dialog" aria-modal="true"><div className={`result-icon ${stampResult.rewardEarned ? "reward" : ""}`}>{stampResult.rewardEarned ? "★" : `+${stampResult.quantity}`}</div><span className="eyebrow">{stampResult.rewardEarned ? `${stampResult.rewardsEarned} palier${stampResult.rewardsEarned > 1 ? "s" : ""} désormais accessible${stampResult.rewardsEarned > 1 ? "s" : ""}` : `${stampResult.quantity} point${stampResult.quantity > 1 ? "s" : ""} ajouté${stampResult.quantity > 1 ? "s" : ""}`}</span><h2>{stampResult.rewardEarned ? `Bravo ${stampResult.customer.firstName} !` : `C’est fait pour ${stampResult.customer.firstName}.`}</h2><p>{stampResult.earningMode === "spend" ? `Son solde est maintenant de ${stampResult.customer.points} points.` : stampResult.rewardEarned ? `La carte compte maintenant ${stampResult.availableRewards} récompense${stampResult.availableRewards > 1 ? "s" : ""} disponible${stampResult.availableRewards > 1 ? "s" : ""}.` : `Sa carte affiche maintenant ${stampResult.customer.points}/${stampResult.customer.goal} points.`}</p>{stampResult.availableRewards > 0 && <button className="button reward-action button-full" onClick={() => { setStampResult(null); void recognize(stampResult.customer.code); }} disabled={busy}>★ Voir les récompenses accessibles</button>}<button className="button button-large button-full" onClick={() => { setStampResult(null); setTab("scan"); }}>Scanner le client suivant</button><button className="text-link result-undo" onClick={() => undoStamp(stampResult.stampId, stampResult.customer.firstName)} disabled={busy}>↶ Annuler cette opération</button><button className="text-link result-close" onClick={() => setStampResult(null)}>Fermer</button></section></div>}
       {showEmployeePin && <PinChangeModal busy={busy} error={error} onSubmit={changeEmployeePin} onClose={() => { setShowEmployeePin(false); setError(""); }} />}
-      {customerDialog && <CustomerActionModal dialog={customerDialog} busy={busy} error={error} onBonus={submitBonus} onClose={() => { setCustomerDialog(null); setError(""); }} />}
+      {customerDialog && <CustomerActionModal dialog={customerDialog} busy={busy} error={error} onBonus={submitBonus} onDelete={deleteCustomer} onClose={() => { setCustomerDialog(null); setError(""); }} />}
       {employeeAccess && <EmployeeAccessModal access={employeeAccess} onClose={() => setEmployeeAccess(null)} />}
       {feedbackOpen && <FeedbackModal busy={busy} error={feedbackError} onSubmit={submitFeedback} onClose={() => { setFeedbackOpen(false); setFeedbackError(""); }} />}
       {toast && <div className="toast" role="status">✓ {toast}</div>}
@@ -662,7 +688,10 @@ function ScanDecisionModal({ candidate, busy, onClose, onStamp, onRedeem }: { ca
     <button className="text-link result-close" onClick={onClose}>Ne rien enregistrer</button></section></div>;
 }
 
-function CustomerActionModal({ dialog, busy, error, onBonus, onClose }: { dialog: CustomerDialog; busy: boolean; error: string; onBonus: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
+function CustomerActionModal({ dialog, busy, error, onBonus, onDelete, onClose }: { dialog: CustomerDialog; busy: boolean; error: string; onBonus: (event: FormEvent<HTMLFormElement>) => Promise<void>; onDelete: (event: FormEvent<HTMLFormElement>) => Promise<void>; onClose: () => void }) {
+  if (dialog.kind === "delete") {
+    return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="customer-action-modal customer-delete-modal" role="dialog" aria-modal="true" aria-labelledby="customer-action-title" aria-describedby="customer-delete-warning"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="customer-action-icon delete"><Trash2 size={23} aria-hidden="true" /></span><span className="eyebrow">Suppression définitive</span><h2 id="customer-action-title">Supprimer {dialog.customer.firstName} du programme ?</h2><p id="customer-delete-warning">Ses points, ses récompenses et l’accès à sa carte seront perdus. Son QR code et ses cartes Wallet deviendront inutilisables.</p><form className="form-grid" onSubmit={onDelete}><label className="customer-delete-confirm"><input type="checkbox" required aria-label="Je confirme la suppression du client" /><span><strong>Je confirme la suppression</strong><small>Cette action ne touche pas aux cartes que cette personne possède dans d’autres commerces.</small></span></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full button-danger" disabled={busy}>{busy ? "Suppression…" : "Supprimer le client"}</button><button type="button" className="text-link" onClick={onClose}>Annuler et conserver le client</button></form></section></div>;
+  }
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="customer-action-modal" role="dialog" aria-modal="true" aria-labelledby="customer-action-title"><button type="button" className="modal-close" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden="true" /></button><span className="customer-action-icon bonus"><Coins size={23} aria-hidden="true" /></span><span className="eyebrow">Geste commercial</span><h2 id="customer-action-title">Ajouter un bonus à {dialog.customer.firstName}</h2><p>Les points bonus sont clairement identifiés dans l’historique et restent réservés au propriétaire.</p><form className="form-grid" onSubmit={onBonus}><label>Nombre de points bonus<input name="quantity" type="number" min="1" max="100" defaultValue="1" required autoFocus /></label><label>Motif <small>Facultatif</small><input name="note" maxLength={120} placeholder="Geste commercial, anniversaire…" /></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-large button-full" disabled={busy}>{busy ? "Enregistrement…" : "Ajouter le bonus"}</button><button type="button" className="text-link" onClick={onClose}>Annuler</button></form></section></div>;
 }
 

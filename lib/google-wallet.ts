@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { ensureSchema, getD1 } from "../db";
+import { ensureSchema, getD1, queryFirst } from "../db";
 import { getCardByCode } from "./data";
 import { walletRewardSnapshot } from "./google-wallet-content";
 import type { CardData } from "./types";
@@ -292,6 +292,11 @@ export async function sendGoogleWalletNotification(
 ) {
   const config = runtimeConfig();
   if (!config) return { active: false, sent: false, error: "Google Wallet n’est pas configuré." };
+  const localPass = await queryFirst<{ active: number }>(
+    "SELECT active FROM google_wallet_passes WHERE membership_id = ?",
+    card.membershipId,
+  );
+  if (!localPass?.active) return { active: false, sent: false };
   const { objectId } = walletIds(card, config.issuerId);
   const existing = await walletRequest(`/loyaltyObject/${encodeURIComponent(objectId)}`);
   if (existing.status === 404) {
@@ -324,6 +329,47 @@ export async function sendGoogleWalletNotification(
       active: true,
       sent: false,
       error: `Notification Google Wallet refusée (${response.status})${details ? ` : ${details.slice(0, 240)}` : ""}`,
+    };
+  }
+  return { active: true, sent: true };
+}
+
+export async function invalidateGoogleWalletPass(membershipId: string) {
+  await ensureSchema();
+  const pass = await queryFirst<{ objectId: string }>(
+    "SELECT object_id AS objectId FROM google_wallet_passes WHERE membership_id = ?",
+    membershipId,
+  );
+  if (!pass) return { active: false, sent: true };
+
+  await getD1().prepare("UPDATE google_wallet_passes SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE membership_id = ?")
+    .bind(membershipId).run();
+  if (!runtimeConfig()) {
+    return { active: true, sent: false, error: "La mise à jour Google Wallet est temporairement indisponible." };
+  }
+  const response = await walletRequest(`/loyaltyObject/${encodeURIComponent(pass.objectId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      state: "INACTIVE",
+      accountName: "Client supprimé",
+      accountId: "Carte supprimée",
+      loyaltyPoints: { balance: { int: 0 }, label: "Points" },
+      secondaryLoyaltyPoints: { balance: { int: 0 }, label: "Récomp." },
+      barcode: {
+        type: "QR_CODE",
+        value: `${KIVLI_ORIGIN}/carte-supprimee`,
+        alternateText: "Carte supprimée",
+      },
+      textModulesData: [{ id: "kivli_status", header: "Statut", body: "Carte supprimée" }],
+    }),
+  });
+  if (response.status === 404) return { active: false, sent: true };
+  if (!response.ok) {
+    const details = await response.text();
+    return {
+      active: true,
+      sent: false,
+      error: `Invalidation Google Wallet refusée (${response.status})${details ? ` : ${details.slice(0, 200)}` : ""}`,
     };
   }
   return { active: true, sent: true };
