@@ -3,7 +3,7 @@ import { ensureSchema, getD1, queryAll, queryFirst } from "../db";
 import { getCardByCode } from "./data";
 import { walletRewardSnapshot } from "./google-wallet-content";
 
-export const APPLE_WALLET_LAYOUT_VERSION = 4;
+export const APPLE_WALLET_LAYOUT_VERSION = 5;
 import { buildSignedPkpass } from "./apple-pass-signing";
 import type { CardData } from "./types";
 
@@ -50,6 +50,7 @@ export type AppleStoreCardSource = {
   webServiceURL: string;
   authenticationToken: string;
   voided?: boolean;
+  locations?: Array<{ latitude: number; longitude: number; relevantText?: string }>;
   barcode: { format: "PKBarcodeFormatQR"; message: string; messageEncoding: "iso-8859-1"; altText: string };
   barcodes: Array<{ format: "PKBarcodeFormatQR"; message: string; messageEncoding: "iso-8859-1"; altText: string }>;
   storeCard: {
@@ -238,6 +239,13 @@ export async function createAppleStoreCardSource(card: CardData, options: { void
     webServiceURL: APPLE_WEB_SERVICE_URL,
     authenticationToken,
     ...(options.voided ? { voided: true } : {}),
+    ...(!options.voided && card.nearbyEnabled && card.nearbyLatitude != null && card.nearbyLongitude != null
+      ? { locations: [{
+          latitude: card.nearbyLatitude,
+          longitude: card.nearbyLongitude,
+          ...(card.nearbyRelevantText ? { relevantText: card.nearbyRelevantText } : {}),
+        }] }
+      : {}),
     barcode: { format: "PKBarcodeFormatQR", message: cardUrl, messageEncoding: "iso-8859-1", altText: options.voided ? "CARTE SUPPRIMÉE" : card.code },
     barcodes: [{ format: "PKBarcodeFormatQR", message: cardUrl, messageEncoding: "iso-8859-1", altText: options.voided ? "CARTE SUPPRIMÉE" : card.code }],
     storeCard: appleStoreCardPreview(displayCard, notification),

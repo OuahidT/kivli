@@ -25,11 +25,17 @@ export type CardData = Program & {
   joinedAt: string;
   marketingConsent: number;
   availableRewardItems: Array<{ id: string; rewardText: string; threshold: number }>;
+  nearbyEnabled: number;
+  nearbyAddress: string | null;
+  nearbyLatitude: number | null;
+  nearbyLongitude: number | null;
+  nearbyRelevantText: string | null;
 };
 
 export type PublicCardData = Omit<
   CardData,
   "id" | "merchantId" | "membershipId" | "slug" | "joinedAt" | "rewardTiers" | "availableRewardItems"
+  | "nearbyEnabled" | "nearbyAddress" | "nearbyLatitude" | "nearbyLongitude" | "nearbyRelevantText"
 > & {
   rewardTiers: Array<Omit<RewardTier, "id">>;
   availableRewardItems: Array<{ rewardText: string; threshold: number }>;

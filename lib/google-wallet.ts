@@ -153,6 +153,9 @@ function loyaltyClass(card: CardData, issuerId: string) {
     linksModuleData: {
       uris: [{ id: "kivli_home", uri: KIVLI_ORIGIN, description: "Ouvrir Kivli" }],
     },
+    merchantLocations: card.nearbyEnabled && card.nearbyLatitude != null && card.nearbyLongitude != null
+      ? [{ latitude: card.nearbyLatitude, longitude: card.nearbyLongitude }]
+      : [],
     classTemplateInfo: {
       cardTemplateOverride: {
         cardRowTemplateInfos: [
@@ -405,6 +408,18 @@ export async function syncGoogleWalletByCode(code: string) {
   if (!card) return false;
   await upsertClass(card, config.issuerId);
   return upsertObject(card, config.issuerId, false, true);
+}
+
+export async function syncGoogleWalletClassSafely(code: string) {
+  try {
+    const config = runtimeConfig();
+    if (!config) return;
+    const card = await getCardByCode(code.toUpperCase());
+    if (!card) return;
+    await upsertClass(card, config.issuerId);
+  } catch (error) {
+    console.error("Synchronisation de la classe Google Wallet différée.", error instanceof Error ? error.message : "Erreur inconnue");
+  }
 }
 
 export async function syncGoogleWalletSafely(code: string) {

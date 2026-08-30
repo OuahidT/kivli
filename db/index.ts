@@ -170,6 +170,14 @@ const schemaStatements = [
     near_reward_threshold INTEGER NOT NULL DEFAULT 2,
     reactivation_enabled INTEGER NOT NULL DEFAULT 0,
     reactivation_days INTEGER NOT NULL DEFAULT 45,
+    near_reward_message TEXT NOT NULL DEFAULT 'Plus que {reste} {unité} avant votre prochaine récompense 🎁',
+    reactivation_message TEXT NOT NULL DEFAULT 'Cela fait un moment — {commerce} serait ravi de vous revoir 🧡',
+    nearby_enabled INTEGER NOT NULL DEFAULT 0,
+    nearby_address TEXT,
+    nearby_latitude REAL,
+    nearby_longitude REAL,
+    nearby_relevant_text TEXT NOT NULL DEFAULT 'Votre carte est disponible à proximité.',
+    nearby_location_confirmed_at TEXT,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS wallet_notification_campaigns (
@@ -180,6 +188,11 @@ const schemaStatements = [
     skipped_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, sent_at TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS wallet_geocoding_rate_limit (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    next_allowed_at TEXT NOT NULL DEFAULT '1970-01-01 00:00:00'
+  )`,
+  `INSERT OR IGNORE INTO wallet_geocoding_rate_limit (id) VALUES (1)`,
   `CREATE TABLE IF NOT EXISTS wallet_notification_marketing_locks (
     merchant_id TEXT PRIMARY KEY,
     next_allowed_at TEXT NOT NULL DEFAULT '1970-01-01 00:00:00',

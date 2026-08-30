@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
 export const merchants = sqliteTable(
   "merchants",
@@ -382,7 +382,20 @@ export const walletNotificationSettings = sqliteTable("wallet_notification_setti
   nearRewardThreshold: integer("near_reward_threshold").notNull().default(2),
   reactivationEnabled: integer("reactivation_enabled", { mode: "boolean" }).notNull().default(false),
   reactivationDays: integer("reactivation_days").notNull().default(45),
+  nearRewardMessage: text("near_reward_message").notNull().default("Plus que {reste} {unité} avant votre prochaine récompense 🎁"),
+  reactivationMessage: text("reactivation_message").notNull().default("Cela fait un moment — {commerce} serait ravi de vous revoir 🧡"),
+  nearbyEnabled: integer("nearby_enabled", { mode: "boolean" }).notNull().default(false),
+  nearbyAddress: text("nearby_address"),
+  nearbyLatitude: real("nearby_latitude"),
+  nearbyLongitude: real("nearby_longitude"),
+  nearbyRelevantText: text("nearby_relevant_text").notNull().default("Votre carte est disponible à proximité."),
+  nearbyLocationConfirmedAt: text("nearby_location_confirmed_at"),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const walletGeocodingRateLimit = sqliteTable("wallet_geocoding_rate_limit", {
+  id: integer("id").primaryKey(),
+  nextAllowedAt: text("next_allowed_at").notNull().default("1970-01-01 00:00:00"),
 });
 
 export const walletNotificationCampaigns = sqliteTable(

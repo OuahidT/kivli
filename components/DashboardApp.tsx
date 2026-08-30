@@ -11,6 +11,8 @@ import {
   Footprints,
   Gift,
   MessageSquareText,
+  MapPin,
+  Search,
   Minus,
   Plus,
   LayoutDashboard,
@@ -564,8 +566,18 @@ type WalletNotificationSettingsData = {
   nearRewardThreshold: number;
   reactivationEnabled: number;
   reactivationDays: number;
+  nearRewardMessage: string;
+  reactivationMessage: string;
+  nearbyEnabled: number;
+  nearbyAddress: string | null;
+  nearbyLatitude: number | null;
+  nearbyLongitude: number | null;
+  nearbyRelevantText: string;
+  nearbyLocationConfirmedAt: string | null;
   nextMarketingAt: string | null;
 };
+
+type GeocodingResult = { address: string; latitude: number; longitude: number };
 
 function WalletNotifications({ program, businessName }: { program: ReadyDashboardData["program"]; businessName: string }) {
   const [settings, setSettings] = useState<WalletNotificationSettingsData | null>(null);
@@ -576,12 +588,16 @@ function WalletNotifications({ program, businessName }: { program: ReadyDashboar
   const [success, setSuccess] = useState("");
   const [title, setTitle] = useState(businessName);
   const [message, setMessage] = useState("");
+  const [geocoding, setGeocoding] = useState(false);
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [locationResults, setLocationResults] = useState<GeocodingResult[]>([]);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/merchant/wallet-notifications", { cache: "no-store" });
     const result = await response.json() as WalletNotificationSettingsData & { error?: string };
     if (!response.ok) throw new Error(result.error ?? "Notifications indisponibles.");
     setSettings(result);
+    setLocationConfirmed(Boolean(result.nearbyLocationConfirmedAt));
   }, []);
 
   useEffect(() => {
@@ -600,13 +616,43 @@ function WalletNotifications({ program, businessName }: { program: ReadyDashboar
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "settings", ...settings,
         nearRewardEnabled: Boolean(settings.nearRewardEnabled),
-        reactivationEnabled: Boolean(settings.reactivationEnabled) }),
+        reactivationEnabled: Boolean(settings.reactivationEnabled),
+        nearbyEnabled: Boolean(settings.nearbyEnabled),
+        nearbyLocationConfirmed: locationConfirmed }),
     });
     const result = await response.json() as WalletNotificationSettingsData & { error?: string };
     if (!response.ok) setError(result.error ?? "Réglages non enregistrés.");
-    else { setSettings(result); setSuccess("Automatisations enregistrées."); }
+    else { setSettings(result); setLocationConfirmed(Boolean(result.nearbyLocationConfirmedAt)); setSuccess("Réglages Wallet enregistrés."); }
     setSaving(false);
   }
+
+  async function searchAddress() {
+    if (!settings?.nearbyAddress?.trim()) return;
+    setGeocoding(true); setError(""); setSuccess(""); setLocationResults([]);
+    const response = await fetch("/api/merchant/wallet-notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "geocode", nearbyAddress: settings.nearbyAddress }),
+    });
+    const result = await response.json() as { results?: GeocodingResult[]; error?: string };
+    if (!response.ok) setError(result.error ?? "Adresse introuvable.");
+    else if (!result.results?.length) setError("Aucun emplacement précis trouvé. Complétez l’adresse puis réessayez.");
+    else setLocationResults(result.results);
+    setGeocoding(false);
+  }
+
+  function selectLocation(result: GeocodingResult) {
+    if (!settings) return;
+    setSettings({ ...settings, nearbyAddress: result.address, nearbyLatitude: result.latitude, nearbyLongitude: result.longitude });
+    setLocationConfirmed(false);
+    setLocationResults([]);
+  }
+
+  const renderTemplate = (value: string, remaining = 2) => value
+    .replaceAll("{reste}", String(remaining))
+    .replaceAll("{unité}", program.earningMode === "visits" ? "passages" : "points")
+    .replaceAll("{commerce}", businessName)
+    .replaceAll("{jours}", String(settings?.reactivationDays ?? 45));
 
   async function sendCampaign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -643,13 +689,26 @@ function WalletNotifications({ program, businessName }: { program: ReadyDashboar
       <article className="panel wallet-setting-card">
         <div className="wallet-setting-head"><span><Gift size={20} aria-hidden="true" /></span><div><h3>Proche d’une récompense</h3><p>Prévenir au moment où l’objectif devient concret.</p></div><button type="button" role="switch" aria-checked={Boolean(settings.nearRewardEnabled)} className={`premium-switch ${settings.nearRewardEnabled ? "active" : ""}`} onClick={() => setSettings({ ...settings, nearRewardEnabled: settings.nearRewardEnabled ? 0 : 1 })}><i /></button></div>
         <label className="wallet-threshold-field">Prévenir lorsqu’il reste<div><input type="number" min="1" max="1000" value={settings.nearRewardThreshold} onChange={(event) => setSettings({ ...settings, nearRewardThreshold: Number(event.target.value) })} disabled={!settings.nearRewardEnabled} /><span>{program.earningMode === "visits" ? "passage(s)" : "point(s)"}</span></div></label>
+        <label className="wallet-automation-message">Message personnalisé <small>{settings.nearRewardMessage.length}/160</small><textarea rows={3} maxLength={160} value={settings.nearRewardMessage} onChange={(event) => setSettings({ ...settings, nearRewardMessage: event.target.value })} disabled={!settings.nearRewardEnabled} required /><span className="wallet-inline-preview"><b>Aperçu</b>{renderTemplate(settings.nearRewardMessage, settings.nearRewardThreshold)}</span></label>
+        <p className="wallet-template-help">Variables disponibles : <code>{"{reste}"}</code>, <code>{"{unité}"}</code>, <code>{"{commerce}"}</code>.</p>
         <small>Une seule alerte par palier et par cycle, même si le contrôle automatique se répète.</small>
       </article>
       <article className="panel wallet-setting-card">
         <div className="wallet-setting-head"><span><RotateCcw size={20} aria-hidden="true" /></span><div><h3>Clients à réactiver</h3><p>Un rappel discret après une vraie période d’absence.</p></div><button type="button" role="switch" aria-checked={Boolean(settings.reactivationEnabled)} className={`premium-switch ${settings.reactivationEnabled ? "active" : ""}`} onClick={() => setSettings({ ...settings, reactivationEnabled: settings.reactivationEnabled ? 0 : 1 })}><i /></button></div>
         <label className="wallet-threshold-field">Après<div><input list="reactivation-days" type="number" min="7" max="365" value={settings.reactivationDays} onChange={(event) => setSettings({ ...settings, reactivationDays: Number(event.target.value) })} disabled={!settings.reactivationEnabled} /><span>jours sans activité</span></div></label>
         <datalist id="reactivation-days"><option value="30" /><option value="45" /><option value="60" /></datalist>
+        <label className="wallet-automation-message">Message personnalisé <small>{settings.reactivationMessage.length}/160</small><textarea rows={3} maxLength={160} value={settings.reactivationMessage} onChange={(event) => setSettings({ ...settings, reactivationMessage: event.target.value })} disabled={!settings.reactivationEnabled} required /><span className="wallet-inline-preview"><b>Aperçu</b>{renderTemplate(settings.reactivationMessage)}</span></label>
+        <p className="wallet-template-help">Variables disponibles : <code>{"{commerce}"}</code>, <code>{"{jours}"}</code>.</p>
         <small>Un nouveau passage ou achat remet automatiquement ce délai à zéro.</small>
+      </article>
+      <article className="panel wallet-setting-card wallet-location-card">
+        <div className="wallet-setting-head"><span><MapPin size={20} aria-hidden="true" /></span><div><h3>Afficher la carte à proximité</h3><p>Faciliter le retour au commerce sans suivre les clients.</p></div><button type="button" role="switch" aria-checked={Boolean(settings.nearbyEnabled)} className={`premium-switch ${settings.nearbyEnabled ? "active" : ""}`} onClick={() => setSettings({ ...settings, nearbyEnabled: settings.nearbyEnabled ? 0 : 1 })}><i /></button></div>
+        <p className="wallet-location-explanation">Apple Wallet ou Google Wallet pourra afficher votre carte lorsque le client se trouve à proximité. Le déclenchement et la distance exacte dépendent du téléphone et du Wallet utilisé.</p>
+        <label className="wallet-location-address">Adresse de l’établissement<div><input value={settings.nearbyAddress ?? ""} maxLength={200} required={Boolean(settings.nearbyEnabled)} onChange={(event) => { setSettings({ ...settings, nearbyAddress: event.target.value, nearbyLatitude: null, nearbyLongitude: null }); setLocationConfirmed(false); setLocationResults([]); }} placeholder="2 rue Léonie, 28100 Dreux" /><button type="button" className="button button-ghost" onClick={() => void searchAddress()} disabled={geocoding || !settings.nearbyAddress?.trim()}><Search size={16} aria-hidden="true" />{geocoding ? "Recherche…" : "Rechercher"}</button></div></label>
+        {locationResults.length > 0 && <div className="wallet-location-results" aria-label="Résultats d’adresse">{locationResults.map((result) => <button type="button" key={`${result.latitude}-${result.longitude}`} onClick={() => selectLocation(result)}><MapPin size={15} aria-hidden="true" /><span>{result.address}</span></button>)}</div>}
+        {settings.nearbyLatitude != null && settings.nearbyLongitude != null && <div className="wallet-location-confirmation"><span><MapPin size={17} aria-hidden="true" /><span><strong>Emplacement sélectionné</strong><small>{settings.nearbyLatitude.toFixed(5)}, {settings.nearbyLongitude.toFixed(5)}</small></span></span><label><input type="checkbox" checked={locationConfirmed} required={Boolean(settings.nearbyEnabled)} onChange={(event) => setLocationConfirmed(event.target.checked)} /> Je confirme cet emplacement</label></div>}
+        <label className="wallet-automation-message">Court texte de proximité <small>{settings.nearbyRelevantText.length}/80</small><input maxLength={80} value={settings.nearbyRelevantText} onChange={(event) => setSettings({ ...settings, nearbyRelevantText: event.target.value })} required /><span className="wallet-inline-preview"><b>Aperçu Apple Wallet</b>{settings.nearbyRelevantText}</span></label>
+        <small>Données cartographiques © OpenStreetMap contributors. Kivli conserve uniquement l’emplacement du commerce, jamais celui des clients.</small>
       </article>
       <button className="button wallet-settings-save" disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer les automatisations"}</button>
     </form>

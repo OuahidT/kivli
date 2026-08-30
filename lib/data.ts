@@ -27,6 +27,9 @@ export async function getCardByCode(code: string, options: { includeDeleted?: bo
     `SELECT p.id, p.merchant_id AS merchantId, m.business_name AS businessName, m.slug,
       m.accent_color AS accentColor, p.name, p.goal, p.reward_text AS rewardText, p.terms,
       p.earning_mode AS earningMode, p.spend_amount_cents AS spendAmountCents,
+      COALESCE(wns.nearby_enabled, 0) AS nearbyEnabled,
+      wns.nearby_address AS nearbyAddress, wns.nearby_latitude AS nearbyLatitude,
+      wns.nearby_longitude AS nearbyLongitude, wns.nearby_relevant_text AS nearbyRelevantText,
       mb.id AS membershipId, mb.code, c.first_name AS firstName, c.marketing_consent AS marketingConsent, mb.points, mb.total_points AS totalPoints,
       mb.created_at AS joinedAt,
       (SELECT COUNT(*) FROM rewards r WHERE r.membership_id = mb.id AND r.status = 'available') AS availableRewards
@@ -34,6 +37,7 @@ export async function getCardByCode(code: string, options: { includeDeleted?: bo
      JOIN customers c ON c.id = mb.customer_id
      JOIN programs p ON p.id = mb.program_id
      JOIN merchants m ON m.id = mb.merchant_id
+     LEFT JOIN wallet_notification_settings wns ON wns.merchant_id = m.id
      WHERE mb.code = ? AND p.active = 1 ${options.includeDeleted ? "" : "AND mb.deleted_at IS NULL"}`,
     code,
   );
