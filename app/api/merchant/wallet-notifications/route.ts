@@ -6,7 +6,7 @@ import {
   notificationSettingsForMerchant,
   processMarketingCampaign,
   updateNotificationSettings,
-  WalletCampaignCooldownError,
+  WalletCampaignLimitError,
 } from "../../../../lib/wallet-notifications";
 import { requireCurrentPilotAcceptance } from "../../../../lib/pilot-acceptance";
 import { syncMerchantWalletsSafely } from "../../../../lib/wallet-sync";
@@ -29,6 +29,7 @@ type NotificationPayload = {
   nearbyLocationConfirmed?: boolean;
   title?: string;
   message?: string;
+  idempotencyKey?: string;
 };
 
 export async function GET(request: Request) {
@@ -112,12 +113,14 @@ export async function POST(request: Request) {
       const message = cleanText(payload.message, 240);
       if (title.length < 2) return jsonError("Ajoutez un titre court à la notification.");
       if (message.length < 3) return jsonError("Ajoutez un message à la notification.");
+      const idempotencyKey = cleanText(payload.idempotencyKey, 128);
+      if (!/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) return jsonError("Identifiant de campagne invalide.");
       try {
-        const campaign = await createMarketingCampaign(merchant.id, title, message);
+        const campaign = await createMarketingCampaign(merchant.id, title, message, idempotencyKey);
         waitUntil(processMarketingCampaign(campaign.campaignId));
         return Response.json({ ok: true, ...campaign });
       } catch (error) {
-        if (error instanceof WalletCampaignCooldownError) {
+        if (error instanceof WalletCampaignLimitError) {
           return Response.json({ error: error.message, nextAllowedAt: error.nextAllowedAt }, { status: 429 });
         }
         throw error;

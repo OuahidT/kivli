@@ -182,7 +182,7 @@ const schemaStatements = [
   )`,
   `CREATE TABLE IF NOT EXISTS wallet_notification_campaigns (
     id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, program_id TEXT NOT NULL,
-    title TEXT NOT NULL, message TEXT NOT NULL,
+    title TEXT NOT NULL, message TEXT NOT NULL, request_key TEXT,
     status TEXT NOT NULL DEFAULT 'pending', target_count INTEGER NOT NULL DEFAULT 0,
     sent_count INTEGER NOT NULL DEFAULT 0, failed_count INTEGER NOT NULL DEFAULT 0,
     skipped_count INTEGER NOT NULL DEFAULT 0,
@@ -370,6 +370,15 @@ export async function ensureSchema() {
           if (!String(error).toLowerCase().includes("duplicate column")) throw error;
         }
       }
+
+      const campaignColumns = await db.prepare("PRAGMA table_info(wallet_notification_campaigns)").all<{ name: string }>();
+      if (!(campaignColumns.results ?? []).some((column) => column.name === "request_key")) {
+        try { await db.prepare("ALTER TABLE wallet_notification_campaigns ADD COLUMN request_key TEXT").run(); } catch (error) {
+          if (!String(error).toLowerCase().includes("duplicate column")) throw error;
+        }
+      }
+      await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_notification_campaign_request
+        ON wallet_notification_campaigns(merchant_id, request_key) WHERE request_key IS NOT NULL`).run();
 
       const stampColumns = await db.prepare("PRAGMA table_info(stamps)").all<{ name: string }>();
       const existingStampColumns = new Set((stampColumns.results ?? []).map((column) => column.name));

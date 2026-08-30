@@ -355,6 +355,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .wallet-campaign-availability { display: flex; align-items: center; gap: 10px; border-radius: 11px; padding: 11px 13px; font-size: 11px; }
 .wallet-campaign-availability span { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; }
 .wallet-campaign-availability p { margin: 0; line-height: 1.4; }
+.wallet-campaign-availability p strong { display: block; margin-bottom: 2px; font-size: 12px; }
 .wallet-campaign-availability.available { color: #245e46; background: #eaf4ee; }
 .wallet-campaign-availability.available span { background: #d2eadc; }
 .wallet-campaign-availability.locked { color: #735625; background: #fff6e6; }

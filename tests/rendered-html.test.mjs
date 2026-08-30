@@ -299,8 +299,9 @@ test("prepares signed Apple Wallet passes without exposing private keys", async 
 });
 
 test("keeps Wallet notification routing idempotent and platform-transparent", async () => {
-  const [engine, route, worker, dashboard, migration] = await Promise.all([
+  const [engine, quota, route, worker, dashboard, migration] = await Promise.all([
     readFile(new URL("../lib/wallet-notifications.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/wallet-campaign-quota.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/merchant/wallet-notifications/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../worker/index.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/DashboardApp.tsx", import.meta.url), "utf8"),
@@ -309,7 +310,9 @@ test("keeps Wallet notification routing idempotent and platform-transparent", as
   assert.match(engine, /idempotency_key/);
   assert.match(engine, /sendAppleWalletNotification/);
   assert.match(engine, /sendGoogleWalletNotification/);
-  assert.match(engine, /datetime\('now', '\+7 days'\)/);
+  assert.match(quota, /MARKETING_CAMPAIGN_LIMIT = 4/);
+  assert.match(quota, /datetime\('now', '-7 days'\)/);
+  assert.match(quota, /request_key/);
   assert.match(engine, /attempt_count < 3/);
   assert.match(route, /isOwner\(merchant\)/);
   assert.match(worker, /runWalletNotificationSchedule/);

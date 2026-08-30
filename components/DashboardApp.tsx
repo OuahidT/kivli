@@ -575,6 +575,9 @@ type WalletNotificationSettingsData = {
   nearbyRelevantText: string;
   nearbyLocationConfirmedAt: string | null;
   nextMarketingAt: string | null;
+  marketingCampaignsUsed: number;
+  marketingCampaignsRemaining: number;
+  marketingCampaignLimit: number;
 };
 
 type GeocodingResult = { address: string; latitude: number; longitude: number };
@@ -591,6 +594,7 @@ function WalletNotifications({ program, businessName }: { program: ReadyDashboar
   const [geocoding, setGeocoding] = useState(false);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodingResult[]>([]);
+  const campaignRequestKey = useRef("");
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/merchant/wallet-notifications", { cache: "no-store" });
@@ -606,6 +610,16 @@ function WalletNotifications({ program, businessName }: { program: ReadyDashboar
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [refresh]);
+
+  useEffect(() => {
+    if (!settings?.nextMarketingAt || settings.marketingCampaignsRemaining > 0) return;
+    const availableValue = settings.nextMarketingAt.includes("T") ? settings.nextMarketingAt : `${settings.nextMarketingAt.replace(" ", "T")}Z`;
+    const availableAt = new Date(availableValue).getTime();
+    const delay = availableAt - Date.now();
+    if (delay <= 0) { void refresh(); return; }
+    const timer = window.setTimeout(() => void refresh(), Math.min(delay + 1000, 2_147_000_000));
+    return () => window.clearTimeout(timer);
+  }, [refresh, settings?.marketingCampaignsRemaining, settings?.nextMarketingAt]);
 
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -657,25 +671,44 @@ function WalletNotifications({ program, businessName }: { program: ReadyDashboar
   async function sendCampaign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSending(true); setError(""); setSuccess("");
-    const response = await fetch("/api/merchant/wallet-notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send", title, message }),
-    });
-    const result = await response.json() as { error?: string; nextAllowedAt?: string };
-    if (!response.ok) {
-      setError(result.error ?? "La notification n’a pas pu être envoyée.");
-      if (result.nextAllowedAt && settings) setSettings({ ...settings, nextMarketingAt: result.nextAllowedAt });
-    } else {
-      setMessage("");
-      setSuccess("Envoi lancé. Kivli contacte automatiquement les cartes Wallet actives.");
-      if (settings) setSettings({ ...settings, nextMarketingAt: result.nextAllowedAt ?? settings.nextMarketingAt });
+    if (!campaignRequestKey.current) campaignRequestKey.current = crypto.randomUUID();
+    try {
+      const response = await fetch("/api/merchant/wallet-notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send", title, message, idempotencyKey: campaignRequestKey.current }),
+      });
+      const result = await response.json() as { error?: string; nextAllowedAt?: string; used?: number; remaining?: number; limit?: number; reused?: boolean };
+      if (!response.ok) {
+        setError(result.error ?? "La notification n’a pas pu être envoyée.");
+        if (settings) setSettings({
+          ...settings,
+          nextMarketingAt: result.nextAllowedAt ?? settings.nextMarketingAt,
+          marketingCampaignsRemaining: response.status === 429 ? 0 : settings.marketingCampaignsRemaining,
+        });
+      } else {
+        setMessage("");
+        setSuccess(result.reused ? "Cet envoi avait déjà été pris en compte. Aucun doublon n’a été créé." : "Envoi lancé. Kivli contacte automatiquement les cartes Wallet actives.");
+        if (settings) setSettings({
+          ...settings,
+          nextMarketingAt: result.nextAllowedAt ?? null,
+          marketingCampaignsUsed: result.used ?? settings.marketingCampaignsUsed,
+          marketingCampaignsRemaining: result.remaining ?? settings.marketingCampaignsRemaining,
+          marketingCampaignLimit: result.limit ?? settings.marketingCampaignLimit,
+        });
+        campaignRequestKey.current = "";
+      }
+    } catch {
+      setError("Connexion interrompue. Réessayez : Kivli empêchera tout double envoi.");
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   }
 
   const nextDate = settings?.nextMarketingAt ? new Date(settings.nextMarketingAt.includes("T") ? settings.nextMarketingAt : `${settings.nextMarketingAt.replace(" ", "T")}Z`) : null;
-  const campaignAllowed = !nextDate || nextDate.getTime() <= Date.now();
+  const campaignAllowed = settings ? settings.marketingCampaignsRemaining > 0 || Boolean(nextDate && nextDate.getTime() <= Date.now()) : false;
+  const campaignLimit = settings?.marketingCampaignLimit ?? 4;
+  const campaignRemaining = campaignAllowed && settings?.marketingCampaignsRemaining === 0 ? 1 : settings?.marketingCampaignsRemaining ?? 0;
   if (loading) return <section className="panel wallet-notifications-loading"><span className="loading-dot" />Préparation des notifications…</section>;
   if (!settings) return <section className="panel"><p className="form-error">{error || "Notifications indisponibles."}</p></section>;
 
@@ -714,10 +747,10 @@ function WalletNotifications({ program, businessName }: { program: ReadyDashboar
     </form>
     <section className="wallet-campaign-layout">
       <form className="panel wallet-campaign-form" onSubmit={sendCampaign}>
-        <div className="panel-head"><div><span className="eyebrow">Notification libre</span><h2>Envoyer un message</h2><p>Une campagne maximum tous les 7 jours par commerce.</p></div></div>
+        <div className="panel-head"><div><span className="eyebrow">Notification libre</span><h2>Envoyer un message</h2><p>Maximum 4 campagnes par commerce sur une période glissante de 7 jours.</p></div></div>
         <label>Titre<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={60} required /><small>{title.length}/60</small></label>
         <label>Message<textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={5} maxLength={240} placeholder="Ex. Une nouveauté vous attend cette semaine…" required /><small>{message.length}/240</small></label>
-        <div className={`wallet-campaign-availability ${campaignAllowed ? "available" : "locked"}`}><span>{campaignAllowed ? <Check size={16} /> : <RotateCcw size={16} />}</span><p>{campaignAllowed ? "Une campagne peut être envoyée maintenant." : `Prochain envoi possible le ${nextDate!.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} à ${nextDate!.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.`}</p></div>
+        <div className={`wallet-campaign-availability ${campaignAllowed ? "available" : "locked"}`} role="status" aria-atomic="true"><span>{campaignAllowed ? <Check size={16} aria-hidden="true" /> : <RotateCcw size={16} aria-hidden="true" />}</span><p><strong>{campaignRemaining} campagne{campaignRemaining > 1 ? "s" : ""} disponible{campaignRemaining > 1 ? "s" : ""} sur {campaignLimit} pour les 7 derniers jours.</strong>{!campaignAllowed && nextDate ? <> Prochaine disponibilité le {nextDate.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} à {nextDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.</> : null}</p></div>
         <button className="button button-large button-full" disabled={sending || !campaignAllowed || !title.trim() || !message.trim()}>{sending ? "Envoi en cours…" : "Envoyer la notification"}</button>
       </form>
       <aside className="wallet-message-preview">

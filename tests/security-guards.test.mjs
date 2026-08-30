@@ -115,5 +115,6 @@ test("Wallet campaigns and targets remain scoped to one merchant and program", a
   assert.match(notifications, /FROM programs WHERE merchant_id = \? AND active = 1/);
   assert.match(notifications, /INSERT(?: OR IGNORE)? INTO wallet_notification_deliveries/);
   assert.match(notifications, /idempotencyKey/);
-  assert.match(notifications, /wallet_notification_marketing_locks/);
+  assert.match(notifications, /validateCampaignRequestKey/);
+  assert.match(notifications, /MARKETING_CAMPAIGN_INSERT_SQL/);
 });

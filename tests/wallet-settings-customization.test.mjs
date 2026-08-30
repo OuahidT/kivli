@@ -25,13 +25,14 @@ test("automated Wallet messages reject empty, HTML, unknown variables and oversi
   assert.throws(() => validateWalletText("a".repeat(AUTOMATED_WALLET_MESSAGE_MAX + 1), AUTOMATED_WALLET_MESSAGE_MAX, "Le message"), /dépasser/);
 });
 
-test("the notification engine logs and dispatches the rendered custom text without weakening campaign cooldown", async () => {
+test("the notification engine logs and dispatches the rendered custom text without weakening campaign quota", async () => {
   const notifications = await source("lib/wallet-notifications.ts");
   assert.match(notifications, /s\.near_reward_message AS notificationMessage/);
   assert.match(notifications, /s\.reactivation_message AS notificationMessage/);
   assert.match(notifications, /renderWalletMessage\(candidate\.notificationMessage/);
   assert.match(notifications, /event\.message/);
-  assert.match(notifications, /datetime\('now', '\+7 days'\)/);
+  assert.match(notifications, /MARKETING_CAMPAIGN_INSERT_SQL/);
+  assert.match(notifications, /marketingCampaignQuotaForMerchant/);
   assert.match(notifications, /idempotencyKey = `\$\{event\.type\}:\$\{event\.cycleKey\}:\$\{target\.membershipId\}:\$\{platform\}`/);
 });
 

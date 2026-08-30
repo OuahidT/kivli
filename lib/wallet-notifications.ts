@@ -14,6 +14,12 @@ import {
   renderWalletMessage,
   validateWalletText,
 } from "./wallet-notification-content";
+import {
+  MARKETING_CAMPAIGN_INSERT_SQL,
+  MARKETING_CAMPAIGN_QUOTA_SQL,
+  marketingCampaignQuotaFromRow,
+  validateCampaignRequestKey,
+} from "./wallet-campaign-quota";
 
 export type WalletNotificationSettings = {
   nearRewardEnabled: number;
@@ -30,6 +36,9 @@ export type WalletNotificationSettings = {
   nearbyLocationConfirmedAt: string | null;
   nextMarketingAt: string | null;
   latestCampaignAt: string | null;
+  marketingCampaignsUsed: number;
+  marketingCampaignsRemaining: number;
+  marketingCampaignLimit: number;
 };
 
 type NotificationPlatform = "apple" | "google";
@@ -62,9 +71,9 @@ type DeliveryRow = {
   code?: string;
 };
 
-export class WalletCampaignCooldownError extends Error {
+export class WalletCampaignLimitError extends Error {
   constructor(public nextAllowedAt: string) {
-    super("Une campagne a déjà été envoyée récemment.");
+    super("La limite de 4 campagnes sur 7 jours est atteinte.");
   }
 }
 
@@ -90,12 +99,10 @@ export async function notificationSettingsForMerchant(merchantId: string): Promi
     s.nearby_longitude AS nearbyLongitude,
     s.nearby_relevant_text AS nearbyRelevantText,
     s.nearby_location_confirmed_at AS nearbyLocationConfirmedAt,
-    l.next_allowed_at AS nextMarketingAt,
     (SELECT MAX(c.created_at) FROM wallet_notification_campaigns c WHERE c.merchant_id = s.merchant_id) AS latestCampaignAt
     FROM wallet_notification_settings s
-    LEFT JOIN wallet_notification_marketing_locks l ON l.merchant_id = s.merchant_id
     WHERE s.merchant_id = ?`, merchantId);
-  return row ?? {
+  const settings = row ?? {
     nearRewardEnabled: 0,
     nearRewardThreshold: 2,
     reactivationEnabled: 0,
@@ -108,9 +115,21 @@ export async function notificationSettingsForMerchant(merchantId: string): Promi
     nearbyLongitude: null,
     nearbyRelevantText: NEARBY_DEFAULT_TEXT,
     nearbyLocationConfirmedAt: null,
-    nextMarketingAt: null,
     latestCampaignAt: null,
   };
+  const quota = await marketingCampaignQuotaForMerchant(merchantId);
+  return {
+    ...settings,
+    nextMarketingAt: quota.nextAllowedAt,
+    marketingCampaignsUsed: quota.used,
+    marketingCampaignsRemaining: quota.remaining,
+    marketingCampaignLimit: quota.limit,
+  };
+}
+
+export async function marketingCampaignQuotaForMerchant(merchantId: string) {
+  const row = await queryFirst<{ used: number; oldestCreatedAt: string | null }>(MARKETING_CAMPAIGN_QUOTA_SQL, merchantId);
+  return marketingCampaignQuotaFromRow(row);
 }
 
 export async function updateNotificationSettings(
@@ -393,28 +412,34 @@ export async function createMarketingCampaign(
   merchantId: string,
   title: string,
   message: string,
+  requestKey: string,
 ) {
   await ensureSchema();
+  const validRequestKey = validateCampaignRequestKey(requestKey);
   const program = await queryFirst<{ id: string }>("SELECT id FROM programs WHERE merchant_id = ? AND active = 1", merchantId);
   if (!program) throw new Error("Créez d’abord votre programme de fidélité.");
   const db = getD1();
-  await db.prepare("INSERT OR IGNORE INTO wallet_notification_marketing_locks (merchant_id) VALUES (?)").bind(merchantId).run();
-  const lock = await db.prepare(`UPDATE wallet_notification_marketing_locks
-    SET next_allowed_at = datetime('now', '+7 days'), updated_at = CURRENT_TIMESTAMP
-    WHERE merchant_id = ? AND datetime(next_allowed_at) <= CURRENT_TIMESTAMP
-    RETURNING next_allowed_at AS nextAllowedAt`).bind(merchantId).first<{ nextAllowedAt: string }>();
-  if (!lock) {
-    const current = await queryFirst<{ nextAllowedAt: string }>(
-      "SELECT next_allowed_at AS nextAllowedAt FROM wallet_notification_marketing_locks WHERE merchant_id = ?",
-      merchantId,
-    );
-    throw new WalletCampaignCooldownError(current?.nextAllowedAt ?? "");
+  const existing = await queryFirst<{ id: string; programId: string }>(`SELECT id, program_id AS programId
+    FROM wallet_notification_campaigns WHERE merchant_id = ? AND request_key = ?`, merchantId, validRequestKey);
+  if (existing) {
+    const quota = await marketingCampaignQuotaForMerchant(merchantId);
+    return { campaignId: existing.id, programId: existing.programId, ...quota, reused: true };
   }
   const campaignId = makeId("wnc");
-  await db.prepare(`INSERT INTO wallet_notification_campaigns
-    (id, merchant_id, program_id, title, message) VALUES (?, ?, ?, ?, ?)`)
-    .bind(campaignId, merchantId, program.id, title, message).run();
-  return { campaignId, programId: program.id, nextAllowedAt: lock.nextAllowedAt };
+  const insertion = await db.prepare(MARKETING_CAMPAIGN_INSERT_SQL)
+    .bind(campaignId, merchantId, program.id, title, message, validRequestKey, merchantId).run();
+  if (Number(insertion.meta.changes ?? 0) === 0) {
+    const concurrentRetry = await queryFirst<{ id: string; programId: string }>(`SELECT id, program_id AS programId
+      FROM wallet_notification_campaigns WHERE merchant_id = ? AND request_key = ?`, merchantId, validRequestKey);
+    if (concurrentRetry) {
+      const quota = await marketingCampaignQuotaForMerchant(merchantId);
+      return { campaignId: concurrentRetry.id, programId: concurrentRetry.programId, ...quota, reused: true };
+    }
+    const quota = await marketingCampaignQuotaForMerchant(merchantId);
+    throw new WalletCampaignLimitError(quota.nextAllowedAt ?? "");
+  }
+  const quota = await marketingCampaignQuotaForMerchant(merchantId);
+  return { campaignId, programId: program.id, ...quota, reused: false };
 }
 
 export async function processMarketingCampaign(campaignId: string) {

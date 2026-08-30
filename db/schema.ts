@@ -402,12 +402,15 @@ export const walletNotificationCampaigns = sqliteTable(
   "wallet_notification_campaigns",
   {
     id: text("id").primaryKey(), merchantId: text("merchant_id").notNull(), programId: text("program_id").notNull(),
-    title: text("title").notNull(), message: text("message").notNull(), status: text("status").notNull().default("pending"),
+    title: text("title").notNull(), message: text("message").notNull(), requestKey: text("request_key"), status: text("status").notNull().default("pending"),
     targetCount: integer("target_count").notNull().default(0), sentCount: integer("sent_count").notNull().default(0),
     failedCount: integer("failed_count").notNull().default(0), skippedCount: integer("skipped_count").notNull().default(0),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`), sentAt: text("sent_at"),
   },
-  (table) => [index("idx_wallet_notification_campaigns_merchant").on(table.merchantId, table.createdAt)],
+  (table) => [
+    index("idx_wallet_notification_campaigns_merchant").on(table.merchantId, table.createdAt),
+    uniqueIndex("idx_wallet_notification_campaign_request").on(table.merchantId, table.requestKey),
+  ],
 );
 
 export const walletNotificationMarketingLocks = sqliteTable("wallet_notification_marketing_locks", {
