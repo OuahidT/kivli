@@ -104,8 +104,15 @@ test("demo exclusion is stable after renaming and the account remains visible an
   const admin = await readFile(new URL("../admin/src/index.ts", import.meta.url), "utf8");
   assert.match(admin, /m\.is_demo AS isDemo/g);
   assert.match(admin, /demo-badge/);
+  assert.match(admin, /\.demo-badge\[hidden\],\.demo-note\[hidden\]\{display:none\}/);
   assert.match(admin, />Démo</);
   assert.match(admin, /Exclu des statistiques globales/);
+  assert.match(admin, /m\.first_name AS ownerFirstName, m\.last_name AS ownerLastName, m\.phone AS ownerPhone/);
+  assert.match(admin, /Contact propriétaire/);
+  assert.match(admin, />Prénom</);
+  assert.match(admin, />Nom</);
+  assert.match(admin, />E-mail</);
+  assert.match(admin, />Téléphone</);
   assert.match(admin, /Télécharger le QR d’inscription/);
   assert.match(admin, /Notes internes/);
   assert.match(admin, /pilot-add/);
