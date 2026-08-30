@@ -19,6 +19,7 @@ export const merchants = sqliteTable(
     pinHash: text("pin_hash").notNull(),
     employeePinHash: text("employee_pin_hash"),
     ownerPinChangeRequired: integer("owner_pin_change_required", { mode: "boolean" }).notNull().default(false),
+    isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
     accentColor: text("accent_color").notNull().default("#f05b3c"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },

@@ -16,6 +16,7 @@ const schemaStatements = [
     accent_color TEXT NOT NULL DEFAULT '#f05b3c',
     welcome_seen_at TEXT, terms_accepted_at TEXT, terms_version TEXT,
     pilot_started_at TEXT, pilot_ends_at TEXT,
+    is_demo INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
   `CREATE TABLE IF NOT EXISTS programs (
@@ -284,6 +285,7 @@ export async function ensureSchema() {
         ["pilot_started_at", "ALTER TABLE merchants ADD COLUMN pilot_started_at TEXT"],
         ["pilot_ends_at", "ALTER TABLE merchants ADD COLUMN pilot_ends_at TEXT"],
         ["owner_pin_change_required", "ALTER TABLE merchants ADD COLUMN owner_pin_change_required INTEGER NOT NULL DEFAULT 0"],
+        ["is_demo", "ALTER TABLE merchants ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0"],
       ] as const;
       for (const [column, statement] of migrations) {
         if (existing.has(column)) continue;
