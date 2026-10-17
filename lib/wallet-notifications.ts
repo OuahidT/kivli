@@ -15,8 +15,11 @@ import {
   validateWalletText,
 } from "./wallet-notification-content";
 import {
+  EXPIRE_STALE_MARKETING_DELIVERIES_SQL,
   MARKETING_CAMPAIGN_INSERT_SQL,
   MARKETING_CAMPAIGN_QUOTA_SQL,
+  MARKETING_CAMPAIGN_TARGETS_SQL,
+  REQUEUE_INTERRUPTED_MARKETING_DELIVERIES_SQL,
   marketingCampaignQuotaFromRow,
   validateCampaignRequestKey,
 } from "./wallet-campaign-quota";
@@ -402,12 +405,6 @@ export async function evaluateReactivationNotifications() {
   return processed;
 }
 
-async function campaignTargets(merchantId: string, programId: string) {
-  return queryAll<NotificationTarget>(`SELECT mb.merchant_id AS merchantId, mb.customer_id AS customerId,
-    mb.id AS membershipId, mb.program_id AS programId, mb.code
-    FROM memberships mb WHERE mb.merchant_id = ? AND mb.program_id = ? AND mb.deleted_at IS NULL`, merchantId, programId);
-}
-
 export async function createMarketingCampaign(
   merchantId: string,
   title: string,
@@ -426,8 +423,11 @@ export async function createMarketingCampaign(
     return { campaignId: existing.id, programId: existing.programId, ...quota, reused: true };
   }
   const campaignId = makeId("wnc");
-  const insertion = await db.prepare(MARKETING_CAMPAIGN_INSERT_SQL)
-    .bind(campaignId, merchantId, program.id, title, message, validRequestKey, merchantId).run();
+  const [insertion] = await db.batch([
+    db.prepare(MARKETING_CAMPAIGN_INSERT_SQL)
+      .bind(campaignId, merchantId, program.id, title, message, validRequestKey, merchantId),
+    db.prepare(MARKETING_CAMPAIGN_TARGETS_SQL).bind(campaignId),
+  ]);
   if (Number(insertion.meta.changes ?? 0) === 0) {
     const concurrentRetry = await queryFirst<{ id: string; programId: string }>(`SELECT id, program_id AS programId
       FROM wallet_notification_campaigns WHERE merchant_id = ? AND request_key = ?`, merchantId, validRequestKey);
@@ -442,31 +442,66 @@ export async function createMarketingCampaign(
   return { campaignId, programId: program.id, ...quota, reused: false };
 }
 
-export async function processMarketingCampaign(campaignId: string) {
-  const campaign = await queryFirst<{ id: string; merchantId: string; programId: string; title: string; message: string }>(`SELECT
-    id, merchant_id AS merchantId, program_id AS programId, title, message
-    FROM wallet_notification_campaigns WHERE id = ?`, campaignId);
-  if (!campaign) return;
-  if (!(await merchantHasCurrentPilotAcceptance(campaign.merchantId))) return;
-  const targets = await campaignTargets(campaign.merchantId, campaign.programId);
-  for (let index = 0; index < targets.length; index += 10) {
-    await Promise.allSettled(targets.slice(index, index + 10).map((target) => dispatchNotification(target, {
-      type: "marketing",
-      cycleKey: campaign.id,
-      campaignId: campaign.id,
-      title: campaign.title,
-      message: campaign.message,
-    })));
-  }
-  const counts = await queryFirst<{ sent: number; failed: number; skipped: number }>(`SELECT
-    SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
-    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
-    SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skipped
-    FROM wallet_notification_deliveries WHERE campaign_id = ?`, campaign.id);
-  const status = (counts?.failed ?? 0) > 0 ? ((counts?.sent ?? 0) > 0 ? "partial" : "failed") : "sent";
+async function updateMarketingCampaignStatus(campaignId: string) {
+  const counts = await queryFirst<{ targets: number; sent: number; failed: number; skipped: number; outstanding: number; expired: number }>(`SELECT
+    COUNT(DISTINCT membership_id) AS targets,
+    COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) AS sent,
+    COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) AS failed,
+    COALESCE(SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END), 0) AS skipped,
+    COALESCE(SUM(CASE WHEN status IN ('pending', 'processing')
+      OR (status = 'failed' AND attempt_count < 3) THEN 1 ELSE 0 END), 0) AS outstanding,
+    COALESCE(SUM(CASE WHEN status = 'skipped' AND error_message LIKE 'Campagne expirée%' THEN 1 ELSE 0 END), 0) AS expired
+    FROM wallet_notification_deliveries WHERE campaign_id = ?`, campaignId);
+  const finished = (counts?.outstanding ?? 0) === 0;
+  const partial = (counts?.failed ?? 0) + (counts?.expired ?? 0) > 0;
+  const status = !finished ? 'pending' : partial ? ((counts?.sent ?? 0) > 0 ? 'partial' : 'failed') : 'sent';
   await getD1().prepare(`UPDATE wallet_notification_campaigns SET status = ?, target_count = ?,
-    sent_count = ?, failed_count = ?, skipped_count = ?, sent_at = CURRENT_TIMESTAMP WHERE id = ?`)
-    .bind(status, targets.length, counts?.sent ?? 0, counts?.failed ?? 0, counts?.skipped ?? 0, campaign.id).run();
+    sent_count = ?, failed_count = ?, skipped_count = ?, sent_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE sent_at END
+    WHERE id = ?`)
+    .bind(status, counts?.targets ?? 0, counts?.sent ?? 0,
+      (counts?.failed ?? 0) + (counts?.expired ?? 0), counts?.skipped ?? 0, finished ? 1 : 0, campaignId).run();
+  return { finished };
+}
+
+export async function processMarketingCampaign(campaignId: string) {
+  const campaign = await queryFirst<{ id: string; merchantId: string; status: string; createdAt: string }>(`SELECT
+    id, merchant_id AS merchantId, status, created_at AS createdAt
+    FROM wallet_notification_campaigns WHERE id = ?`, campaignId);
+  if (!campaign || campaign.status !== 'pending') return;
+  const createdAt = validDate(campaign.createdAt);
+  if (!createdAt || Date.now() - Date.parse(createdAt) >= 24 * 60 * 60 * 1000) {
+    await updateMarketingCampaignStatus(campaignId);
+    return;
+  }
+  if ((await updateMarketingCampaignStatus(campaignId)).finished) return;
+  if (!(await merchantHasCurrentPilotAcceptance(campaign.merchantId))) return;
+  const deliveries = await queryAll<DeliveryRow & { code: string }>(`SELECT d.id, d.status,
+    d.attempt_count AS attemptCount, d.next_attempt_at AS nextAttemptAt,
+    d.platform, d.title, d.message, mb.code
+    FROM wallet_notification_deliveries d JOIN memberships mb ON mb.id = d.membership_id
+    WHERE d.campaign_id = ? AND mb.deleted_at IS NULL
+      AND (d.status = 'pending' OR (d.status = 'failed' AND d.attempt_count < 3
+        AND datetime(d.next_attempt_at) <= CURRENT_TIMESTAMP))
+    ORDER BY d.created_at, d.id LIMIT 80`, campaignId);
+  for (let index = 0; index < deliveries.length; index += 10) {
+    await Promise.allSettled(deliveries.slice(index, index + 10).map((delivery) => processDelivery(delivery, delivery.code)));
+  }
+  await updateMarketingCampaignStatus(campaign.id);
+}
+
+export async function drainPendingMarketingCampaigns() {
+  await ensureSchema();
+  await getD1().prepare(EXPIRE_STALE_MARKETING_DELIVERIES_SQL).run();
+  await getD1().prepare(`UPDATE wallet_notification_deliveries SET status = 'skipped',
+    error_message = 'Carte client supprimée avant l’envoi.', updated_at = CURRENT_TIMESTAMP
+    WHERE notification_type = 'marketing' AND status IN ('pending', 'failed')
+      AND EXISTS (SELECT 1 FROM memberships mb WHERE mb.id = wallet_notification_deliveries.membership_id
+        AND mb.deleted_at IS NOT NULL)`).run();
+  await getD1().prepare(REQUEUE_INTERRUPTED_MARKETING_DELIVERIES_SQL).run();
+  const campaigns = await queryAll<{ id: string }>(`SELECT id FROM wallet_notification_campaigns
+    WHERE status = 'pending' ORDER BY created_at LIMIT 12`);
+  for (const campaign of campaigns) await processMarketingCampaign(campaign.id);
+  return campaigns.length;
 }
 
 export async function retryFailedWalletNotifications() {
@@ -475,6 +510,7 @@ export async function retryFailedWalletNotifications() {
     d.platform, d.title, d.message, mb.code
     FROM wallet_notification_deliveries d JOIN memberships mb ON mb.id = d.membership_id
     WHERE d.status = 'failed' AND mb.deleted_at IS NULL AND d.attempt_count < 3 AND datetime(d.next_attempt_at) <= CURRENT_TIMESTAMP
+      AND (d.notification_type != 'marketing' OR datetime(d.created_at) >= datetime('now', '-24 hours'))
     ORDER BY d.next_attempt_at LIMIT 100`);
   for (const row of rows) await processDelivery(row, row.code);
   return rows.length;

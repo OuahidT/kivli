@@ -79,7 +79,7 @@ export async function GET(request: Request) {
            WHERE s.membership_id = mb.id AND s.reason IN ('visit', 'purchase', 'bonus') AND s.reversed_at IS NULL
            ORDER BY s.rowid DESC LIMIT 1) AS undoableStampId
          FROM memberships mb JOIN customers c ON c.id = mb.customer_id JOIN programs p ON p.id = mb.program_id
-         WHERE mb.merchant_id = ? AND mb.deleted_at IS NULL ORDER BY mb.updated_at DESC LIMIT 60`,
+         WHERE mb.merchant_id = ? AND mb.deleted_at IS NULL ORDER BY mb.updated_at DESC`,
         merchant.id,
       ) : Promise.resolve([]),
       clientDataAllowed ? queryAll<ActivityRow>(

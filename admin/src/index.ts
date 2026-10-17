@@ -924,14 +924,14 @@ async function listMerchants(db: D1Database, url: URL): Promise<Response> {
     FROM merchants m
     LEFT JOIN programs p ON p.merchant_id = m.id
     LEFT JOIN merchant_admin_state s ON s.merchant_id = m.id
-    LEFT JOIN (SELECT merchant_id, COUNT(*) AS customerCount FROM customers GROUP BY merchant_id) cc ON cc.merchant_id = m.id
+    LEFT JOIN (SELECT merchant_id, COUNT(*) AS customerCount FROM memberships WHERE deleted_at IS NULL GROUP BY merchant_id) cc ON cc.merchant_id = m.id
     LEFT JOIN (SELECT merchant_id, COUNT(*) AS employeeCount FROM employees WHERE active = 1 GROUP BY merchant_id) ec ON ec.merchant_id = m.id
     LEFT JOIN (
-      SELECT merchant_id, SUM(CASE WHEN delta > 0 THEN 1 ELSE 0 END) AS passageCount, MAX(created_at) AS lastActivity
+      SELECT merchant_id, SUM(CASE WHEN delta > 0 AND reason IN ('visit', 'purchase') AND reversed_at IS NULL THEN 1 ELSE 0 END) AS passageCount, MAX(created_at) AS lastActivity
       FROM stamps GROUP BY merchant_id
     ) sc ON sc.merchant_id = m.id
-    LEFT JOIN (SELECT merchant_id, COUNT(*) AS rewardCount FROM rewards GROUP BY merchant_id) rc ON rc.merchant_id = m.id
-    LEFT JOIN (SELECT merchant_id, SUM(points) AS currentPoints FROM memberships GROUP BY merchant_id) mc ON mc.merchant_id = m.id
+    LEFT JOIN (SELECT merchant_id, COUNT(*) AS rewardCount FROM rewards WHERE status = 'redeemed' GROUP BY merchant_id) rc ON rc.merchant_id = m.id
+    LEFT JOIN (SELECT merchant_id, SUM(points) AS currentPoints FROM memberships WHERE deleted_at IS NULL GROUP BY merchant_id) mc ON mc.merchant_id = m.id
     WHERE (? = '' OR LOWER(m.business_name) LIKE ? OR LOWER(m.email) LIKE ? OR LOWER(m.slug) LIKE ?)
       AND (? = 'all' OR COALESCE(s.status, 'active') = ?)
     ORDER BY COALESCE(sc.lastActivity, m.created_at) DESC, m.business_name COLLATE NOCASE
@@ -950,11 +950,11 @@ async function getMerchant(db: D1Database, merchantId: string): Promise<Response
       p.name AS programName, p.goal, p.reward_text AS rewardText,
       p.terms, p.active AS programActive, COALESCE(s.status, 'active') AS status,
       COALESCE(s.internal_note, '') AS internalNote, s.updated_at AS adminUpdatedAt,
-      (SELECT COUNT(*) FROM customers WHERE merchant_id = m.id) AS customerCount,
+      (SELECT COUNT(*) FROM memberships WHERE merchant_id = m.id AND deleted_at IS NULL) AS customerCount,
       (SELECT COUNT(*) FROM employees WHERE merchant_id = m.id AND active = 1) AS employeeCount,
-      (SELECT COUNT(*) FROM stamps WHERE merchant_id = m.id AND delta > 0) AS passageCount,
-      (SELECT COUNT(*) FROM rewards WHERE merchant_id = m.id) AS rewardCount,
-      (SELECT COALESCE(SUM(points), 0) FROM memberships WHERE merchant_id = m.id) AS currentPoints
+      (SELECT COUNT(*) FROM stamps WHERE merchant_id = m.id AND delta > 0 AND reason IN ('visit', 'purchase') AND reversed_at IS NULL) AS passageCount,
+      (SELECT COUNT(*) FROM rewards WHERE merchant_id = m.id AND status = 'redeemed') AS rewardCount,
+      (SELECT COALESCE(SUM(points), 0) FROM memberships WHERE merchant_id = m.id AND deleted_at IS NULL) AS currentPoints
     FROM merchants m
     LEFT JOIN programs p ON p.merchant_id = m.id
     LEFT JOIN merchant_admin_state s ON s.merchant_id = m.id
@@ -1312,9 +1312,9 @@ function adminPage(identity: AdminIdentity): Response {
     <section class="hero"><div><div class="eyebrow">Pilotage de la plateforme</div><h1>Vue d'ensemble.</h1><p>Surveille les commerces, leur activité et leur accès sans exposer les données personnelles des clients.</p></div><button class="sync" id="refresh" type="button">Actualiser</button></section>
     <section class="metrics" aria-label="Indicateurs principaux">
       <article class="metric"><span class="metric-label">Commerces</span><strong class="metric-value" id="metric-merchants">—</strong><div class="metric-note" id="metric-active">— actifs</div></article>
-      <article class="metric"><span class="metric-label">Clients fidélisés</span><strong class="metric-value" id="metric-customers">—</strong><div class="metric-note">Toutes enseignes</div></article>
-      <article class="metric"><span class="metric-label">Passages ajoutés</span><strong class="metric-value" id="metric-passages">—</strong><div class="metric-note">Historique total</div></article>
-      <article class="metric"><span class="metric-label">Récompenses</span><strong class="metric-value" id="metric-rewards">—</strong><div class="metric-note" id="metric-points">— points en cours</div></article>
+      <article class="metric"><span class="metric-label">Cartes clients actives</span><strong class="metric-value" id="metric-customers">—</strong><div class="metric-note">Commerces réels uniquement</div></article>
+      <article class="metric"><span class="metric-label">Achats et passages</span><strong class="metric-value" id="metric-passages">—</strong><div class="metric-note">Opérations validées</div></article>
+      <article class="metric"><span class="metric-label">Récompenses utilisées</span><strong class="metric-value" id="metric-rewards">—</strong><div class="metric-note" id="metric-points">— points en cours</div></article>
     </section>
     <section class="section">
       <div class="section-head"><div><h2>Commerçants</h2><div class="section-sub" id="merchant-count">Chargement…</div></div><div class="tools"><input class="field" id="search" type="search" placeholder="Rechercher un commerce" autocomplete="off"><select class="field" id="status-filter" aria-label="Filtrer par statut"><option value="all">Tous les statuts</option><option value="active">Actifs</option><option value="suspended">Suspendus</option></select></div></div>

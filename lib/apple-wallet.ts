@@ -488,7 +488,7 @@ export async function sendAppleWalletNotification(card: CardData, deliveryId: st
   const results = await Promise.all(targets.map(async ({ pushToken }) => {
     if (!/^[a-f0-9]{32,256}$/i.test(pushToken)) {
       await removeInvalidApplePushToken(pushToken);
-      return { ok: false, error: "Jeton Apple Wallet invalide." };
+      return { ok: false, retryable: false, error: "Jeton Apple Wallet invalide." };
     }
     const response = await current.APPLE_WALLET_APNS!.fetch(new Request(`https://api.push.apple.com/3/device/${pushToken}`, {
       method: "POST",
@@ -499,16 +499,21 @@ export async function sendAppleWalletNotification(card: CardData, deliveryId: st
       },
       body: "{}",
     }));
-    if (response.ok) return { ok: true };
+    if (response.ok) return { ok: true, retryable: false };
     const details = await response.text();
     if (response.status === 400 || response.status === 410) await removeInvalidApplePushToken(pushToken);
-    return { ok: false, error: `APNs ${response.status}${details ? ` : ${details.slice(0, 160)}` : ""}` };
+    return { ok: false, retryable: response.status !== 400 && response.status !== 410,
+      error: `APNs ${response.status}${details ? ` : ${details.slice(0, 160)}` : ""}` };
   }));
-  const sent = results.some((result) => result.ok);
+  // A pass may be installed on multiple devices. A partial APNs failure must
+  // remain retryable; devices that already fetched the unchanged pass do not
+  // receive a second field-change alert from that retry.
+  const retryableFailure = results.find((result) => !result.ok && result.retryable);
+  const sent = results.some((result) => result.ok) && !retryableFailure;
   return {
     active: true,
     sent,
-    error: sent ? undefined : results.find((result) => !result.ok)?.error ?? "Notification Apple Wallet refusée.",
+    error: sent ? undefined : retryableFailure?.error ?? results.find((result) => !result.ok)?.error ?? "Notification Apple Wallet refusée.",
   };
 }
 

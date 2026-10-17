@@ -22,9 +22,12 @@ export default {
   async fetch(request: Request, env: Parameters<typeof handler.fetch>[1], ctx: ExecutionContext) {
     return withSecurityHeaders(await handler.fetch(request, env, ctx));
   },
-  scheduled(_controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
+  scheduled(controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
     ctx.waitUntil(import("../lib/wallet-notifications")
-      .then(({ runWalletNotificationSchedule }) => runWalletNotificationSchedule())
+      .then(async ({ runWalletNotificationSchedule, drainPendingMarketingCampaigns }) => {
+        if (controller.cron === "*/5 * * * *") await drainPendingMarketingCampaigns();
+        else await runWalletNotificationSchedule();
+      })
       .catch((error) => {
         console.error("Automatisation Wallet Kivli interrompue.", error instanceof Error ? error.message : error);
       }));

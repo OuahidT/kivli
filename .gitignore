@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/admin/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -35,6 +36,7 @@ yarn-error.log*
 .vercel
 
 /dist/
+/admin/dist/
 /.wrangler/
 /outputs/
 /work/

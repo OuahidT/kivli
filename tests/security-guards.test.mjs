@@ -111,7 +111,9 @@ test("Apple Wallet pass and device routes verify the pass token", async () => {
 
 test("Wallet campaigns and targets remain scoped to one merchant and program", async () => {
   const notifications = await source("lib/wallet-notifications.ts");
-  assert.match(notifications, /FROM memberships mb WHERE mb\.merchant_id = \? AND mb\.program_id = \?/);
+  const campaignSql = await source("lib/wallet-campaign-quota.ts");
+  assert.match(campaignSql, /JOIN memberships mb ON mb\.merchant_id = c\.merchant_id AND mb\.program_id = c\.program_id/);
+  assert.match(campaignSql, /WHERE c\.id = \?/);
   assert.match(notifications, /FROM programs WHERE merchant_id = \? AND active = 1/);
   assert.match(notifications, /INSERT(?: OR IGNORE)? INTO wallet_notification_deliveries/);
   assert.match(notifications, /idempotencyKey/);

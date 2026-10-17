@@ -299,7 +299,7 @@ export async function sendGoogleWalletNotification(
     "SELECT active FROM google_wallet_passes WHERE membership_id = ?",
     card.membershipId,
   );
-  if (!localPass?.active) return { active: false, sent: false };
+  if (!localPass) return { active: false, sent: false };
   const { objectId } = walletIds(card, config.issuerId);
   const existing = await walletRequest(`/loyaltyObject/${encodeURIComponent(objectId)}`);
   if (existing.status === 404) {
@@ -309,23 +309,34 @@ export async function sendGoogleWalletNotification(
   if (!existing.ok) {
     return { active: true, sent: false, error: `Lecture Google Wallet refusée (${existing.status}).` };
   }
-  const existingObject = await existing.json() as { hasUsers?: boolean };
+  const existingObject = await existing.json() as { hasUsers?: boolean; messages?: Array<{ id?: string }> };
   if (!existingObject.hasUsers) {
     await rememberGoogleWalletPass(card, objectId, false);
     return { active: false, sent: false };
   }
   await rememberGoogleWalletPass(card, objectId, true);
+  const messageId = safeId(notificationId);
+  if (existingObject.messages?.some((entry) => entry.id === messageId)) {
+    return { active: true, sent: true };
+  }
   const response = await walletRequest(`/loyaltyObject/${encodeURIComponent(objectId)}/addMessage`, {
     method: "POST",
     body: JSON.stringify({
       message: {
         header: title,
         body: message,
-        id: safeId(notificationId),
+        id: messageId,
         messageType: "TEXT_AND_NOTIFY",
       },
     }),
   });
+  if (response.status === 409) {
+    const verification = await walletRequest(`/loyaltyObject/${encodeURIComponent(objectId)}`);
+    if (verification.ok) {
+      const current = await verification.json() as { messages?: Array<{ id?: string }> };
+      if (current.messages?.some((entry) => entry.id === messageId)) return { active: true, sent: true };
+    }
+  }
   if (!response.ok) {
     const details = await response.text();
     return {

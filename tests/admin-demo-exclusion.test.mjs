@@ -18,9 +18,9 @@ function createAdminStatsDatabase() {
     CREATE TABLE merchant_admin_state (merchant_id TEXT PRIMARY KEY, status TEXT NOT NULL);
     CREATE TABLE customers (id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL);
     CREATE TABLE employees (id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1);
-    CREATE TABLE stamps (id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, delta INTEGER NOT NULL);
-    CREATE TABLE rewards (id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL);
-    CREATE TABLE memberships (id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, points INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE stamps (id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, delta INTEGER NOT NULL, reason TEXT NOT NULL DEFAULT 'purchase', reversed_at TEXT);
+    CREATE TABLE rewards (id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'redeemed');
+    CREATE TABLE memberships (id TEXT PRIMARY KEY, merchant_id TEXT NOT NULL, points INTEGER NOT NULL DEFAULT 0, deleted_at TEXT);
   `);
   return db;
 }
@@ -77,10 +77,26 @@ test("global administration statistics fully exclude demo activity but preserve 
     .run("real", "Commerce pilote", "pilote@example.test");
   insertRows(db, "customers", ["id", "merchant_id"], [["real-c-1", "real"], ["real-c-2", "real"]]);
   insertRows(db, "stamps", ["id", "merchant_id", "delta"], [["real-s-1", "real", 1], ["real-s-2", "real", 3], ["real-s-3", "real", -1]]);
-  insertRows(db, "memberships", ["id", "merchant_id", "points"], [["real-mb", "real", 14]]);
+  insertRows(db, "memberships", ["id", "merchant_id", "points"], [["real-mb", "real", 14], ["real-mb-2", "real", 0]]);
   insertRows(db, "rewards", ["id", "merchant_id"], [["real-r-1", "real"], ["real-r-2", "real"]]);
   insertRows(db, "employees", ["id", "merchant_id", "active"], [["real-e-1", "real", 1], ["real-e-2", "real", 0]]);
 
+  assert.deepEqual({ ...db.prepare(ADMIN_OVERVIEW_SQL).get() }, {
+    merchants: 1,
+    active_merchants: 1,
+    suspended_merchants: 0,
+    customers: 2,
+    active_employees: 1,
+    passages: 2,
+    rewards: 2,
+    current_points: 14,
+  });
+
+  db.prepare("INSERT INTO customers (id, merchant_id) VALUES ('deleted-c', 'real')").run();
+  db.prepare("INSERT INTO memberships (id, merchant_id, points, deleted_at) VALUES ('deleted-mb', 'real', 99, CURRENT_TIMESTAMP)").run();
+  db.prepare("INSERT INTO stamps (id, merchant_id, delta, reason) VALUES ('bonus', 'real', 100, 'bonus')").run();
+  db.prepare("INSERT INTO stamps (id, merchant_id, delta, reason, reversed_at) VALUES ('undone', 'real', 1, 'purchase', CURRENT_TIMESTAMP)").run();
+  db.prepare("INSERT INTO rewards (id, merchant_id, status) VALUES ('available', 'real', 'available')").run();
   assert.deepEqual({ ...db.prepare(ADMIN_OVERVIEW_SQL).get() }, {
     merchants: 1,
     active_merchants: 1,
