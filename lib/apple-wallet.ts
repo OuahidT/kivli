@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { ensureSchema, getD1, queryAll, queryFirst } from "../db";
 import { getCardByCode } from "./data";
 import { walletRewardSnapshot } from "./google-wallet-content";
+import { classifyApplePushRejection } from "./apple-wallet-apns";
 
 export const APPLE_WALLET_LAYOUT_VERSION = 5;
 import { buildSignedPkpass } from "./apple-pass-signing";
@@ -501,15 +502,17 @@ export async function sendAppleWalletNotification(card: CardData, deliveryId: st
     }));
     if (response.ok) return { ok: true, retryable: false };
     const details = await response.text();
-    if (response.status === 400 || response.status === 410) await removeInvalidApplePushToken(pushToken);
-    return { ok: false, retryable: response.status !== 400 && response.status !== 410,
-      error: `APNs ${response.status}${details ? ` : ${details.slice(0, 160)}` : ""}` };
+    const rejected = classifyApplePushRejection(response.status, details);
+    if (rejected.invalidToken) await removeInvalidApplePushToken(pushToken);
+    return { ok: false, retryable: rejected.retryable,
+      error: `APNs ${response.status}${rejected.reason ? ` (${rejected.reason})` : ""}` };
   }));
   // A pass may be installed on multiple devices. A partial APNs failure must
   // remain retryable; devices that already fetched the unchanged pass do not
   // receive a second field-change alert from that retry.
   const retryableFailure = results.find((result) => !result.ok && result.retryable);
   const sent = results.some((result) => result.ok) && !retryableFailure;
+  if (!sent && !retryableFailure) return { active: false, sent: false };
   return {
     active: true,
     sent,

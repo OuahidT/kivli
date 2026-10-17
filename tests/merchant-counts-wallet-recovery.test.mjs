@@ -7,6 +7,7 @@ import {
   MARKETING_CAMPAIGN_TARGETS_SQL,
   REQUEUE_INTERRUPTED_MARKETING_DELIVERIES_SQL,
 } from "../lib/wallet-campaign-quota.ts";
+import { classifyApplePushRejection } from "../lib/apple-wallet-apns.ts";
 
 const source = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -97,6 +98,21 @@ test("Wallet retries check Google installation state and retry partial Apple APN
   assert.match(google, /existingObject\.messages\?\.some\(\(entry\) => entry\.id === messageId\)/);
   assert.match(apple, /const retryableFailure = results\.find/);
   assert.match(apple, /const sent = results\.some\(\(result\) => result\.ok\) && !retryableFailure/);
+});
+
+test("APNs configuration errors never unregister an Apple Wallet device", () => {
+  assert.deepEqual(classifyApplePushRejection(400, '{"reason":"BadTopic"}'), {
+    invalidToken: false, retryable: true, reason: "BadTopic",
+  });
+  assert.deepEqual(classifyApplePushRejection(400, '{"reason":"BadDeviceToken"}'), {
+    invalidToken: true, retryable: false, reason: "BadDeviceToken",
+  });
+  assert.deepEqual(classifyApplePushRejection(410, '{"reason":"Unregistered"}'), {
+    invalidToken: true, retryable: false, reason: "Unregistered",
+  });
+  assert.deepEqual(classifyApplePushRejection(503, "temporarily unavailable"), {
+    invalidToken: false, retryable: true, reason: null,
+  });
 });
 
 test("stale campaigns expire without erasing terminal failures or touching recent notifications", () => {
