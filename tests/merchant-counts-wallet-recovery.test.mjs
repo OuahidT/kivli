@@ -128,14 +128,14 @@ test("stale campaigns expire without erasing terminal failures or touching recen
   insert.run("old-pending", "marketing", "pending", 0, "2026-01-01 00:00:00", "2026-01-01 00:00:00");
   insert.run("old-terminal", "marketing", "failed", 3, "2026-01-01 00:00:00", "2026-01-01 00:00:00");
   insert.run("old-automatic", "near_reward", "pending", 0, "2026-01-01 00:00:00", "2026-01-01 00:00:00");
-  insert.run("interrupted", "marketing", "processing", 1, "2026-10-17 10:00:00", "2026-10-17 10:01:00");
+  insert.run("interrupted", "marketing", "processing", 1, "2026-01-01 00:00:00", "2026-01-01 00:00:00");
+  db.prepare("UPDATE wallet_notification_deliveries SET created_at = datetime('now', '-1 hour'), updated_at = datetime('now', '-15 minutes') WHERE id = 'interrupted'").run();
   db.prepare(EXPIRE_STALE_MARKETING_DELIVERIES_SQL).run();
   assert.equal(db.prepare("SELECT status FROM wallet_notification_deliveries WHERE id = 'old-pending'").get().status, "skipped");
   assert.equal(db.prepare("SELECT status FROM wallet_notification_deliveries WHERE id = 'old-terminal'").get().status, "failed");
   assert.equal(db.prepare("SELECT status FROM wallet_notification_deliveries WHERE id = 'old-automatic'").get().status, "pending");
-  // The requeue query is exercised against a relative recent timestamp so it
-  // remains valid irrespective of the date on which the test is run.
-  db.prepare("UPDATE wallet_notification_deliveries SET created_at = datetime('now', '-1 hour'), updated_at = datetime('now', '-15 minutes') WHERE id = 'interrupted'").run();
+  // Keep the interrupted delivery recent throughout both queries, regardless
+  // of the date on which the test runs.
   db.prepare(REQUEUE_INTERRUPTED_MARKETING_DELIVERIES_SQL).run();
   assert.equal(db.prepare("SELECT status FROM wallet_notification_deliveries WHERE id = 'interrupted'").get().status, "failed");
   db.prepare(REQUEUE_INTERRUPTED_MARKETING_DELIVERIES_SQL).run();
